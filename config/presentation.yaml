@@ -1,0 +1,11 @@
+# Presentation remote: swipe or turn your head to change slides.
+# Works with PowerPoint, Google Slides, Keynote, PDF viewers ...
+bindings:
+  - {gesture: SWIPE_LEFT,  action: key, keys: right}      # swipe toward your left = next slide
+  - {gesture: SWIPE_RIGHT, action: key, keys: left}       # swipe toward your right = previous
+  - {gesture: TURN_RIGHT,  action: key, keys: right, cooldown: 1.0}
+  - {gesture: TURN_LEFT,   action: key, keys: left, cooldown: 1.0}
+  - {gesture: OPEN_PALM,   action: key, keys: b, on: start, cooldown: 2.0}   # blank screen
+  - {gesture: VICTORY,     action: key, keys: f5, cooldown: 3.0}             # start show
+  - {gesture: FIST,        action: key, keys: esc, cooldown: 3.0}            # end show
+  - {gesture: ROCK,        action: toggle_actions, cooldown: 2.0}

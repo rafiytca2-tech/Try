@@ -1,0 +1,25 @@
+# Room-scale control with the Kinect skeleton (Windows + Kinect SDK 2.0).
+# Stand 1.5 - 4 m from the sensor. Webcam optional.
+sources:
+  kinect:
+    type: kinect_v2
+    backend: pykinect2
+    trackers: [body, hands]
+    depth: true
+    body: true
+cursor:
+  enabled: true
+  mode: hand
+  hand: right
+  point: palm
+  source: kinect
+  region: [0.35, 0.2, 0.75, 0.6]
+bindings:
+  - {gesture: HAND_CLOSED, hand: right, action: mouse_hold, button: left}   # grab = drag
+  - {gesture: HAND_LASSO,  hand: right, action: click, button: right}
+  - {gesture: HAND_CLOSED, hand: left,  action: key_hold, keys: ctrl}
+  - {gesture: PUSH,        action: key, keys: space}
+  - {gesture: SWIPE_LEFT,  hand: left, action: key, keys: alt+left}
+  - {gesture: SWIPE_RIGHT, hand: left, action: key, keys: alt+right}
+  - {gesture: BOTH_HANDS_UP, action: toggle_cursor, cooldown: 2.0}
+  - {gesture: RAISE_HAND,  hand: left, action: log, message: "left hand up"}

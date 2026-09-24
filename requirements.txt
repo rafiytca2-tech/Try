@@ -1,0 +1,10 @@
+numpy>=1.23
+opencv-python>=4.8
+mediapipe>=0.10.14
+PyYAML>=6.0
+pynput>=1.7
+
+# Kinect v2 drivers are installed separately; see README.md:
+#   Windows : Kinect for Windows SDK 2.0 + `pip install comtypes pykinect2`
+#             then `python tools/patch_pykinect2.py`
+#   Linux/macOS : libfreenect2 + `pip install pylibfreenect2`

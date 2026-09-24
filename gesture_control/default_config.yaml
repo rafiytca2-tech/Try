@@ -1,0 +1,213 @@
+# gesture-control default configuration
+#
+# Make an editable copy with:   python -m gesture_control --write-config my_config.yaml
+# and run it with:              python -m gesture_control --config my_config.yaml
+# Anything you leave out of your file falls back to the values below
+# (except `bindings`, which replaces the default list as a whole).
+
+models_dir: null            # MediaPipe model cache (null = ~/.cache/gesture_control/models)
+
+# ---------------------------------------------------------------------------
+# Cameras. Every entry becomes an independent capture + tracking thread; you
+# can add more (e.g. a second webcam) by copying an entry under a new name.
+# ---------------------------------------------------------------------------
+sources:
+  webcam:
+    type: webcam
+    enabled: true
+    device: 0               # camera index, or a video file path / stream URL
+    width: 1280
+    height: 720
+    fps: 30
+    mirror: true            # flip so the preview looks like a mirror (keeps left/right correct)
+    process_width: 960      # downscale to this width before tracking (0 = full size)
+    trackers: [hands, face]
+
+  kinect:
+    type: kinect_v2
+    enabled: true
+    backend: auto           # auto | pykinect2 (Windows + Kinect SDK 2.0) | libfreenect2 | uvc
+    device: 0               # libfreenect2: index or serial number. uvc: camera index
+    pipeline: auto          # libfreenect2 depth decoder: auto | cuda | opencl | opengl | cpu
+    mirror: false           # Kinect v2 frames normally arrive mirrored already
+    depth: true             # align depth to colour: metric push/pull + distance gating
+    body: true              # Kinect skeleton + native open/closed/lasso hand states (pykinect2)
+    process_width: 960
+    trackers: [hands, body]   # add face here too if the webcam cannot see your face
+
+# ---------------------------------------------------------------------------
+# Hands: MediaPipe hand landmarks -> static poses + motion gestures
+# Poses:   FIST OPEN_PALM POINT VICTORY THREE FOUR THUMBS_UP THUMBS_DOWN
+#          ROCK CALL_ME OK PINCH                               (start / end)
+# Motion:  SWIPE_LEFT SWIPE_RIGHT SWIPE_UP SWIPE_DOWN PUSH PULL WAVE (trigger)
+# ---------------------------------------------------------------------------
+hands:
+  max_hands: 2
+  min_detection_confidence: 0.6
+  min_presence_confidence: 0.5
+  min_tracking_confidence: 0.5
+  max_depth_mm: 0           # with Kinect depth: ignore hands further away than this (0 = off)
+  pose_min_on: 0.15         # seconds a pose must be stable before START
+  pose_min_off: 0.15        # seconds it must be gone before END
+  pinch_threshold: 0.28     # thumb-tip/index-tip distance as a fraction of palm size
+  swipe:
+    window: 0.45            # seconds of motion considered
+    min_distance: 0.22      # fraction of the frame width
+    axis_ratio: 2.0         # main axis must beat the other axis by this factor
+    poses: []               # only swipe while holding one of these poses ([] = any)
+    cooldown: 0.8
+  push:
+    window: 0.5
+    min_depth_mm: 120       # Kinect depth: travel toward/away from the sensor
+    min_scale: 1.3          # no depth: apparent palm size change factor
+    max_lateral: 0.12       # allowed sideways drift (fraction of frame width)
+    cooldown: 1.0
+  wave:
+    window: 1.5
+    amplitude: 0.05         # fraction of frame width per stroke
+    min_legs: 4             # strokes (left, right, left, right)
+    poses: [OPEN_PALM, FOUR]
+    cooldown: 1.5
+
+# ---------------------------------------------------------------------------
+# Face: MediaPipe face landmarks + blendshapes
+# States:  SMILE MOUTH_OPEN BROWS_RAISED EYES_CLOSED WINK_LEFT WINK_RIGHT
+#          + anything in blendshape_gestures                   (start / end)
+# Momentary: BLINK DOUBLE_BLINK                                (trigger)
+# ---------------------------------------------------------------------------
+face:
+  max_faces: 1
+  min_detection_confidence: 0.5
+  min_presence_confidence: 0.5
+  min_tracking_confidence: 0.5
+  max_depth_mm: 0
+  thresholds:               # [on, off] hysteresis on 0..1 scores
+    smile: [0.55, 0.35]
+    mouth_open: [0.45, 0.25]
+    brows_up: [0.5, 0.3]
+    eye_closed: [0.55, 0.35]
+  min_on: 0.2               # SMILE / MOUTH_OPEN / BROWS_RAISED must hold this long
+  wink_min_on: 0.25
+  eyes_closed_min_on: 0.6
+  blink_max: 0.4            # both eyes closed for less than this = BLINK
+  double_blink_window: 0.8
+  swap_eyes: false          # set true if WINK_LEFT / WINK_RIGHT come out swapped
+  blendshape_gestures:      # extra states read straight from MediaPipe blendshapes
+    PUCKER: {blendshape: mouthPucker, on: 0.6, off: 0.4}
+    CHEEK_PUFF: {blendshape: cheekPuff, on: 0.5, off: 0.3}
+
+# ---------------------------------------------------------------------------
+# Head pose (from the face landmarks)
+# States:    TURN_LEFT TURN_RIGHT LOOK_UP LOOK_DOWN TILT_LEFT TILT_RIGHT
+# Momentary: NOD SHAKE
+# Press C in the preview window to make your current pose the neutral one.
+# ---------------------------------------------------------------------------
+head:
+  smoothing: 1.5            # One Euro min cutoff (Hz); lower = smoother but laggier
+  turn_threshold: 18        # degrees
+  look_threshold: 12
+  tilt_threshold: 15
+  hysteresis: 4
+  min_on: 0.25
+  nod:
+    window: 1.0
+    amplitude: 7            # degrees per stroke
+    min_legs: 2             # down + up
+    cooldown: 1.2
+  shake:
+    window: 1.2
+    amplitude: 9
+    min_legs: 3             # left + right + left
+    cooldown: 1.2
+
+# ---------------------------------------------------------------------------
+# Kinect skeleton (pykinect2 backend only)
+# States: HAND_OPEN HAND_CLOSED HAND_LASSO RAISE_HAND (per side) BOTH_HANDS_UP
+# With motion: true the skeleton hands also produce SWIPE_* / PUSH / PULL / WAVE.
+# ---------------------------------------------------------------------------
+body:
+  raise_margin: 0.05        # metres above the head joint
+  min_on: 0.2
+  hand_state_min_on: 0.12
+  motion: true
+
+# The same gesture seen by several cameras is merged into one event.
+fusion:
+  enabled: true
+  window: 0.4               # seconds
+
+actions:
+  enabled: true             # armed at start-up (P key or a toggle_actions binding toggles)
+  dry_run: false            # true = only log what would be pressed/clicked
+
+# ---------------------------------------------------------------------------
+# Continuous mouse control (also: --cursor hand / --cursor head)
+# ---------------------------------------------------------------------------
+cursor:
+  enabled: false
+  mode: hand                # hand | head
+  source: any               # a source name, or any (first source that sees you)
+  hand: right
+  point: palm               # palm | index_tip | wrist
+  region: [0.2, 0.15, 0.8, 0.75]   # hand mode: this part of the frame maps to the whole screen
+  pause_pose: FIST          # hand mode: freeze the cursor (like lifting a mouse)
+  head_mode: relative       # head mode: relative (joystick) | absolute
+  head_range: [20, 12]      # absolute: yaw/pitch degrees that reach the screen edge
+  head_speed: 1500          # relative: pixels/second at full deflection
+  head_deadzone: 4          # degrees
+  min_cutoff: 1.0           # One Euro smoothing
+  beta: 0.02
+  screen: null              # [width, height]; auto-detected when null
+
+output:
+  log_events: true
+  udp:                      # JSON datagrams for Unity / Godot / TouchDesigner / your own code
+    enabled: false
+    host: 127.0.0.1
+    port: 5005
+    tracking: true          # also send landmarks + head pose every frame
+
+display:
+  enabled: true
+  height: 480               # each camera preview is scaled to this height
+  show_depth: false         # D toggles
+  show_face_mesh: true      # M toggles
+
+# ---------------------------------------------------------------------------
+# Bindings: gesture -> action.  Keys:
+#   gesture   gesture name (see lists above)
+#   hand      any | left | right          (hand/body gestures)
+#   source    any | <source name>
+#   on        start | end | trigger       (default: start, which also matches triggers)
+#   cooldown  seconds between firings
+#   requires_cursor: true  -> only while cursor control is active
+#   action + parameters:
+#     key            keys: "ctrl+shift+t"     tap a key combination
+#     key_hold       keys: "shift"            hold while the gesture is held
+#     type           text: "hello"
+#     click          button: left|right|middle, count: 1
+#     mouse_hold     button: left             hold while the gesture is held (drag)
+#     scroll         dx: 0, dy: -3
+#     command        cmd: "notepad"           run a shell command
+#     log            message: "..."
+#     toggle_actions / toggle_cursor / calibrate_head
+# Key names: letters, digits, f1-f24, enter, esc, space, tab, backspace, delete,
+# up/down/left/right, home, end, page_up, page_down, ctrl, alt, shift, cmd/win,
+# volume_up, volume_down, mute, play_pause, next_track, prev_track ...
+# ---------------------------------------------------------------------------
+bindings:
+  - {gesture: SWIPE_LEFT,  action: key, keys: left}
+  - {gesture: SWIPE_RIGHT, action: key, keys: right}
+  - {gesture: SWIPE_UP,    action: key, keys: up}
+  - {gesture: SWIPE_DOWN,  action: key, keys: down}
+  - {gesture: PUSH,        action: key, keys: space}
+  - {gesture: VICTORY,     action: key, keys: play_pause}
+  - {gesture: THUMBS_UP,   action: key, keys: volume_up}
+  - {gesture: THUMBS_DOWN, action: key, keys: volume_down}
+  - {gesture: ROCK,        action: toggle_actions, cooldown: 2.0}
+  - {gesture: PINCH, hand: right, action: mouse_hold, button: left, requires_cursor: true}
+  - {gesture: HAND_CLOSED, hand: right, action: mouse_hold, button: left, requires_cursor: true}
+  - {gesture: NOD,         action: log, message: "yes"}
+  - {gesture: SHAKE,       action: log, message: "no"}
+  - {gesture: DOUBLE_BLINK, action: log, message: "double blink"}
+  - {gesture: WAVE,        action: log, message: "hello!"}

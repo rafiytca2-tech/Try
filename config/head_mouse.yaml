@@ -1,0 +1,17 @@
+# Hands-free mouse: head steers the pointer, face gestures click.
+# Sit still and press C in the preview window once to set your neutral pose.
+cursor:
+  enabled: true
+  mode: head
+  head_mode: relative     # tilt your head like a joystick
+  head_speed: 1200
+  head_deadzone: 5
+  head_range: [20, 12]
+bindings:
+  - {gesture: WINK_LEFT,    action: click, button: left}
+  - {gesture: WINK_RIGHT,   action: click, button: right}
+  - {gesture: MOUTH_OPEN,   action: mouse_hold, button: left}   # hold mouth open to drag
+  - {gesture: BROWS_RAISED, action: scroll, dy: 3, cooldown: 0.3}
+  - {gesture: PUCKER,       action: scroll, dy: -3, cooldown: 0.3}
+  - {gesture: DOUBLE_BLINK, action: toggle_cursor}
+  - {gesture: NOD,          action: calibrate_head}

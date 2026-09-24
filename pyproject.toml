@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gesture-control"
+version = "0.1.0"
+description = "Hand, face, head and gesture control from an Xbox One Kinect v2 and a webcam"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.23",
+    "opencv-python>=4.8",
+    "mediapipe>=0.10.14",
+    "PyYAML>=6.0",
+    "pynput>=1.7",
+]
+
+[project.optional-dependencies]
+# Windows + Kinect for Windows SDK 2.0 (see README for the extra patch step)
+kinect-windows = ["comtypes>=1.1", "pykinect2"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+gesture-control = "gesture_control.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gesture_control*"]
+
+[tool.setuptools.package-data]
+gesture_control = ["default_config.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
