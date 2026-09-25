@@ -16,20 +16,30 @@ Open `index.html` in any modern browser. There is no build step and nothing to i
 
 ## What's recreated
 
-- **Crane swing**: the floor hangs from a rope and swings like a pendulum, tilted with the
-  rope. The swing gets wider and faster as the tower grows.
-- **Drop**: the floor falls straight down from where you release it.
+- **Intro**: each round opens on the yellow tower-crane jib with the load on a long rope.
+  The camera then slides down to the site, and from then on only the rope shows.
+- **Rigging**: a thick black rope ends in a pulley block. The ground floor hangs from a
+  two-cable sling, and every floor after it hangs from a hook.
+- **Blocks**: square modules with a concrete rim on top, two tall windows that reflect the
+  sky, and a glass double door on the ground floor.
+- **Crane swing**: the rope swings like a pendulum while the load stays level. The swing gets
+  wider and faster as the tower grows. A released floor drops straight down.
 - **Landing**:
-  - Dead centre (within 6 px) is a **Perfect**: the floor snaps into line, starts the combo
-    meter and calms the sway.
-  - Off-centre floors still stick but make the tower sway more.
+  - Dead centre (within 5 px) is a **Perfect**: the floor snaps into line and starts the
+    combo meter.
+  - Off-centre floors still stick but make the building less stable.
   - If a floor's centre lands past the edge, it tips off. A clean miss falls past the tower.
   - Each failed floor costs one of your 3 lives.
-- **Tower sway**: the tower bends like a tall building. Wind grows with height, and sloppy
-  floors add more sway.
-- **Camera**: it starts on the street and climbs one floor at a time once the tower reaches
-  the lower part of the screen. At game over it slides back down the whole tower.
-- **Altitude**: clouds give way to dusk, then stars, the Moon, Saturn and Jupiter.
+- **Sway**: the whole building rocks as one rigid piece about its base, so floors never slide
+  over each other. Every imperfect floor adds to the swing. Every Perfect cuts it by more than
+  half.
+- **Camera**: the tower top stays at the same spot on screen from the first floor on, so the
+  street scrolls away as you build. At the end of a round it slides back down to the street.
+- **Setting**: grey city blocks behind a building site with a chain-link fence, a wooden
+  hoarding, a tree, traffic cones and a concrete slab. Climb past the rooftops into open sky,
+  then dusk, stars, the Moon, Saturn and Jupiter.
+- **HUD**: a floor gauge at bottom left and the population at bottom right, as on the phone
+  version.
 - **Residents**: straighter floors house more people. Every drop made while the combo meter
   is running adds a bonus, and chained Perfects raise it.
 - **Build City**: a 5×5 grid.
@@ -46,7 +56,8 @@ window.
 ## Tuning
 
 All feel constants are in the `CFG` object at the top of the script. They include swing
-speed and width, drop time, the perfect tolerance, sway, camera framing and scoring.
+speed and width, rope length, drop time, the perfect tolerance, sway gain and damping,
+camera framing, the intro timing and scoring.
 `releaseMomentum` set to `1` makes a released floor keep its swing speed and fly in an arc
 instead of dropping straight.
 
