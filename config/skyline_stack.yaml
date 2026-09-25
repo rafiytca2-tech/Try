@@ -1,0 +1,8 @@
+# Skyline Stack (skyline-stack/index.html): drop floors hands-free.
+# Keep the game window focused so it receives the key presses.
+bindings:
+  - {gesture: FIST,         action: key, keys: space, on: start, cooldown: 0.4}   # close your hand to drop
+  - {gesture: PUSH,         action: key, keys: space, cooldown: 0.4}              # or push toward the camera
+  - {gesture: DOUBLE_BLINK, action: key, keys: space, cooldown: 0.4}              # hands-free drop
+  - {gesture: OPEN_PALM,    action: key, keys: esc, on: start, cooldown: 1.5}     # pause / resume
+  - {gesture: ROCK,         action: toggle_actions, cooldown: 2.0}

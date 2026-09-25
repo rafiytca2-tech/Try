@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Skyline Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen:wght@400;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --night:#0a1230;
+  --panel:#13204a;
+  --panel-2:#22336b;
+  --edge:#060a1a;
+  --crane:#f5c518;
+  --ink:#fff6d6;
+  --muted:#aebfe3;
+  --danger:#ff7a66;
+  --good:#8be89a;
+  --combo:#9ff0ff;
+  --blue:#2f6fd0; --red:#cf4436; --green:#2e9656; --gold:#d6a126;
+  --font-pixel:"Silkscreen","Courier New",ui-monospace,monospace;
+  --font-body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  --jib:14px;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:var(--night);
+  background-image:radial-gradient(circle at 1px 1px,#1a2a5e 1px,transparent 1.5px);background-size:12px 12px;
+  color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.4;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+}
+#stage{
+  position:fixed;left:0;width:100%;
+  top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;background:#58b7ea;touch-action:manipulation;cursor:pointer;
+}
+#stage.framed{box-shadow:0 0 0 4px var(--edge),0 0 0 8px var(--panel-2),0 0 0 12px var(--edge)}
+#view{position:absolute;left:0;top:0;display:block;image-rendering:crisp-edges;image-rendering:pixelated}
+#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pop{
+  position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;
+  font-family:var(--font-pixel);font-weight:700;font-size:13px;letter-spacing:.04em;color:var(--ink);
+  text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
+}
+.pop.perfect{color:var(--crane);font-size:18px}
+.pop.combo{color:var(--combo);font-size:12px}
+.pop.miss{color:var(--danger);font-size:16px}
+
+/* HUD */
+#hud{
+  position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  padding:calc(var(--jib) + 8px) 12px 0;pointer-events:none;font-family:var(--font-pixel);
+  text-shadow:2px 2px 0 var(--edge);
+}
+.hud-block{display:flex;flex-direction:column;gap:6px}
+.hud-block.right{align-items:flex-end}
+.label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-shadow:1px 1px 0 var(--edge)}
+.hud-num{font-weight:700;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.hud-row{display:flex;align-items:center;gap:10px}
+.hud-pop{font-weight:700;font-size:18px;line-height:1;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.hud-pop svg{width:10px;height:14px;filter:drop-shadow(2px 2px 0 var(--edge))}
+.lives{display:flex;gap:5px}
+.life{width:20px;height:14px;color:var(--crane);filter:drop-shadow(2px 2px 0 var(--edge))}
+.life.lost{color:#3a4570}
+.combo{display:flex;flex-direction:column;gap:4px}
+.combo-bar{width:84px;height:6px;background:var(--edge);box-shadow:0 0 0 2px var(--edge),0 0 0 4px var(--combo)}
+.combo-bar i{display:block;height:100%;background:var(--combo)}
+.combo span{font-size:11px;color:var(--combo);letter-spacing:.08em}
+.icon-btn{
+  pointer-events:auto;width:38px;height:38px;padding:0;display:grid;place-items:center;cursor:pointer;
+  font-family:var(--font-pixel);font-weight:700;font-size:14px;color:var(--ink);
+  background:var(--panel);border:3px solid var(--edge);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35);
+}
+
+/* Overlays */
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;
+  padding:16px;padding-block:16px 24px;overflow-y:auto;cursor:default;
+}
+.screen.center{justify-content:center;background:rgba(6,10,26,.62)}
+.screen.top{justify-content:flex-start;background:rgba(10,18,48,.9)}
+.card{
+  width:100%;max-width:380px;box-sizing:border-box;background:var(--panel);border:3px solid var(--edge);
+  box-shadow:0 0 0 3px var(--crane),0 0 0 6px var(--edge),8px 10px 0 6px rgba(6,10,26,.5);
+  padding:18px;display:flex;flex-direction:column;gap:14px;
+}
+.eyebrow{margin:0;font-family:var(--font-pixel);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--crane)}
+.logo{
+  margin:0;display:flex;flex-direction:column;font-family:var(--font-pixel);font-weight:700;
+  font-size:clamp(34px,11vw,50px);line-height:.92;color:var(--ink);text-shadow:3px 3px 0 var(--edge);
+}
+.logo span:last-child{color:var(--crane)}
+h2{margin:0;font-family:var(--font-pixel);font-weight:700;font-size:26px;line-height:1.05;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:34ch}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions.col{grid-template-columns:1fr}
+.btn{
+  min-height:48px;padding:10px 14px;cursor:pointer;
+  font-family:var(--font-pixel);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink);background:var(--panel-2);border:3px solid var(--edge);
+  box-shadow:inset 0 -4px 0 rgba(0,0,0,.35),inset 0 3px 0 rgba(255,255,255,.1);
+}
+.btn.primary{background:var(--crane);color:#1a1606}
+.btn.small{min-height:38px;padding:6px 12px;font-size:12px}
+.btn.ghost{background:transparent;box-shadow:none;color:var(--muted)}
+.btn:active{transform:translateY(2px)}
+.btn:disabled{cursor:not-allowed;opacity:.5}
+.btn:focus-visible,.icon-btn:focus-visible,.tile:focus-visible,.opt:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.hint{margin:0;font-size:14px;color:var(--muted)}
+kbd{font-family:var(--font-pixel);font-size:11px;padding:1px 5px;border:2px solid var(--edge);background:var(--panel-2);color:var(--ink)}
+.best{margin:0;font-family:var(--font-pixel);font-size:12px;letter-spacing:.04em}
+.row-end{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.stats{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 16px}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font-family:var(--font-pixel);font-weight:700;font-variant-numeric:tabular-nums}
+.note{margin:0;color:var(--good);font-size:15px}
+.note:empty{display:none}
+
+/* City */
+.city-card{max-width:440px}
+.city-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.city-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.city-stats strong{display:block;font-family:var(--font-pixel);font-size:22px;font-variant-numeric:tabular-nums}
+.city-stats .of{color:var(--muted);font-size:14px}
+.meter{height:8px;background:var(--edge);box-shadow:0 0 0 2px var(--edge),0 0 0 4px var(--panel-2)}
+.meter i{display:block;height:100%;width:0;background:var(--crane)}
+.level-note{margin:0;font-size:14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:8px;background:#3d6b2a;border:3px solid var(--edge)}
+.tile{
+  position:relative;aspect-ratio:1;max-width:100%;padding:0;cursor:pointer;overflow:hidden;color:var(--ink);font:inherit;
+  border:2px solid var(--edge);background:#6e4824;
+  background-image:linear-gradient(#58a13a 0 16%,#3f7f28 16% 22%,transparent 22%);
+}
+.tile .plus{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-pixel);font-size:16px;color:rgba(255,246,214,.5)}
+.tile .mini{
+  position:absolute;left:24%;right:24%;bottom:8%;background-color:var(--c);
+  background-image:repeating-linear-gradient(90deg,transparent 0 3px,rgba(6,10,26,.35) 3px 4px),repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,226,122,.75) 3px 5px);
+  box-shadow:inset 2px 0 0 rgba(255,255,255,.22),inset -2px 0 0 rgba(0,0,0,.3);
+}
+.tile .mini.unfinished{outline:2px dashed var(--crane);outline-offset:-2px}
+.tile.sel{outline:3px solid var(--crane);outline-offset:1px;z-index:1}
+.rules{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px;color:var(--muted)}
+.rules b{color:var(--ink);font-weight:600}
+.sw{display:inline-block;width:10px;height:14px;margin-right:8px;vertical-align:-2px;border:2px solid var(--edge);background:var(--c)}
+#scrim{position:absolute;inset:0;background:rgba(6,10,26,.55);cursor:default}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:460px;max-height:80%;overflow-y:auto;box-sizing:border-box;
+  background:var(--panel);border-top:3px solid var(--crane);box-shadow:0 -3px 0 var(--edge);cursor:default;
+  padding:16px;padding-block:16px 20px;display:flex;flex-direction:column;gap:10px;
+}
+.sheet p{margin:0;color:var(--muted)}
+.opt{
+  display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;
+  min-height:52px;padding:8px 12px;cursor:pointer;color:var(--ink);background:var(--panel-2);border:3px solid var(--edge);
+  font-family:var(--font-pixel);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;
+  box-shadow:inset 0 -4px 0 rgba(0,0,0,.35);
+}
+.opt small{display:block;margin-top:2px;font-family:var(--font-body);font-weight:400;font-size:13px;letter-spacing:0;text-transform:none;color:var(--muted)}
+.opt .go{font-size:11px;color:var(--crane)}
+.opt:disabled{cursor:not-allowed;opacity:.6}
+.opt:disabled .go{color:var(--danger);text-transform:none;font-family:var(--font-body);font-weight:400;font-size:13px;letter-spacing:0;max-width:12ch;text-align:right}
+.opt .sw{width:14px;height:22px;margin:0}
+@media (prefers-reduced-motion: reduce){.btn:active{transform:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="view" aria-label="Skyline Stack playfield. Tap, click or press Space to drop a floor."></canvas>
+  <div id="fx" aria-hidden="true"></div>
+
+  <div id="hud" hidden>
+    <div class="hud-block">
+      <span class="label" id="hudLabel">Floors</span>
+      <span class="hud-num" id="hudFloors">0</span>
+      <div class="combo" id="combo" hidden>
+        <div class="combo-bar"><i id="comboFill"></i></div>
+        <span id="comboLabel">combo ×1</span>
+      </div>
+    </div>
+    <div class="hud-block right">
+      <div class="hud-row">
+        <span class="hud-pop" aria-label="Residents">
+          <svg viewBox="0 0 5 7" aria-hidden="true"><rect x="1" y="0" width="3" height="2" fill="#ffd9b0"/><rect x="0" y="2" width="5" height="3" fill="#fff6d6"/><rect x="1" y="5" width="1" height="2" fill="#fff6d6"/><rect x="3" y="5" width="1" height="2" fill="#fff6d6"/></svg>
+          <span id="hudPop">0</span>
+        </span>
+        <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause">II</button>
+      </div>
+      <div class="lives" id="lives" aria-label="Lives"></div>
+    </div>
+  </div>
+
+  <section id="title" class="screen">
+    <div class="card">
+      <p class="eyebrow">Crane-drop tower builder</p>
+      <h1 class="logo"><span>Skyline</span> <span>Stack</span></h1>
+      <p class="lede">Time each drop from the swinging crane, stack the floors straight, and fill the tower with people.</p>
+      <div class="actions">
+        <button id="btnQuick" class="btn primary" type="button">Quick Game</button>
+        <button id="btnCity" class="btn" type="button">Build City</button>
+      </div>
+      <p class="hint">Tap, click or press <kbd>Space</kbd> to drop a floor.</p>
+      <div class="row-end">
+        <p class="best" id="bestLine"></p>
+        <button class="btn ghost small" type="button" data-sound>Sound: on</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="pause" class="screen center" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <div class="actions col">
+        <button id="btnResume" class="btn primary" type="button">Resume</button>
+        <button class="btn" type="button" data-sound>Sound: on</button>
+        <button id="btnQuit" class="btn" type="button">Quit round</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="result" class="screen" hidden>
+    <div class="card">
+      <p class="eyebrow" id="resEyebrow">Game over</p>
+      <h2 id="resTitle">0 floors</h2>
+      <dl class="stats" id="resStats"></dl>
+      <p class="note" id="resNote"></p>
+      <div class="actions">
+        <button id="resPrimary" class="btn primary" type="button">Play again</button>
+        <button id="resSecondary" class="btn" type="button">Menu</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="city" class="screen top" hidden>
+    <div class="card city-card">
+      <div class="city-head">
+        <h2>Your city</h2>
+        <button id="cityBack" class="btn small" type="button">Back</button>
+      </div>
+      <div class="city-stats">
+        <div><span class="label">Population</span><strong id="cityPop">0</strong></div>
+        <div><span class="label">City level</span><strong><span id="cityLevel">1</span><span class="of"> / 20</span></strong></div>
+      </div>
+      <div class="meter" aria-hidden="true"><i id="cityLevelFill"></i></div>
+      <p class="level-note" id="cityLevelNote"></p>
+      <div class="grid" id="cityGrid"></div>
+      <ul class="rules">
+        <li><i class="sw" style="--c:var(--blue)"></i><b>Residential</b>: any lot, 10 floors</li>
+        <li><i class="sw" style="--c:var(--red)"></i><b>Commercial</b>: next to blue, 20 floors</li>
+        <li><i class="sw" style="--c:var(--green)"></i><b>Office</b>: next to blue and red, 30 floors</li>
+        <li><i class="sw" style="--c:var(--gold)"></i><b>Luxury</b>: next to blue, red and green, 40 floors</li>
+      </ul>
+      <button id="cityReset" class="btn ghost small" type="button">Clear city</button>
+    </div>
+  </section>
+
+  <div id="scrim" hidden></div>
+  <div id="sheet" class="sheet" role="dialog" aria-labelledby="sheetTitle" hidden>
+    <h2 id="sheetTitle">Empty lot</h2>
+    <p id="sheetText"></p>
+    <div class="actions col" id="sheetBody"></div>
+    <button id="sheetClose" class="btn ghost small" type="button">Close</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ * Feel tuning. Units are low-res canvas pixels (the buffer is about   *
+ * 240x320 at its smallest, like the phones the original ran on) and   *
+ * seconds. These were matched by eye to gameplay footage, not taken   *
+ * from the original code.                                             *
+ * ------------------------------------------------------------------ */
+const CFG = {
+  floorW: 64,
+  floorH: 32,
+  jibH: 10,              // crane girder across the top edge
+  pivotY: 13,            // rope anchor under the trolley (screen y)
+  ropeLen: 92,
+  minGap: 92,            // hanging floor bottom -> tower top, at the least
+  towerTopRatio: 0.55,   // once the camera climbs, the tower top sits this far down the screen
+  groundMargin: 44,      // street line above the bottom edge before the camera starts climbing...
+  groundRatio: 0.18,     // ...or this share of a tall screen, so the camera starts climbing sooner
+  dropTime: 0.4,         // seconds to fall the tracking gap (sets gravity per screen size)
+  releaseMomentum: 0,    // 0 = the floor drops straight down from where you let go
+  hookLowerTime: 0.38,
+  nextDelay: 0.18,
+  swingAmp:   { start: 0.36, perFloor: 0.008, max: 0.74 },  // radians either side
+  swingSpeed: { start: 2.5,  perFloor: 0.035, max: 4.0 },   // phase speed, rad/s
+  perfectTol: 6,         // px from dead centre that still counts as perfect
+  lotHalf: 44,           // half-width of the construction site for the first floor
+  sway: { period: 2.6, windPerFloor: 0.28, windMax: 14, imbalanceGain: 0.32, perfectDamp: 0.8, max: 28, bendFloors: 10 },
+  residents: { base: 6, accuracy: 14, perfect: 25 },
+  comboTime: 4.2,
+  comboBonus: 8,
+  lives: 3,
+  cameraRate: 7,
+};
+
+const TYPES = {
+  blue:  { name: 'Residential', floors: 10, mult: 1,   needs: [],                     body: '#2f6fd0', light: '#6fa2f0', dark: '#1b4390', trim: '#d7e6ff' },
+  red:   { name: 'Commercial',  floors: 20, mult: 1.5, needs: ['blue'],               body: '#cf4436', light: '#f07e6f', dark: '#852319', trim: '#ffe1d8' },
+  green: { name: 'Office',      floors: 30, mult: 2,   needs: ['blue', 'red'],        body: '#2e9656', light: '#6fd08f', dark: '#185f34', trim: '#dcffe7' },
+  gold:  { name: 'Luxury',      floors: 40, mult: 3,   needs: ['blue', 'red', 'green'], body: '#d6a126', light: '#f6d46c', dark: '#8a6410', trim: '#fff3c9' },
+};
+const TYPE_ORDER = ['blue', 'red', 'green', 'gold'];
+
+const $ = id => document.getElementById(id);
+const stage = $('stage'), canvas = $('view'), ctx = canvas.getContext('2d', { alpha: false });
+const fx = $('fx'), hud = $('hud');
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+/* ---------------- Pixel sprites ---------------- */
+const W = CFG.floorW, H = CFG.floorH, ROOF_H = 16;
+const WIN_X = [5, 20, 35, 50], WIN_Y = 8, WIN_W = 9, WIN_H = 12;
+const GLASS = '#1d3354', GLASS_HI = '#3f6a9e', LIT = '#ffe27a', LIT_HI = '#fff8d0', STEEL = '#2b2b36';
+
+function canvasOf(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
+
+function paintFloor(g, t, oy, door) {
+  rect(g, t.body, 0, oy, W, H);
+  rect(g, t.light, 0, oy, W, 2);
+  rect(g, t.light, 2, oy + 2, 1, H - 6);
+  rect(g, t.dark, 0, oy, 2, H);
+  rect(g, t.dark, W - 2, oy, 2, H);
+  rect(g, t.trim, 0, oy + H - 5, W, 1);
+  rect(g, t.dark, 0, oy + H - 4, W, 4);
+  for (let k = 0; k < 4; k++) {
+    if (door && (k === 1 || k === 2)) continue;
+    const x = WIN_X[k], y = oy + WIN_Y;
+    rect(g, t.trim, x - 1, y - 1, WIN_W + 2, WIN_H + 2);
+    rect(g, GLASS, x, y, WIN_W, WIN_H);
+    rect(g, GLASS_HI, x + 1, y + 1, 2, 3);
+    rect(g, t.trim, x, y + 5, WIN_W, 1);
+  }
+  if (door) {
+    rect(g, t.trim, 21, oy + 5, 22, 3);
+    rect(g, t.dark, 21, oy + 8, 22, 1);
+    rect(g, '#3b2616', 25, oy + 11, 14, H - 15);
+    rect(g, LIT, 26, oy + 12, 5, 7);
+    rect(g, LIT, 33, oy + 12, 5, 7);
+  }
+}
+
+function paintRoof(g, key, t) {
+  const R = ROOF_H;
+  rect(g, t.dark, 0, R - 3, W, 3);
+  rect(g, t.light, 0, R - 3, W, 1);
+  if (key === 'blue') {            // water tank and antenna
+    rect(g, '#6b4a2a', 40, R - 13, 12, 8); rect(g, '#8a6238', 40, R - 13, 12, 2); rect(g, '#4a321c', 40, R - 9, 12, 1);
+    rect(g, STEEL, 42, R - 5, 1, 2); rect(g, STEEL, 49, R - 5, 1, 2);
+    rect(g, STEEL, 12, R - 15, 1, 12); rect(g, '#ff5a4a', 11, R - 16, 3, 2);
+  } else if (key === 'red') {      // rooftop billboard
+    rect(g, STEEL, 12, R - 6, 2, 3); rect(g, STEEL, 50, R - 6, 2, 3);
+    rect(g, STEEL, 8, R - 16, 48, 11); rect(g, t.trim, 9, R - 15, 46, 9);
+    for (let i = 0; i < 6; i++) rect(g, t.body, 12 + i * 7, R - 13, 5, 5);
+  } else if (key === 'green') {    // stepped glass crown
+    rect(g, t.light, 6, R - 7, 52, 4); rect(g, '#9fe8ff', 14, R - 11, 36, 4); rect(g, '#d8f7ff', 22, R - 14, 20, 3);
+    rect(g, STEEL, 31, R - 16, 2, 2);
+  } else {                         // gold spire
+    rect(g, t.light, 8, R - 6, 48, 3); rect(g, t.body, 16, R - 9, 32, 3); rect(g, t.light, 24, R - 12, 16, 3); rect(g, t.trim, 30, R - 16, 4, 4);
+  }
+}
+
+const SPR = {};
+for (const key of TYPE_ORDER) {
+  const t = TYPES[key];
+  const floor = canvasOf(W, H); paintFloor(floor.getContext('2d'), t, 0, false);
+  const foundation = canvasOf(W, H); paintFloor(foundation.getContext('2d'), t, 0, true);
+  const roof = canvasOf(W, H + ROOF_H); const rg = roof.getContext('2d'); paintRoof(rg, key, t); paintFloor(rg, t, ROOF_H, false);
+  SPR[key] = { floor, foundation, roof };
+}
+const extraTop = kind => (kind === 'roof' ? ROOF_H : 0);
+
+/* ---------------- Scenery ---------------- */
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = mulberry32(2005);
+const clouds = Array.from({ length: 38 }, () => ({ ly: -110 - rand() * 1850, bx: rand() * 2400, w: 18 + Math.floor(rand() * 30), sp: 2 + rand() * 5, puff: rand() < 0.5 }));
+const stars = Array.from({ length: 150 }, () => ({ x: Math.floor(rand() * 320), y: Math.floor(rand() * 320), big: rand() < 0.1, ph: rand() * 6.28 }));
+
+function makeSkyline(minW, maxW, minH, maxH, color, win) {
+  const arr = []; let total = 0;
+  while (total < 640) {
+    const b = { w: minW + Math.floor(rand() * (maxW - minW)), h: minH + Math.floor(rand() * (maxH - minH)), gap: Math.floor(rand() * 3), win: rand() < 0.6, cap: rand() < 0.3 };
+    arr.push(b); total += b.w + b.gap;
+  }
+  const tall = maxH + 8, c = canvasOf(total, tall), g = c.getContext('2d');
+  let x = 0;
+  for (const b of arr) {
+    rect(g, color, x, tall - b.h, b.w, b.h);
+    if (b.cap) rect(g, color, x + (b.w >> 1) - 1, tall - b.h - 6, 2, 6);
+    if (b.win) for (let yy = tall - b.h + 4; yy < tall - 4; yy += 5) for (let xx = x + 3; xx < x + b.w - 3; xx += 4) rect(g, win, xx, yy, 1, 2);
+    x += b.w + b.gap;
+  }
+  return { img: c, total, tall, color };
+}
+const FAR = makeSkyline(14, 34, 34, 110, '#a9d2ec', '#d6ebf7');
+const NEAR = makeSkyline(18, 40, 18, 74, '#86b3d8', '#c4def0');
+
+const SKY = [
+  [0,    [0x58, 0xb7, 0xea], [0xc4, 0xeb, 0xf8]],
+  [1400, [0x3f, 0x8f, 0xd6], [0x9e, 0xd2, 0xf0]],
+  [2600, [0x28, 0x47, 0x9a], [0x6d, 0x8f, 0xd0]],
+  [3600, [0x12, 0x1c, 0x4a], [0x2c, 0x3d, 0x80]],
+  [4800, [0x05, 0x08, 0x1a], [0x0e, 0x15, 0x36]],
+];
+const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+function skyAt(alt) {
+  if (alt <= SKY[0][0]) return [SKY[0][1], SKY[0][2]];
+  for (let i = 1; i < SKY.length; i++) {
+    if (alt <= SKY[i][0]) { const a = SKY[i - 1], b = SKY[i], t = (alt - a[0]) / (b[0] - a[0]); return [mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
+  }
+  const l = SKY[SKY.length - 1]; return [l[1], l[2]];
+}
+
+/* ---------------- View / layout ---------------- */
+const view = { w: 270, h: 360, scale: 1 };
+function layout() {
+  const vw = window.innerWidth;
+  const sh = stage.clientHeight || window.innerHeight;
+  const framed = vw / sh > 0.8;
+  const sw = framed ? Math.round(sh * 0.75) : vw;
+  stage.style.width = sw + 'px';
+  stage.style.left = Math.round((vw - sw) / 2) + 'px';
+  stage.classList.toggle('framed', framed);
+  const dpr = window.devicePixelRatio || 1;
+  const devW = Math.round(sw * dpr), devH = Math.round(sh * dpr);
+  const s = Math.max(1, Math.floor(Math.min(devW / 240, devH / 320)));
+  view.w = Math.ceil(devW / s); view.h = Math.ceil(devH / s); view.scale = s / dpr;
+  canvas.width = view.w; canvas.height = view.h;
+  canvas.style.width = (view.w * view.scale) + 'px';
+  canvas.style.height = (view.h * view.scale) + 'px';
+  stage.style.setProperty('--jib', (CFG.jibH * view.scale) + 'px');
+  ctx.imageSmoothingEnabled = false;
+}
+
+function framing() {
+  const hookBottom = CFG.pivotY + CFG.ropeLen + H;
+  const topScreen = Math.max(hookBottom + CFG.minGap, Math.round(view.h * CFG.towerTopRatio));
+  return { topScreen, gap: topScreen - hookBottom };
+}
+const gravity = () => 2 * framing().gap / (CFG.dropTime * CFG.dropTime);
+const groundScreenY = () => view.h - Math.max(CFG.groundMargin, Math.round(view.h * CFG.groundRatio));
+
+/* ---------------- Save ---------------- */
+const SAVE_KEY = 'skyline-stack/v1';
+const save = { best: { floors: 0, pop: 0 }, city: Array(25).fill(null), muted: false };
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!d || typeof d !== 'object') return;
+    if (d.best) save.best = { floors: +d.best.floors || 0, pop: +d.best.pop || 0 };
+    if (Array.isArray(d.city) && d.city.length === 25) {
+      save.city = d.city.map(b => (b && TYPES[b.type]) ? { type: b.type, floors: +b.floors || 0, target: +b.target || TYPES[b.type].floors, residents: +b.residents || 0, done: !!b.done } : null);
+    }
+    save.muted = !!d.muted;
+  } catch (e) { /* storage unavailable: play without saving */ }
+}
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+
+/* ---------------- Sound (square-wave blips) ---------------- */
+const Sound = {
+  ctx: null, muted: false,
+  ensure() {
+    if (this.muted) return;
+    try {
+      if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; this.ctx = new AC(); }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { /* no audio */ }
+  },
+  tone(freq, dur, { type = 'square', vol = 0.06, slide = 0, delay = 0 } = {}) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const c = this.ctx, t0 = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+      g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* ignore */ }
+  },
+  release() { this.tone(760, 0.05, { vol: 0.03, slide: 520 }); },
+  land() { this.tone(160, 0.09, { vol: 0.09, slide: 70 }); this.tone(90, 0.07, { type: 'triangle', vol: 0.08 }); },
+  perfect(streak) { const b = 660 + Math.min(streak, 6) * 60; [1, 1.26, 1.5].forEach((m, i) => this.tone(b * m, 0.08, { vol: 0.05, delay: i * 0.06 })); },
+  miss() { this.tone(420, 0.4, { type: 'sawtooth', vol: 0.045, slide: 70 }); },
+  complete() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, { vol: 0.05, delay: i * 0.09 })); },
+  over() { [392, 330, 262].forEach((f, i) => this.tone(f, 0.18, { vol: 0.05, delay: i * 0.14 })); },
+};
+
+/* ---------------- Game state ---------------- */
+let state = 'title';        // title | play | pause | result | city
+let game = null;
+let sceneTime = 0;
+
+function newGame(kind, opts = {}) {
+  const g = {
+    kind, type: opts.type || 'blue', target: opts.target || 0, lot: opts.lot ?? -1,
+    tower: [], lives: CFG.lives, pop: 0, perfects: 0, maxCombo: 0,
+    combo: { timer: 0, streak: 0 },
+    swingPhase: 0,
+    hook: { has: true, extend: 0, retract: 0, wait: 0 },
+    falling: null, debris: [], parts: [],
+    sway: { phase: 0, amp: 0, imbalance: 0 },
+    camY: 0, shake: 0, time: 0,
+    ending: null, pan: null, hold: false, finished: false,
+  };
+  if (opts.prebuilt) g.tower = opts.prebuilt;
+  g.camY = cameraTarget(g);
+  return g;
+}
+function attractGame() {
+  return newGame('attract', { prebuilt: [
+    { base: 0, kind: 'foundation', type: 'blue', residents: 0, lit: 2, litTarget: 2 },
+    { base: 3, kind: 'floor', type: 'blue', residents: 0, lit: 3, litTarget: 3 },
+  ] });
+}
+
+const towerTopY = g => -g.tower.length * H;
+function cameraTarget(g) {
+  const track = towerTopY(g) - framing().topScreen;
+  return Math.min(-groundScreenY(), track);
+}
+function swingParams(g) {
+  const n = g.tower.length;
+  return {
+    a: Math.min(CFG.swingAmp.max, CFG.swingAmp.start + n * CFG.swingAmp.perFloor),
+    w: Math.min(CFG.swingSpeed.max, CFG.swingSpeed.start + n * CFG.swingSpeed.perFloor),
+  };
+}
+function bend(i) { const k = Math.min(1, (i + 1) / CFG.sway.bendFloors); return k * k; }
+const swayNow = g => g.sway.amp * Math.sin(g.sway.phase);
+const floorX = (g, i) => g.tower[i].base + swayNow(g) * bend(i);
+function nextKind(g) {
+  const n = g.tower.length;
+  if (n === 0) return 'foundation';
+  if (g.kind === 'city' && n === g.target - 1) return 'roof';
+  return 'floor';
+}
+
+function drop() {
+  const g = game;
+  if (!g || state !== 'play' || g.kind === 'attract' || !g.hook.has || g.hook.extend < 1 || g.falling || g.ending) return;
+  const { a, w } = swingParams(g);
+  const th = a * Math.sin(g.swingPhase), thDot = a * w * Math.cos(g.swingPhase);
+  const kind = nextKind(g), r = extraTop(kind) + H / 2, L = CFG.ropeLen;
+  const hx = L * Math.sin(th), hy = Math.round(g.camY) + CFG.pivotY + L * Math.cos(th);
+  const vt = (L + r) * thDot * CFG.releaseMomentum;
+  g.falling = {
+    x: hx + r * Math.sin(th), y: hy + r * Math.cos(th),
+    vx: vt * Math.cos(th), vy: -vt * Math.sin(th),
+    ang: -th, kind, type: g.type,
+  };
+  g.hook.has = false; g.hook.retract = 1; g.hook.wait = 0;
+  Sound.release();
+}
+
+function stepFalling(g, dt) {
+  const b = g.falling, G = gravity();
+  b.vy += G * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+  b.ang *= Math.exp(-14 * dt);
+  const n = g.tower.length, topY = towerTopY(g);
+  if (b.y + H / 2 < topY) return;
+  b.y = topY - H / 2;
+  if (n === 0) {
+    const dx = b.x;
+    if (Math.abs(dx) > CFG.lotHalf) {
+      g.falling = null;
+      g.debris.push({ state: 'wreck', x: b.x, y: -H / 2, ang: 0, t: 0.9, kind: b.kind, type: b.type });
+      dust(g, b.x, 0, 14);
+      loseLife(g, b.x, -H, 'Off site');
+      return;
+    }
+    settle(g, b, dx);
+    return;
+  }
+  const dx = b.x - floorX(g, n - 1);
+  if (Math.abs(dx) >= W) {                       // clean miss: keeps falling past the tower
+    g.falling = null;
+    g.debris.push({ state: 'fall', x: b.x, y: b.y, vx: b.vx, vy: b.vy, ang: b.ang, spin: Math.sign(dx) * 1.5, kind: b.kind, type: b.type });
+    loseLife(g, b.x, topY, 'Miss');
+  } else if (Math.abs(dx) > W / 2) {             // centre past the edge: tips over the side
+    const sgn = Math.sign(dx), ex = floorX(g, n - 1) + sgn * W / 2;
+    g.falling = null;
+    g.debris.push({ state: 'tip', x: b.x, y: b.y, ang: 0, av: 0, sgn, px: ex, py: topY, rx: b.x - ex, ry: -H / 2, kind: b.kind, type: b.type });
+    loseLife(g, b.x, topY, 'Miss');
+  } else {
+    settle(g, b, dx);
+  }
+}
+
+function settle(g, b, dx) {
+  const n = g.tower.length, t = TYPES[g.type];
+  const perfect = Math.abs(dx) <= CFG.perfectTol;
+  if (perfect) dx = 0;
+  // Keep the new floor exactly where it touched down, whatever the sway is doing right now.
+  const base = n === 0 ? dx : g.tower[n - 1].base + dx + (bend(n - 1) - bend(n)) * swayNow(g);
+  const acc = 1 - Math.min(1, Math.abs(dx) / (n === 0 ? CFG.lotHalf : W / 2));
+  const c = g.combo, active = c.timer > 0;
+  let raw = perfect ? CFG.residents.perfect : Math.round(CFG.residents.base + CFG.residents.accuracy * acc);
+  const bonus = active ? c.streak * CFG.comboBonus : 0;
+  if (perfect) { c.streak = active ? c.streak + 1 : 1; c.timer = CFG.comboTime; g.perfects++; g.maxCombo = Math.max(g.maxCombo, c.streak); }
+  const residents = Math.round((raw + bonus) * t.mult);
+  const windows = b.kind === 'foundation' ? 2 : 4;
+  const litTarget = clamp(Math.round(raw / CFG.residents.perfect * windows), 1, windows);
+  g.tower.push({ base, kind: b.kind, type: b.type, residents, lit: 0, litTarget });
+  g.pop += residents;
+  g.falling = null;
+
+  if (perfect) g.sway.imbalance *= CFG.sway.perfectDamp;
+  else g.sway.imbalance = Math.min(CFG.sway.max, g.sway.imbalance + Math.abs(dx) * CFG.sway.imbalanceGain);
+
+  const topY = towerTopY(g), fx0 = floorX(g, n);
+  if (!reduceMotion) g.shake = 1;
+  dust(g, fx0 - W / 2, topY + H, 5); dust(g, fx0 + W / 2, topY + H, 5);
+  if (perfect) {
+    sparkle(g, fx0, topY);
+    popup('Perfect', fx0, topY - 16, 'perfect');
+    if (c.streak >= 2) popup(`Combo ×${c.streak}`, fx0, topY - 30, 'combo', 0.08);
+    Sound.perfect(c.streak);
+  }
+  popup(`+${residents}`, fx0, topY - 3, 'plus', perfect ? 0.1 : 0);
+  Sound.land();
+
+  if (g.kind === 'city' && g.tower.length >= g.target) {
+    g.ending = { t: 1.0 };
+    Sound.complete();
+  } else {
+    g.hook.wait = CFG.nextDelay;
+  }
+  updateHud();
+}
+
+function loseLife(g, x, y, label) {
+  g.lives--;
+  g.combo.timer = 0; g.combo.streak = 0;
+  popup(label, x, y - 10, 'miss');
+  Sound.miss();
+  if (g.lives <= 0) { g.ending = { t: 1.1 }; setTimeout(() => Sound.over(), 500); }
+  else g.hook.wait = CFG.nextDelay + 0.35;
+  updateHud();
+}
+
+function stepDebris(g, d, dt) {
+  if (d.state === 'tip') {
+    d.av += d.sgn * 18 * dt; d.ang += d.av * dt;
+    const c = Math.cos(d.ang), s = Math.sin(d.ang);
+    d.x = d.px + d.rx * c - d.ry * s; d.y = d.py + d.rx * s + d.ry * c;
+    if (Math.abs(d.ang) > 0.9) { d.state = 'fall'; d.vx = d.sgn * 70; d.vy = 40; d.spin = d.av; }
+  } else if (d.state === 'fall') {
+    d.vy += gravity() * 0.8 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.ang += d.spin * dt;
+    if (d.y + H / 2 >= 0) { d.state = 'wreck'; d.y = -H / 2; d.ang = 0; d.t = 0.8; dust(g, d.x, 0, 12); }
+  } else {
+    d.t -= dt;
+  }
+}
+
+function dust(g, x, y, count) {
+  const n = reduceMotion ? Math.ceil(count / 3) : count;
+  for (let i = 0; i < n; i++) g.parts.push({ x: x + (Math.random() - 0.5) * 6, y: y - 1, vx: (Math.random() - 0.5) * 90, vy: -(15 + Math.random() * 45), t: 0, life: 0.35 + Math.random() * 0.25, c: '#efe8d6', s: Math.random() < 0.3 ? 2 : 1, g: 380 });
+}
+function sparkle(g, x, y) {
+  const n = reduceMotion ? 4 : 14;
+  for (let i = 0; i < n; i++) g.parts.push({ x: x + (Math.random() - 0.5) * W, y, vx: (Math.random() - 0.5) * 60, vy: -(40 + Math.random() * 90), t: 0, life: 0.5 + Math.random() * 0.3, c: Math.random() < 0.5 ? '#fff3a0' : '#ffffff', s: 1, g: 160 });
+}
+
+function update(dt) {
+  const g = game;
+  g.time += dt;
+  const { w } = swingParams(g);
+  g.swingPhase += w * dt;
+
+  const hk = g.hook;
+  if (hk.has) hk.extend = Math.min(1, hk.extend + dt / CFG.hookLowerTime);
+  else {
+    hk.retract = Math.max(0, hk.retract - dt * 5);
+    if (hk.wait > 0) { hk.wait -= dt; if (hk.wait <= 0) { hk.wait = 0; hk.has = true; hk.extend = 0; } }
+  }
+
+  const s = g.sway, n = g.tower.length;
+  s.phase += dt * 2 * Math.PI / CFG.sway.period;
+  const wind = Math.min(CFG.sway.windMax, n * CFG.sway.windPerFloor);
+  const target = g.kind === 'attract' ? 1.5 : Math.min(CFG.sway.max, wind + s.imbalance);
+  s.amp += (target - s.amp) * Math.min(1, dt * 1.2);
+
+  if (g.combo.timer > 0) { g.combo.timer -= dt; if (g.combo.timer <= 0) { g.combo.timer = 0; g.combo.streak = 0; } }
+
+  if (g.falling) stepFalling(g, dt);
+  for (const d of g.debris) stepDebris(g, d, dt);
+  g.debris = g.debris.filter(d => (d.state === 'wreck' ? d.t > 0 : d.y - g.camY < view.h + 120));
+  for (const p of g.parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.t += dt; }
+  g.parts = g.parts.filter(p => p.t < p.life);
+  for (const f of g.tower) if (f.lit < f.litTarget) f.lit = Math.min(f.litTarget, f.lit + dt * 8);
+
+  if (g.pan) {
+    const d = g.pan.to - g.camY, step = g.pan.speed * dt;
+    if (Math.abs(d) <= step) { g.camY = g.pan.to; g.pan = null; g.hold = true; finishRound(g); }
+    else g.camY += Math.sign(d) * step;
+  } else if (!g.hold) {
+    g.camY += (cameraTarget(g) - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
+  }
+  if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 9);
+
+  if (g.ending && !g.ending.started) {
+    g.ending.t -= dt;
+    if (g.ending.t <= 0 && !g.falling) { g.ending.started = true; startPan(g); }
+  }
+}
+
+// After the round, the camera slides back down the whole tower to the street.
+function startPan(g) {
+  const to = -groundScreenY(), dist = Math.abs(g.camY - to);
+  if (dist < 4) { g.hold = true; finishRound(g); return; }
+  g.pan = { to, speed: Math.max(260, dist / 1.8) };
+}
+
+/* ---------------- Rendering ---------------- */
+function drawSky(alt) {
+  const [top, bot] = skyAt(alt), bands = 16, bh = Math.ceil(view.h / bands);
+  for (let i = 0; i < bands; i++) rect(ctx, rgb(mix(top, bot, i / (bands - 1))), 0, i * bh, view.w, bh);
+}
+function drawStars(alt, camY) {
+  const a = clamp((alt - 1800) / 1600, 0, 1);
+  if (a <= 0) return;
+  const oy = Math.floor(-camY * 0.08);
+  ctx.fillStyle = '#ffffff';
+  for (let ty = 0; ty < view.h + 320; ty += 320) {
+    for (let tx = 0; tx < view.w; tx += 320) {
+      for (const s of stars) {
+        const x = tx + s.x, y = ty + ((s.y + oy) % 320) - 320;
+        if (x >= view.w || y < 0 || y >= view.h) continue;
+        ctx.globalAlpha = a * (s.big ? 1 : 0.55 + 0.45 * Math.sin(sceneTime * 2.2 + s.ph));
+        ctx.fillRect(x, y, 1, 1);
+        if (s.big) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function disc(cx, cy, r, colorAt) {
+  for (let dy = -r; dy <= r; dy++) {
+    const half = Math.floor(Math.sqrt(r * r - dy * dy));
+    ctx.fillStyle = colorAt(dy);
+    ctx.fillRect(cx - half, cy + dy, half * 2 + 1, 1);
+  }
+}
+function drawSpace(alt, camY) {
+  if (alt < 1800) return;
+  const moon = { x: Math.round(view.w * 0.8), y: Math.round(-260 - camY * 0.1) };
+  if (moon.y > -20 && moon.y < view.h + 20) {
+    disc(moon.x, moon.y, 12, () => '#e6e2d3');
+    disc(moon.x - 4, moon.y - 3, 3, () => '#c9c4b2'); disc(moon.x + 5, moon.y + 4, 2, () => '#c9c4b2'); disc(moon.x + 2, moon.y - 6, 1, () => '#c9c4b2');
+  }
+  const sat = { x: Math.round(view.w * 0.2), y: Math.round(-420 - camY * 0.1), r: 9 };
+  if (sat.y > -30 && sat.y < view.h + 30) {
+    const ring = side => {                     // back half behind the planet, front half over it
+      ctx.fillStyle = '#cdb57a';
+      for (let dx = -22; dx <= 22; dx++) ctx.fillRect(sat.x + dx, sat.y + side * Math.round(Math.sqrt(1 - (dx / 22) ** 2) * 4), 1, 1);
+    };
+    ring(-1);
+    disc(sat.x, sat.y, sat.r, dy => (dy % 4 === 0 ? '#c9a86a' : '#e3c68a'));
+    ring(1);
+  }
+  const jup = { x: Math.round(view.w * 0.66), y: Math.round(-600 - camY * 0.1), r: 26 };
+  if (jup.y > -40 && jup.y < view.h + 40) {
+    const bands = ['#e9d6b3', '#c99a6b', '#f1e3c9', '#b7794d', '#ecd9b8', '#c28e61', '#e9d6b3'];
+    disc(jup.x, jup.y, jup.r, dy => bands[Math.min(bands.length - 1, Math.floor((dy + jup.r) / (2 * jup.r + 1) * bands.length))]);
+    ctx.fillStyle = '#b8503a'; ctx.fillRect(jup.x + 6, jup.y + 7, 8, 4); ctx.fillRect(jup.x + 7, jup.y + 6, 6, 6);
+  }
+}
+function drawClouds(alt, camY) {
+  const fade = 1 - clamp((alt - 2600) / 800, 0, 1);
+  if (fade <= 0) return;
+  const RW = view.w + 140;
+  ctx.globalAlpha = fade;
+  for (const c of clouds) {
+    const sy = Math.round(c.ly - camY * 0.55);
+    if (sy < -12 || sy > view.h + 10) continue;
+    const sx = Math.round((((c.bx + c.sp * sceneTime) % RW) + RW) % RW - 70);
+    rect(ctx, '#ffffff', sx, sy, c.w, 6);
+    rect(ctx, '#ffffff', sx + 4, sy - 4, Math.floor(c.w * 0.45), 4);
+    rect(ctx, '#ffffff', sx + Math.floor(c.w * 0.4), sy - 7, Math.floor(c.w * 0.35), 7);
+    if (c.puff) rect(ctx, '#ffffff', sx + c.w - 10, sy - 3, 8, 3);
+    rect(ctx, '#d3e9f5', sx + 2, sy + 6, c.w - 4, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawSkyline(layer, camY, p) {
+  const ground0 = groundScreenY();
+  const base = Math.round(-camY * p + (1 - p) * ground0);
+  if (base - layer.tall > view.h) return;
+  let x = Math.round(view.w / 2) - layer.total * Math.ceil(view.w / 2 / layer.total + 1);
+  for (; x < view.w; x += layer.total) ctx.drawImage(layer.img, x, base - layer.tall);
+  if (base < view.h) rect(ctx, layer.color, 0, base, view.w, view.h - base);
+}
+function drawGround(camY) {
+  const gy = Math.round(-camY);
+  if (gy > view.h) return;
+  const cx = Math.round(view.w / 2), L = CFG.lotHalf;
+  rect(ctx, '#7a4f28', 0, gy, view.w, view.h - gy);
+  ctx.fillStyle = '#5e3b1c';
+  for (let y = gy + 8; y < view.h; y += 6) for (let x = (y * 3) % 7; x < view.w; x += 7) ctx.fillRect(x, y, 2, 1);
+  rect(ctx, '#5aa33a', 0, gy, view.w, 4); rect(ctx, '#3f7f28', 0, gy + 4, view.w, 2);
+  rect(ctx, '#8d8a86', cx - L, gy, L * 2, 4); rect(ctx, '#6b6864', cx - L, gy + 4, L * 2, 2);
+  for (const s of [-1, 1]) { const px0 = cx + s * (L + 6) - 1; for (let k = 0; k < 7; k++) rect(ctx, k % 2 ? STEEL : '#f5c518', px0, gy - 14 + k * 2, 3, 2); }
+  const hx = cx - L - 52;                                        // site office
+  rect(ctx, '#e07a2e', hx, gy - 14, 32, 14); rect(ctx, '#b85a1a', hx, gy - 14, 32, 2);
+  rect(ctx, '#9ed7f0', hx + 4, gy - 10, 8, 5); rect(ctx, '#5a2f12', hx + 20, gy - 11, 7, 11);
+  const pr = cx + L + 16;                                         // pipe stack
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 3 - r; k++) { rect(ctx, '#9a9aa8', pr + k * 6 + r * 3, gy - 5 - r * 5, 5, 5); rect(ctx, '#5e5e6a', pr + k * 6 + r * 3 + 2, gy - 3 - r * 5, 1, 1); }
+}
+function drawTower(g, camY) {
+  const n = g.tower.length;
+  if (!n) return;
+  const cx = view.w / 2;
+  const iMin = Math.max(0, Math.floor(-(camY + view.h) / H) - 1), iMax = Math.min(n - 1, Math.ceil(-camY / H) + 1);
+  for (let i = iMin; i <= iMax; i++) {
+    const f = g.tower[i];
+    const x = Math.round(cx + floorX(g, i) - W / 2), y = Math.round(-(i + 1) * H - camY);
+    ctx.drawImage(SPR[f.type][f.kind], x, y - extraTop(f.kind));
+    const lit = Math.floor(f.lit);
+    if (lit > 0) {
+      const order = f.kind === 'foundation' ? [0, 3] : [1, 2, 0, 3], trim = TYPES[f.type].trim;
+      for (let k = 0; k < lit && k < order.length; k++) {
+        const wx = x + WIN_X[order[k]], wy = y + WIN_Y;
+        rect(ctx, LIT, wx, wy, WIN_W, WIN_H); rect(ctx, LIT_HI, wx + 1, wy + 1, 2, 3); rect(ctx, trim, wx, wy + 5, WIN_W, 1);
+      }
+    }
+  }
+}
+function drawBlock(type, kind, x, y, ang) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  if (ang) ctx.rotate(ang);
+  ctx.drawImage(SPR[type][kind], -W / 2, -H / 2 - extraTop(kind));
+  ctx.restore();
+}
+function ropeLine(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
+  ctx.fillStyle = '#1d1d26';
+  for (let i = 0; i <= steps; i++) ctx.fillRect(Math.round(x0 + dx * i / steps), Math.round(y0 + dy * i / steps), 1, 1);
+}
+function drawCrane(g) {
+  const w = view.w, cx = Math.round(w / 2), jh = CFG.jibH;
+  rect(ctx, STEEL, 0, 0, w, jh);
+  rect(ctx, '#f5c518', 0, 0, w, 2); rect(ctx, '#f5c518', 0, 7, w, 2);
+  ctx.fillStyle = '#f5c518';
+  for (let x = -8; x < w; x += 8) for (let k = 0; k < 5; k++) { ctx.fillRect(x + k, 2 + k, 1, 1); ctx.fillRect(x + 4 + k, 6 - k, 1, 1); }
+  rect(ctx, '#b8900c', 0, jh - 1, w, 1);
+  rect(ctx, STEEL, cx - 9, 8, 18, 5); rect(ctx, '#6b6b78', cx - 7, 7, 3, 2); rect(ctx, '#6b6b78', cx + 4, 7, 3, 2); rect(ctx, '#9a9aa8', cx - 1, 11, 3, 2);
+
+  const { a } = swingParams(g), th = a * Math.sin(g.swingPhase), py = CFG.pivotY;
+  if (g.hook.has) {
+    const e = 1 - Math.pow(1 - g.hook.extend, 3);
+    const len = CFG.ropeLen * (0.2 + 0.8 * e);
+    const hx = cx + len * Math.sin(th), hy = py + len * Math.cos(th);
+    ropeLine(cx, py, hx, hy - 4);
+    const kind = nextKind(g);
+    ctx.save();
+    ctx.translate(Math.round(hx), Math.round(hy));
+    ctx.rotate(-th);
+    rect(ctx, STEEL, -2, -5, 5, 5); rect(ctx, '#f5c518', -2, -5, 5, 1);
+    ctx.drawImage(SPR[g.type][kind], -W / 2, 0);
+    ctx.restore();
+  } else if (g.hook.retract > 0) {
+    const len = CFG.ropeLen * (0.12 + 0.88 * g.hook.retract);
+    const hx = cx + len * Math.sin(th), hy = py + len * Math.cos(th);
+    ropeLine(cx, py, hx, hy - 4);
+    rect(ctx, STEEL, Math.round(hx) - 2, Math.round(hy) - 5, 5, 5);
+  }
+}
+function render() {
+  const g = game;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  let camY = Math.round(g.camY);
+  if (g.shake > 0) camY += (Math.floor(sceneTime * 60) % 2 ? 1 : -1) * Math.ceil(g.shake);
+  const alt = Math.max(0, -camY - view.h / 2);
+  drawSky(alt);
+  drawStars(alt, camY);
+  drawSpace(alt, camY);
+  drawClouds(alt, camY);
+  drawSkyline(FAR, camY, 0.3);
+  drawSkyline(NEAR, camY, 0.55);
+  drawGround(camY);
+  drawTower(g, camY);
+  const cx = view.w / 2;
+  for (const d of g.debris) {
+    if (d.state === 'wreck' && Math.floor(d.t * 10) % 2) continue;
+    drawBlock(d.type, d.kind, cx + d.x, d.y - camY, d.ang);
+  }
+  if (g.falling) drawBlock(g.falling.type, g.falling.kind, cx + g.falling.x, g.falling.y - camY, g.falling.ang);
+  for (const p of g.parts) {
+    ctx.globalAlpha = 1 - p.t / p.life;
+    rect(ctx, p.c, Math.round(cx + p.x), Math.round(p.y - camY), p.s, p.s);
+  }
+  ctx.globalAlpha = 1;
+  drawCrane(g);
+}
+
+/* ---------------- Floating text ---------------- */
+const pops = [];
+function popup(text, x, y, cls, delay = 0) {
+  const el = document.createElement('div');
+  el.className = 'pop ' + cls; el.textContent = text; el.style.opacity = '0';
+  fx.appendChild(el);
+  pops.push({ el, x, y, t: -delay, life: cls === 'perfect' ? 1.1 : 0.95 });
+}
+function updatePops(dt) {
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i];
+    p.t += dt;
+    if (p.t >= p.life || !game) { p.el.remove(); pops.splice(i, 1); continue; }
+    if (p.t < 0) continue;
+    const k = p.t / p.life, rise = reduceMotion ? 0 : 24 * Math.min(1, k * 1.6);
+    const sx = (view.w / 2 + p.x) * view.scale, sy = (p.y - game.camY) * view.scale - rise;
+    p.el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-50%)`;
+    p.el.style.opacity = String(k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3);
+  }
+}
+function clearPops() { for (const p of pops) p.el.remove(); pops.length = 0; }
+
+/* ---------------- HUD ---------------- */
+const LIFE_SVG = '<svg class="life" viewBox="0 0 10 7" aria-hidden="true"><rect x="2" y="1" width="6" height="4" fill="currentColor"/><rect x="0" y="5" width="10" height="2" fill="currentColor"/><rect x="4" y="0" width="2" height="1" fill="currentColor"/></svg>';
+$('lives').innerHTML = LIFE_SVG.repeat(CFG.lives);
+function updateHud() {
+  const g = game;
+  if (!g || g.kind === 'attract') return;
+  $('hudLabel').textContent = g.kind === 'city' ? TYPES[g.type].name : 'Floors';
+  $('hudFloors').textContent = g.kind === 'city' ? `${g.tower.length}/${g.target}` : String(g.tower.length);
+  $('hudPop').textContent = fmt(g.pop);
+  $('lives').setAttribute('aria-label', `${g.lives} of ${CFG.lives} lives left`);
+  [...$('lives').children].forEach((el, i) => el.classList.toggle('lost', i >= g.lives));
+}
+let lastComboText = '';
+function updateCombo() {
+  const c = game && game.combo, on = !!(c && c.timer > 0 && state === 'play');
+  $('combo').hidden = !on;
+  if (!on) return;
+  $('comboFill').style.width = (c.timer / CFG.comboTime * 100).toFixed(1) + '%';
+  const text = `combo ×${c.streak}`;
+  if (text !== lastComboText) { $('comboLabel').textContent = text; lastComboText = text; }
+}
+
+/* ---------------- Screens ---------------- */
+const screens = ['title', 'pause', 'result', 'city'].map($);
+function setState(next, screenId, focus = true) {
+  state = next;
+  for (const el of screens) el.hidden = el.id !== screenId;
+  hud.hidden = !(next === 'play' || next === 'pause');
+  if (screenId && focus) {
+    const b = $(screenId).querySelector('.btn.primary') || $(screenId).querySelector('.btn');
+    if (b) b.focus({ preventScroll: true });
+  } else if (!screenId && document.activeElement && document.activeElement !== document.body) {
+    document.activeElement.blur();
+  }
+}
+function renderBest() {
+  $('bestLine').textContent = save.best.floors > 0
+    ? `Best: ${save.best.floors} floors · ${fmt(save.best.pop)} people`
+    : 'No tower yet';
+}
+function toTitle() {
+  clearPops(); closeSheet();
+  game = attractGame();
+  setState('title', 'title', false);
+  renderBest();
+}
+function startQuick() {
+  Sound.ensure(); clearPops();
+  game = newGame('quick', { type: 'blue' });
+  setState('play', null);
+  updateHud();
+}
+function startCity(idx, type) {
+  Sound.ensure(); clearPops(); closeSheet();
+  game = newGame('city', { type, target: TYPES[type].floors, lot: idx });
+  setState('play', null);
+  updateHud();
+}
+function openCity() {
+  clearPops();
+  if (!game || game.kind !== 'attract') game = attractGame();
+  setState('city', 'city', false);
+  renderCity();
+}
+function pause() { if (state === 'play' && game && !game.finished) setState('pause', 'pause'); }
+function resume() { if (state === 'pause') setState('play', null); }
+
+function finishRound(g) {
+  if (g.finished) return;
+  g.finished = true;
+  const n = g.tower.length, stats = [];
+  let eyebrow, title, note = '', primary, secondary;
+  if (g.kind === 'quick') {
+    const bestF = n > save.best.floors, bestP = g.pop > save.best.pop;
+    if (bestF) save.best.floors = n;
+    if (bestP) save.best.pop = g.pop;
+    persist();
+    eyebrow = 'Game over';
+    title = `${n} ${n === 1 ? 'floor' : 'floors'}`;
+    stats.push(['Residents', fmt(g.pop)], ['Perfect drops', g.perfects], ['Longest combo', g.maxCombo ? `×${g.maxCombo}` : 'none'], ['Best tower', `${save.best.floors} floors`]);
+    note = bestF ? 'New tallest tower.' : bestP ? 'New population record.' : '';
+    primary = ['Play again', startQuick]; secondary = ['Menu', toTitle];
+  } else {
+    const t = TYPES[g.type], done = n >= g.target;
+    eyebrow = `${t.name} tower`;
+    title = done ? 'Tower complete' : 'Construction stopped';
+    stats.push(['Floors', `${n} / ${g.target}`], ['Residents', fmt(g.pop)], ['Perfect drops', g.perfects]);
+    if (n > 0) {
+      const prev = save.city[g.lot];
+      if (!prev || prev.type !== g.type || g.pop >= prev.residents) {
+        save.city[g.lot] = { type: g.type, floors: n, target: g.target, residents: g.pop, done };
+        persist();
+        note = done ? 'Residents are moving in.' : 'The unfinished tower still counts. Build again to top it off.';
+      } else {
+        note = `Your earlier build housed ${fmt(prev.residents)} people, so it stays.`;
+      }
+    } else {
+      note = 'Nothing was built on this lot.';
+    }
+    primary = ['Back to city', openCity]; secondary = ['Build again', () => startCity(g.lot, g.type)];
+  }
+  $('resEyebrow').textContent = eyebrow;
+  $('resTitle').textContent = title;
+  $('resStats').innerHTML = '';
+  for (const [k, v] of stats) {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = k; dd.textContent = v;
+    $('resStats').append(dt, dd);
+  }
+  $('resNote').textContent = note;
+  $('resPrimary').textContent = primary[0]; $('resPrimary').onclick = primary[1];
+  $('resSecondary').textContent = secondary[0]; $('resSecondary').onclick = secondary[1];
+  setState('result', 'result');
+}
+
+/* ---------------- City ---------------- */
+const levelNeed = l => 30 * (l - 1) * l;
+function levelFor(pop) { let l = 1; while (l < 20 && pop >= levelNeed(l + 1)) l++; return l; }
+const cityPop = () => save.city.reduce((s, b) => s + (b ? b.residents : 0), 0);
+function neighbors(i) {
+  const r = Math.floor(i / 5), c = i % 5, out = [];
+  if (r > 0) out.push(i - 5); if (r < 4) out.push(i + 5); if (c > 0) out.push(i - 1); if (c < 4) out.push(i + 1);
+  return out;
+}
+function missingFor(i, type) {
+  const have = new Set(neighbors(i).map(j => save.city[j] && save.city[j].type).filter(Boolean));
+  return TYPES[type].needs.filter(t => !have.has(t));
+}
+function needText(m) {
+  if (m.length === 1) return `Needs a ${m[0]} neighbor`;
+  return `Needs ${m.slice(0, -1).join(', ')} and ${m[m.length - 1]} neighbors`;
+}
+let selected = -1;
+function renderCity() {
+  const pop = cityPop(), lvl = levelFor(pop);
+  $('cityPop').textContent = fmt(pop);
+  $('cityLevel').textContent = lvl;
+  const cur = levelNeed(lvl), next = levelNeed(lvl + 1);
+  $('cityLevelFill').style.width = lvl < 20 ? ((pop - cur) / (next - cur) * 100).toFixed(1) + '%' : '100%';
+  $('cityLevelNote').textContent = lvl < 20 ? `${fmt(next - pop)} more residents to reach level ${lvl + 1}.` : 'Top city level reached.';
+  const grid = $('cityGrid');
+  grid.innerHTML = '';
+  save.city.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'tile' + (i === selected ? ' sel' : ''); btn.id = `lot-${i}`;
+    const where = `Row ${Math.floor(i / 5) + 1}, column ${i % 5 + 1}`;
+    if (b) {
+      const mini = document.createElement('span');
+      mini.className = 'mini' + (b.done ? '' : ' unfinished');
+      mini.style.setProperty('--c', TYPES[b.type].body);
+      mini.style.height = Math.round(14 + 72 * b.floors / 40) + '%';
+      btn.appendChild(mini);
+      btn.setAttribute('aria-label', `${where}: ${TYPES[b.type].name}, ${b.floors} of ${b.target} floors, ${fmt(b.residents)} residents`);
+    } else {
+      btn.innerHTML = '<span class="plus" aria-hidden="true">+</span>';
+      btn.setAttribute('aria-label', `${where}: empty lot`);
+    }
+    btn.addEventListener('click', () => openSheet(i));
+    grid.appendChild(btn);
+  });
+}
+function optionButton(type, detail, status, disabled, onPick) {
+  const t = TYPES[type], btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'opt'; btn.disabled = disabled;
+  btn.innerHTML = `<i class="sw" style="--c:${t.body}"></i><span>${t.name}<small>${detail}</small></span><span class="go">${status}</span>`;
+  if (!disabled) btn.addEventListener('click', onPick);
+  return btn;
+}
+function openSheet(i) {
+  selected = i;
+  renderCity();
+  const b = save.city[i], body = $('sheetBody');
+  body.innerHTML = '';
+  if (b) {
+    $('sheetTitle').textContent = `${TYPES[b.type].name} tower`;
+    $('sheetText').textContent = `${b.floors} of ${b.target} floors, ${fmt(b.residents)} residents${b.done ? '' : ', unfinished'}. A new build replaces it only if it houses more people.`;
+    body.appendChild(optionButton(b.type, `${b.target} floors`, 'Build again', false, () => startCity(i, b.type)));
+  } else {
+    $('sheetTitle').textContent = 'Empty lot';
+    $('sheetText').textContent = 'Pick a tower. Bigger towers hold more people but need the right neighbors.';
+    for (const type of TYPE_ORDER) {
+      const miss = missingFor(i, type), t = TYPES[type];
+      body.appendChild(optionButton(type, `${t.floors} floors · ×${t.mult} residents`, miss.length ? needText(miss) : 'Build', miss.length > 0, () => startCity(i, type)));
+    }
+  }
+  $('scrim').hidden = false; $('sheet').hidden = false;
+  const first = body.querySelector('.opt:not(:disabled)');
+  if (first) first.focus({ preventScroll: true });
+}
+function closeSheet() {
+  $('sheet').hidden = true; $('scrim').hidden = true;
+  if (selected >= 0) { selected = -1; if (state === 'city') renderCity(); }
+}
+let resetArmed = 0;
+$('cityReset').addEventListener('click', () => {
+  const btn = $('cityReset');
+  if (Date.now() - resetArmed < 3000) {
+    save.city = Array(25).fill(null); persist(); resetArmed = 0;
+    btn.textContent = 'Clear city'; renderCity();
+  } else {
+    resetArmed = Date.now(); btn.textContent = 'Tap again to clear';
+    setTimeout(() => { if (Date.now() - resetArmed >= 3000) btn.textContent = 'Clear city'; }, 3100);
+  }
+});
+
+/* ---------------- Input ---------------- */
+stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, .screen, .sheet, #scrim')) return;
+  if (e.button > 0) return;
+  e.preventDefault();
+  Sound.ensure();
+  if (state !== 'play' || !game) return;
+  if (game.pan) { game.camY = game.pan.to; return; }
+  drop();
+});
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  if (state === 'play') {
+    if (k === ' ' || k === 'Enter' || k === 'ArrowDown') {
+      e.preventDefault();
+      if (e.repeat) return;
+      Sound.ensure();
+      if (game.pan) game.camY = game.pan.to; else drop();
+    } else if (k === 'Escape' || k === 'p' || k === 'P') { e.preventDefault(); pause(); }
+  } else if (state === 'pause' && (k === 'Escape' || k === 'p' || k === 'P')) {
+    e.preventDefault(); resume();
+  } else if (state === 'city' && k === 'Escape' && !$('sheet').hidden) {
+    closeSheet();
+  }
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('btnQuick').addEventListener('click', startQuick);
+$('btnCity').addEventListener('click', openCity);
+$('pauseBtn').addEventListener('click', pause);
+$('btnResume').addEventListener('click', resume);
+$('btnQuit').addEventListener('click', () => { if (game && game.kind === 'city') openCity(); else toTitle(); });
+$('cityBack').addEventListener('click', toTitle);
+$('scrim').addEventListener('click', closeSheet);
+$('sheetClose').addEventListener('click', closeSheet);
+function setMuted(m) {
+  save.muted = m; Sound.muted = m;
+  for (const b of document.querySelectorAll('[data-sound]')) b.textContent = m ? 'Sound: off' : 'Sound: on';
+}
+for (const b of document.querySelectorAll('[data-sound]')) b.addEventListener('click', () => { setMuted(!save.muted); persist(); Sound.ensure(); });
+window.addEventListener('resize', () => { layout(); if (game && state !== 'play') game.camY = game.hold ? -groundScreenY() : cameraTarget(game); });
+
+/* ---------------- Loop ---------------- */
+const STEP = 1 / 120;
+let last = performance.now(), acc = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (game && state !== 'pause') {
+    sceneTime += dt;
+    acc += dt;
+    while (acc >= STEP) { update(STEP); acc -= STEP; }
+  }
+  updatePops(state === 'pause' ? 0 : dt);
+  if (state === 'play') updateCombo(); else $('combo').hidden = true;
+  if (game) render();
+  requestAnimationFrame(frame);
+}
+
+load();
+setMuted(save.muted);
+layout();
+toTitle();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
