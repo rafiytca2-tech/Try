@@ -56,6 +56,14 @@ The hold and Power multipliers multiply together.
 - **Quality report**: height, construction quality, structural stability, Perfect floors,
   longest chain, Power Perfects, recoveries, floors lost, capacity and prestige.
 
+**Camera**: level and straight-on, matching the classic side view. It only slides up and down
+and moves in and out, never tilting, so alignment always reads as left and right on screen.
+- **Title**: shows the crane with the lobby hanging.
+- **Intro**: pans straight down to the site.
+- **Play**: holds the tower top 58% down the screen from the first floor, pulling back as the
+  swing widens.
+- **End of a round**: slides back down and pulls back until the whole tower is in view.
+
 All tuning lives in the `CFG` object at the top of the script.
 
 ## Performance

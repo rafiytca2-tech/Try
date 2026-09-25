@@ -49,7 +49,7 @@ body{
 .floor-row{display:flex;align-items:baseline;gap:4px;line-height:.9}
 .floor-row b{font-size:48px;font-weight:700;font-variant-numeric:tabular-nums}
 .floor-row span{font-size:20px;font-weight:600;color:var(--muted)}
-.spare{font-size:15px;font-weight:600;letter-spacing:.06em;color:var(--ink)}
+.spare{font-size:15px;font-weight:600;letter-spacing:.06em;color:var(--ink);white-space:nowrap}
 .spare.low{color:var(--danger)}
 .chain{margin-top:6px;font-size:22px;font-weight:700;letter-spacing:.04em;color:var(--accent);text-transform:uppercase}
 .mult{
@@ -193,7 +193,7 @@ select option{color:#111}
       <div class="floor">
         <span class="cap">Floor</span>
         <div class="floor-row"><b id="hFloor">0</b><span id="hTarget">/ 50</span></div>
-        <span class="spare" id="hSpare">12 spare modules</span>
+        <span class="spare" id="hSpare" title="Spare modules">12 spare</span>
         <span class="chain" id="hChain" hidden></span>
       </div>
       <div class="mult idle" id="hMultBox" aria-hidden="true">
@@ -684,7 +684,8 @@ for (const key of parks) {
   const [i, j] = key.split(',').map(Number);
   for (let k = 0; k < 22; k++) trees.push({ x: i * BLOCK + (cityRand() - 0.5) * 54, z: j * BLOCK + (cityRand() - 0.5) * 54, s: 0.8 + cityRand() * 0.6 });
 }
-for (let k = 0; k < 16; k++) { const side = k % 4; const t = (Math.floor(k / 4) - 1.5) * 13; trees.push({ x: side < 2 ? t : (side === 2 ? -1 : 1) * 33.5, z: side < 2 ? (side === 0 ? -1 : 1) * 33.5 : t, s: 0.7 }); }
+// Street trees on the back and sides only: the camera looks at the site from the front street.
+for (let k = 0; k < 16; k++) { const side = k % 4; if (side === 1) continue; const t = (Math.floor(k / 4) - 1.5) * 13; trees.push({ x: side < 2 ? t : (side === 2 ? -1 : 1) * 33.5, z: side < 2 ? -33.5 : t, s: 0.7 }); }
 instanced(new T.IcosahedronGeometry(2.4, 0).translate(0, 4.2, 0), new T.MeshStandardMaterial({ color: lin('#4f7d3f'), roughness: 0.9, flatShading: true }), trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
 instanced(new T.CylinderGeometry(0.22, 0.3, 2.4, 5).translate(0, 1.2, 0), new T.MeshStandardMaterial({ color: lin('#5a4634'), roughness: 1 }), trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
 // Site dressing: slab, green mesh fence, site offices, material stacks.
@@ -693,9 +694,9 @@ slab.receiveShadow = true; scene.add(slab);
 {
   const panels = [];
   for (let s = 0; s < 4; s++) for (let k = 0; k < 14; k++) {
+    if (s === 1) continue;                            // no front fence: it would sit between the camera and the tower
     const t = -26 + k * 4;
-    if (s === 3 && (k === 6 || k === 7)) continue;   // site gate facing the street
-    panels.push({ x: s < 2 ? t : (s === 2 ? -28.5 : 28.5), z: s < 2 ? (s === 0 ? -28.5 : 28.5) : t, r: s < 2 ? 0 : Math.PI / 2 });
+    panels.push({ x: s < 2 ? t : (s === 2 ? -28.5 : 28.5), z: s < 2 ? -28.5 : t, r: s < 2 ? 0 : Math.PI / 2 });
   }
   const fm = new T.InstancedMesh(new T.BoxGeometry(3.9, 2.2, 0.08).translate(0, 1.1 - 0.3, 0), latticeMat('#2f6b45', 6, 3.4), panels.length);
   panels.forEach((p, i) => { fm.setMatrixAt(i, mtx.compose(vPos.set(p.x, 0, p.z), q0.setFromAxisAngle(UP, p.r), vScale.set(1, 1, 1))); });
@@ -711,7 +712,9 @@ slab.receiveShadow = true; scene.add(slab);
 // Traffic: one instanced mesh, matrices refreshed each frame.
 const cars = [];
 for (let k = 0; k < 170; k++) {
-  const alongX = cityRand() < 0.5, road = Math.floor(cityRand() * (CITY_N * 2)) - CITY_N;
+  const alongX = cityRand() < 0.5;
+  let road = Math.floor(cityRand() * (CITY_N * 2)) - CITY_N;
+  if (alongX && road === 0) road = 1;                 // keep the street in front of the site clear of traffic
   const dir = cityRand() < 0.5 ? 1 : -1;
   cars.push({ alongX, line: road * BLOCK + BLOCK / 2 + dir * 3.1, pos: (cityRand() - 0.5) * 1400, v: (9 + cityRand() * 7) * dir, c: ['#e4e4e4', '#1f2833', '#a3262a', '#2c5aa0', '#d8b53c', '#6b7178'][Math.floor(cityRand() * 6)] });
 }
@@ -926,7 +929,8 @@ function newRun() {
   return {
     floors: [], st: [], supply: CFG.supply, score: 0, chain: 0, longest: 0, perfects: 0, powerPerfects: 0,
     ratings: {}, recoveries: [], shifted: 0, collapses: 0, lost: 0, maxFloors: 0, drops: 0,
-    phase: 0, rig: { state: 'lowering', t: 0.25, len: CFG.ropeMin, kind: 'lobby', mesh: makeModule('lobby'), next: false, wait: 0 },
+    // Starts part-way down; the title screen holds it there and the intro lowers it the rest of the way.
+    phase: 0, rig: { state: 'lowering', t: 0.22, len: CFG.ropeMin, kind: 'lobby', mesh: makeModule('lobby'), next: false, wait: 0 },
     hold: null, falling: null, debris: [], crown: null,
     u: 0, du: 0, acc: 0, uEq: 0, gust: Math.random() * 100,
     tip: { k: -1, phi: 0, dphi: 0, sign: 1, px: 0, py: 0 },
@@ -1062,7 +1066,7 @@ function updateHud() {
   const r = run, n = r.floors.length, spare = r.supply - (CFG.target - n);
   setText('hFloor', String(n));
   setText('hTarget', `/ ${CFG.target}`);
-  setText('hSpare', spare === 1 ? '1 spare module' : `${Math.max(0, spare)} spare modules`);
+  setText('hSpare', `${Math.max(0, spare)} spare`);
   $('hSpare').classList.toggle('low', spare <= 3);
   setText('hScore', fmt(r.score));
   const chainOn = r.chain >= 2;
@@ -1089,7 +1093,7 @@ let mode = 'title';          // title | intro | play | pause | report
 let introT = 0;
 const camPos = new T.Vector3(), camLook = new T.Vector3(), camFrom = new T.Vector3(), lookFrom = new T.Vector3();
 const desiredPos = new T.Vector3(), desiredLook = new T.Vector3();
-let shake = 0, followY = 0, orbitA = 0;
+let shake = 0, followY = 0;
 const screens = ['title', 'howto', 'settings', 'pause', 'report'];
 let returnTo = 'title';
 function show(id) { for (const s of screens) $(s).hidden = s !== id; }
@@ -1276,7 +1280,7 @@ function step(dt) {
 
   // Hoist.
   const R = r.rig;
-  if (R.state === 'lowering') { R.t += dt; R.len = CFG.ropeMin + (CFG.rope - CFG.ropeMin) * smooth(Math.min(1, R.t / CFG.lower)); if (R.t >= CFG.lower) { R.state = 'ready'; R.len = CFG.rope; } }
+  if (R.state === 'lowering') { if (mode !== 'title') R.t += dt; R.len = CFG.ropeMin + (CFG.rope - CFG.ropeMin) * smooth(Math.min(1, R.t / CFG.lower)); if (R.t >= CFG.lower) { R.state = 'ready'; R.len = CFG.rope; } }
   else if (R.state === 'recall') { R.t += dt; R.len = CFG.rope - (CFG.rope - CFG.ropeMin) * 0.55 * smooth(Math.min(1, R.t / CFG.recallUp)); if (R.t >= CFG.recallUp) { R.state = 'lowering'; R.t = CFG.lower * 0.45; } }
   else if (R.state === 'reeling') { R.t += dt; R.len = CFG.rope - (CFG.rope - CFG.ropeMin) * Math.min(1, R.t / CFG.reel); if (R.t >= CFG.reel) { R.state = 'empty'; R.len = CFG.ropeMin; } }
   else if (R.state === 'empty' && R.next && !r.ended) { R.wait -= dt; if (R.wait <= 0) { R.next = false; R.kind = F.length === 0 ? 'lobby' : 'floor'; R.mesh = makeModule(R.kind); R.state = 'lowering'; R.t = 0; Sound.ratchet(); } }
@@ -1416,38 +1420,43 @@ function syncCrane() {
     warnGlow.visible = false;
   }
 }
-function updateCamera(dt) {
-  const r = run, n = r.floors.length, topY = topLocal(n);
-  const w = window.innerWidth, h = window.innerHeight, aspect = w / h, portrait = aspect < 0.9;
-  const fov = portrait ? 50 : 42;
-  if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  const tanV = Math.tan(fov * Math.PI / 360);
-  const halfW = reachOf(n) + W / 2 + 2.4;
-  let d = Math.max(halfW / (tanV * aspect), 10.5 / tanV, 24 + topY * 0.16);
-  const pitch = 0.12 + Math.min(0.32, topY / 520), yaw = 0.3;
+// Camera: level and straight-on, like the classic side view. It never yaws or pitches; it only
+// slides up and down and moves in and out, so alignment always reads as left/right on screen.
+const FOV = 40, TAN_HALF = Math.tan(FOV * Math.PI / 360);
+function framing(n) {
+  // Visible height at the tower plane: wide enough for the whole swing, tall enough for rope and top.
+  const aspect = window.innerWidth / window.innerHeight;
+  const hv = Math.max(2 * (reachOf(n) + W / 2 + 1.6) / aspect, 28.5);
+  return { hv, yc: topLocal(n) + 0.08 * hv };   // tower top sits 58% down the screen from floor one
+}
+function updateCamera(dt, snap) {
+  const r = run, n = r.floors.length;
+  if (camera.fov !== FOV) { camera.fov = FOV; camera.updateProjectionMatrix(); }
   if (r.falling && r.falling.power > 1) followY += (1 - followY) * Math.min(1, dt * 6); else followY += (0 - followY) * Math.min(1, dt * 3);
-  if (r.ended && r.ended.reason === 'collapse') d *= 1.35;
-  desiredLook.set(0, topY + 3.2 - followY * 1.6, 0);
-  desiredPos.set(Math.sin(yaw) * Math.cos(pitch) * d, Math.sin(pitch) * d, Math.cos(yaw) * Math.cos(pitch) * d).add(desiredLook);
-
+  let hv, yc, rate = 3.5;
   if (mode === 'title') {
-    orbitA += dt * 0.06;
-    desiredLook.set(-4, 16, 0);
-    desiredPos.set(Math.sin(orbitA + 0.6) * 78, 30, Math.cos(orbitA + 0.6) * 78);
-    camPos.lerp(desiredPos, 1 - Math.exp(-2 * dt)); camLook.lerp(desiredLook, 1 - Math.exp(-2 * dt));
-  } else if (mode === 'intro') {
+    // The crane first: jib near the top edge, the lobby hanging above the title card.
+    hv = Math.max(framing(n).hv * 1.6, 60); yc = r.jibY - 0.42 * hv; rate = 3;
+  } else if (mode === 'report') {
+    // Slide back down and pull back until the whole tower stands above the results card.
+    const th = topLocal(n) + (r.crown ? 15 : 0);
+    hv = Math.max(40, th / 0.46); yc = 0.02 * hv; rate = 1.4;
+  } else {
+    const f = framing(n);
+    hv = f.hv; yc = f.yc - followY * 1.6;
+    if (r.ended && r.ended.reason === 'collapse') hv *= 1.35;
+  }
+  desiredLook.set(0, yc, 0);
+  desiredPos.set(0, yc, hv / (2 * TAN_HALF));
+  if (snap) { camPos.copy(desiredPos); camLook.copy(desiredLook); }
+  else if (mode === 'intro') {
     introT += dt;
     const k = easeInOut(Math.min(1, introT / 2.2));
     camPos.lerpVectors(camFrom, desiredPos, k); camLook.lerpVectors(lookFrom, desiredLook, k);
     if (introT >= 2.2) { mode = 'play'; if (!store.tips.tap) showTip('tap', 1); }
-  } else if (mode === 'report') {
-    orbitA += dt * 0.12;
-    const th = topLocal(n) + (r.crown ? 15 : 0), rad = Math.max(70, th * 0.95 + 30);
-    desiredLook.set(0, th * 0.5, 0);
-    desiredPos.set(Math.sin(orbitA) * rad, th * 0.55 + 18, Math.cos(orbitA) * rad);
-    camPos.lerp(desiredPos, 1 - Math.exp(-1.5 * dt)); camLook.lerp(desiredLook, 1 - Math.exp(-1.5 * dt));
   } else {
-    camPos.lerp(desiredPos, 1 - Math.exp(-3.5 * dt)); camLook.lerp(desiredLook, 1 - Math.exp(-5 * dt));
+    const k = 1 - Math.exp(-rate * dt);   // same rate for both keeps the view level while it moves
+    camPos.lerp(desiredPos, k); camLook.lerp(desiredLook, k);
   }
   camera.position.copy(camPos);
   if (shake > 0) {
@@ -1457,7 +1466,7 @@ function updateCamera(dt) {
   camera.lookAt(camLook);
   sky.position.copy(camera.position);
   // Keep the shadow box around the working area.
-  tmpA.set(0, Math.max(0, topY - 10), 0);
+  tmpA.set(0, Math.max(0, topLocal(n) - 10), 0);
   sun.target.position.copy(tmpA); sun.position.copy(tmpA).addScaledVector(sunDir, 220);
 }
 function updateWorld(dt) {
@@ -1504,7 +1513,6 @@ function endRun(reason) {
   $('rNote').textContent = newBest ? 'New best score.' : '';
   $('hud').hidden = true;
   show('report');
-  orbitA = Math.atan2(camera.position.x, camera.position.z);
 }
 
 /* ---------------- Input: one-finger language ---------------- */
@@ -1619,8 +1627,8 @@ function frame(now) {
 
 run = newRun(); computeStatics();
 applyQuality();
-camPos.set(60, 30, 50); camLook.set(-4, 16, 0);
 toTitle();
+updateCamera(0, true);
 requestAnimationFrame(frame);
 })();
 </script>

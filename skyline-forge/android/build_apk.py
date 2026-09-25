@@ -37,8 +37,8 @@ OUT_APK = os.path.join(DIST, 'SkylineForge.apk')
 
 PACKAGE = 'com.skylineforge.game'
 APP_NAME = 'Skyline Forge'
-VERSION_CODE = 2
-VERSION_NAME = '0.2.0'
+VERSION_CODE = 3
+VERSION_NAME = '0.3.0'
 MIN_SDK = 24          # Android 7.0: v2 signatures only (apksig's v1 signer needs JDK 8 internals)
 TARGET_SDK = 34
 
