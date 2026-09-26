@@ -13,7 +13,7 @@
   --ink:#f5f2ec;
   --muted:#b3bcc6;
   --glass:rgba(10,16,24,.6);
-  --glass-strong:rgba(10,16,24,.88);
+  --glass-strong:rgba(10,16,24,.9);
   --line:rgba(255,255,255,.14);
   --accent:#ffc21a;
   --accent-ink:#1a1302;
@@ -23,9 +23,13 @@
   --moving:#ffd23f;
   --danger:#ff8a2b;
   --critical:#ff4a3d;
-  --blue:#3b7fe0; --red:#dc4a3a; --green:#3cbf3c; --gold:#ecbd2f;
+  --coin:#ffd257;
+  --prestige:#c9a8ff;
+  --res:#4f93ec; --com:#e3584a; --off:#45c64a;
   --f-cond:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif-condensed,sans-serif;
   --f-body:"Barlow","Roboto",system-ui,sans-serif;
+  --top:env(safe-area-inset-top,0px);
+  --bot:env(safe-area-inset-bottom,0px);
 }
 [hidden]{display:none!important}
 html,body{height:100%}
@@ -33,19 +37,38 @@ body{
   margin:0;background:#0b1118;color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;
   overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
 }
+body.big{font-size:18px}
 #stage{position:fixed;inset:0;overflow:hidden;background:#0b1118;touch-action:none}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block}
-#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-
-/* ---------- HUD: the phone original's layout (gauge bottom-left, people bottom-right) ---------- */
-.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--f-cond);text-shadow:0 2px 10px rgba(0,0,0,.45)}
+#fx,#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .glass{background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-.icon-btn{
-  pointer-events:auto;position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;width:44px;height:44px;border-radius:12px;
-  display:grid;place-items:center;cursor:pointer;padding:0;color:var(--ink);font:700 16px var(--f-cond);letter-spacing:.06em;
+button{font:inherit;color:inherit}
+.btn{
+  min-height:48px;padding:10px 18px;border-radius:14px;cursor:pointer;font:700 17px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);
 }
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.ghost{background:transparent}
+.btn.small{min-height:38px;padding:6px 14px;font-size:15px}
+.btn.danger{color:var(--critical)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:focus-visible,.icon-btn:focus-visible,.switch input:focus-visible+span,select:focus-visible,.card:focus-visible,.tab:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.icon-btn{
+  pointer-events:auto;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;cursor:pointer;padding:0;position:relative;
+  color:var(--ink);font:700 16px var(--f-cond);letter-spacing:.06em;
+}
+.icon-btn svg{width:24px;height:24px}
+.badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--critical);color:#fff;font:700 12px/18px var(--f-cond);text-align:center}
+.coin{color:var(--coin)}
+.go svg,.stats svg,.sub svg,.card svg,.unlocks svg{width:16px;height:16px;vertical-align:-3px}
+.prestige{color:var(--prestige)}
+
+/* ---------- Construction HUD ---------- */
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--f-cond);text-shadow:0 2px 10px rgba(0,0,0,.45)}
+#pauseBtn{position:absolute;top:calc(var(--top) + 12px);right:14px}
 .stab{
-  position:absolute;left:14px;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;align-items:center;gap:8px;
+  position:absolute;left:14px;top:calc(var(--top) + 12px);display:flex;align-items:center;gap:8px;
   padding:8px 12px;border-radius:999px;font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
 }
 .stab .segs{display:flex;gap:3px}
@@ -61,7 +84,7 @@ body{
 .stab[data-level="3"] .segs i{background:var(--c)}
 @keyframes pulse{to{box-shadow:0 0 0 3px rgba(255,74,61,.45)}}
 .mult{
-  position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);
+  position:absolute;left:50%;top:calc(var(--top) + 12px);transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:4px;min-width:112px;box-sizing:border-box;padding:6px 14px 9px;border-radius:14px;
 }
 .mult b{font-size:32px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
@@ -71,15 +94,17 @@ body{
 .mult.warn b,.mult.warn span{color:var(--critical)}
 .mult.warn .bar i{background:var(--critical)}
 .mult.power b{color:var(--accent)}
-.gauge{position:absolute;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;align-items:center;gap:6px}
+.bpname{position:absolute;left:50%;top:calc(var(--top) + 68px);transform:translateX(-50%);font:600 14px var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.gauge{position:absolute;left:14px;bottom:calc(var(--bot) + 16px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .gauge-badge{
   min-width:40px;box-sizing:border-box;text-align:center;padding:3px 8px;border-radius:8px;font-weight:700;font-size:22px;line-height:1.05;
   color:#f1ffb8;background:rgba(23,50,15,.85);border:2px solid var(--gauge);font-variant-numeric:tabular-nums;
 }
+.gauge-badge small{font-size:14px;opacity:.75}
 .gauge-bar{position:relative;width:14px;height:112px;border-radius:4px;background:rgba(12,12,12,.8);border:2px solid var(--gauge)}
 .gauge-bar i{position:absolute;left:2px;right:2px;bottom:2px;height:0;background-image:repeating-linear-gradient(to top,var(--c,#3cbf3c) 0 6px,transparent 6px 8px)}
-.gauge-label{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
-.hud-br{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.gauge-label{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;max-width:110px;text-align:center}
+.hud-br{position:absolute;right:14px;bottom:calc(var(--bot) + 16px);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .hud-pop{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:12px;font-weight:700;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
 .hud-pop svg{width:24px;height:18px}
 .lives{display:flex;gap:6px}
@@ -90,12 +115,12 @@ body{
 .combo-bar{width:96px;height:5px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
 .combo-bar i{display:block;height:100%;margin-left:auto;background:var(--combo)}
 .coach{
-  position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 84px);transform:translateX(-50%);
+  position:absolute;left:50%;top:calc(var(--top) + 96px);transform:translateX(-50%);
   width:max-content;max-width:min(420px,calc(100% - 32px));box-sizing:border-box;padding:10px 14px;border-radius:14px;
-  background:var(--glass-strong);border:1px solid var(--line);font:15px/1.4 var(--f-body);text-align:center;text-shadow:none;
+  background:var(--glass-strong);border:1px solid var(--line);font:15px/1.4 var(--f-body);text-align:center;text-shadow:none;pointer-events:none;
 }
 .coach b{color:var(--accent);font-weight:600}
-.banner{position:absolute;left:0;right:0;top:30%;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;pointer-events:none}
+.banner{position:absolute;left:0;right:0;top:30%;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;pointer-events:none;font-family:var(--f-cond);text-shadow:0 2px 14px rgba(0,0,0,.55)}
 .banner b{font-size:38px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);line-height:1}
 .banner span{font-size:20px;font-weight:600;letter-spacing:.08em}
 .banner.show{animation:bannerIn 1.9s ease-out forwards}
@@ -116,43 +141,121 @@ body{
 .pop.pts{font-size:20px;color:var(--ink)}
 .pop.info{font-size:17px;color:var(--muted)}
 .pop.bonus{font-size:22px;color:var(--stable)}
+.pop.coinpop{font-size:24px;color:var(--coin)}
 
-/* ---------- Screens ---------- */
+/* ---------- City hub HUD ---------- */
+.hub{position:absolute;inset:0;pointer-events:none}
+.hub-top{position:absolute;left:12px;right:12px;top:calc(var(--top) + 10px);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{pointer-events:auto;display:flex;align-items:center;gap:7px;height:40px;padding:0 12px;border-radius:12px;font:700 19px var(--f-cond);letter-spacing:.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip svg{width:20px;height:20px;flex:none}
+.lvl{gap:9px;padding-left:6px;cursor:pointer}
+.lvl .ring{position:relative;width:30px;height:30px;flex:none}
+.lvl .ring svg{width:30px;height:30px;transform:rotate(-90deg)}
+.lvl .ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 15px var(--f-cond)}
+.lvl .lbar{display:flex;flex-direction:column;gap:3px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);line-height:1}
+.lvl .lbar i{display:block;width:74px;height:5px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.lvl .lbar i::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--accent)}
+.collect{
+  pointer-events:auto;position:absolute;left:50%;top:calc(var(--top) + 62px);transform:translateX(-50%);
+  display:flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:999px;cursor:pointer;
+  font:700 18px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-ink);background:var(--coin);border:0;
+  box-shadow:0 6px 20px rgba(0,0,0,.35);animation:bob 1.6s ease-in-out infinite;
+}
+.collect svg{width:20px;height:20px}
+@keyframes bob{50%{transform:translate(-50%,-3px)}}
+.rail{position:absolute;right:12px;top:calc(var(--top) + 116px);display:flex;flex-direction:column;gap:10px}
+.rail .icon-btn{width:52px;height:52px}
+.rail small{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font:600 11px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);text-shadow:0 1px 6px rgba(0,0,0,.8);white-space:nowrap}
+.rail .icon-btn{margin-bottom:10px}
+.hub-bottom{position:absolute;left:12px;right:12px;bottom:calc(var(--bot) + 12px);display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.demand{pointer-events:auto;display:flex;align-items:flex-end;gap:12px;padding:8px 12px;border-radius:14px;font:600 13px var(--f-cond);letter-spacing:.1em;text-transform:uppercase}
+.dbar{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dbar .col{position:relative;width:14px;height:40px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.dbar .col::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.35)}
+.dbar .col i{position:absolute;left:0;right:0;background:var(--c)}
+.happy{display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding-left:6px;border-left:1px solid var(--line);color:var(--muted)}
+.happy b{font-size:20px;color:var(--ink)}
+.goal{pointer-events:auto;max-width:min(440px,calc(100% - 70px));padding:9px 14px;border-radius:14px;font:500 15px/1.35 var(--f-body);cursor:pointer}
+.goal b{color:var(--accent);font-weight:600}
+.dlabel{position:absolute;left:0;top:0;transform:translate(-50%,-50%);white-space:nowrap;text-align:center;font:700 15px var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8),0 0 2px rgba(0,0,0,.9)}
+.dlabel small{display:block;font:600 13px var(--f-cond);letter-spacing:.06em;color:var(--coin);text-transform:none}
+.dlabel.locked{color:rgba(255,255,255,.75)}
+.tlabel{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;padding:3px 8px;border-radius:8px;background:rgba(10,16,24,.78);font:700 13px var(--f-cond);letter-spacing:.06em;color:var(--ink)}
+.tlabel.warn{color:var(--moving)}
+
+/* ---------- Screens, sheets, modals ---------- */
 .screen{
   position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;overflow-y:auto;cursor:default;
-  padding:20px;padding-block:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-bottom,0px) + 20px);
-  background:linear-gradient(to top,rgba(8,12,18,.82),rgba(8,12,18,0) 62%);
+  padding:20px;padding-block:calc(var(--top) + 20px) calc(var(--bot) + 20px);box-sizing:border-box;
+  background:linear-gradient(to top,rgba(8,12,18,.85),rgba(8,12,18,0) 62%);
 }
-.screen.center{justify-content:center;background:rgba(8,12,18,.55)}
-.screen.top{justify-content:flex-start;background:rgba(8,12,18,.86)}
+.screen.center{justify-content:center;background:rgba(8,12,18,.6)}
 .panel{
-  width:100%;max-width:440px;box-sizing:border-box;padding:22px;border-radius:20px;background:var(--glass-strong);border:1px solid var(--line);
-  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);display:flex;flex-direction:column;gap:16px;
+  width:100%;max-width:460px;box-sizing:border-box;padding:22px;border-radius:20px;background:var(--glass-strong);border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);display:flex;flex-direction:column;gap:14px;
 }
 .eyebrow{margin:0;font:600 13px var(--f-cond);letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
 .wordmark{margin:0;font-family:var(--f-cond);font-weight:700;font-size:clamp(46px,12vw,68px);line-height:.86;letter-spacing:.02em;text-transform:uppercase}
 .wordmark span{display:block;color:var(--accent)}
-h2{margin:0;font-family:var(--f-cond);font-weight:700;font-size:32px;line-height:1;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
-.lede{margin:0;color:var(--muted);max-width:38ch}
+h2{margin:0;font-family:var(--f-cond);font-weight:700;font-size:30px;line-height:1.02;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance}
+h3{margin:0;font:700 18px var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
+.lede{margin:0;color:var(--muted);max-width:40ch}
 .lede b{color:var(--ink);font-weight:600}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn{
-  min-height:50px;padding:10px 18px;border-radius:14px;cursor:pointer;font:700 17px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);
-}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-.btn.ghost{background:transparent}
-.btn.small{min-height:40px;padding:6px 14px;font-size:15px}
-.btn:active{transform:translateY(1px)}
-.btn:focus-visible,.icon-btn:focus-visible,.switch input:focus-visible+span,select:focus-visible,.tile:focus-visible,.opt:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.btn-row.three{grid-template-columns:1fr 1fr 1fr}
 .best{margin:0;font:600 15px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.howto{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.howto li{display:grid;grid-template-columns:118px 1fr;gap:12px;align-items:baseline}
-.howto b{font:700 16px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
-.howto span{font-size:15px}
-.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;font:600 14px var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
-.legend span::before{content:attr(data-ico);display:inline-block;width:18px;color:var(--c)}
+.scrim{position:absolute;inset:0;background:rgba(6,10,18,.55);cursor:default}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:520px;max-height:78%;overflow-y:auto;box-sizing:border-box;cursor:default;
+  background:var(--glass-strong);border:1px solid var(--line);border-radius:22px 22px 0 0;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  padding:18px;padding-bottom:calc(var(--bot) + 18px);display:flex;flex-direction:column;gap:12px;
+}
+.modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;padding-block:calc(var(--top) + 16px) calc(var(--bot) + 16px);box-sizing:border-box;background:rgba(6,10,18,.62)}
+.modal .panel{max-height:100%;overflow-y:auto}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.head .x{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid var(--line);font:700 18px var(--f-cond)}
+.sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pills span{padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.08);font:600 13px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pills span.good{background:rgba(57,217,138,.14);color:var(--stable)}
+.pills span.gold{background:rgba(255,194,26,.14);color:var(--accent)}
+.tabs{display:flex;gap:6px;overflow-x:auto}
+.tab{flex:none;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid var(--line);font:700 14px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--ink);color:#111}
+.cards{display:grid;gap:8px}
+.card{
+  display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;min-height:62px;padding:10px 12px;box-sizing:border-box;
+  border-radius:14px;cursor:pointer;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);
+}
+.card .sw{width:14px;height:40px;border-radius:3px;background:var(--c);box-shadow:inset 0 3px 0 rgba(255,255,255,.35)}
+.card b{display:block;font:700 18px var(--f-cond);letter-spacing:.04em;text-transform:uppercase}
+.card small{display:block;color:var(--muted);font-size:13px;line-height:1.3}
+.card .go{font:700 15px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);text-align:right;white-space:nowrap}
+.card[aria-disabled="true"]{cursor:not-allowed;opacity:.62}
+.card[aria-disabled="true"] .go{color:var(--danger);text-transform:none;font:500 13px var(--f-body);max-width:14ch;white-space:normal}
+.card.done{border-color:rgba(57,217,138,.5);background:rgba(57,217,138,.08)}
+.stats{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 16px;font-size:15px}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font:700 17px var(--f-cond);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big div{display:flex;flex-direction:column}
+.big b{font:700 38px var(--f-cond);line-height:1;font-variant-numeric:tabular-nums}
+.big small{font:600 13px var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.stars{display:flex;gap:6px;justify-content:center}
+.stars i{width:40px;height:40px;background:rgba(255,255,255,.14);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);transition:transform .25s,background .25s}
+.stars i.on{background:var(--accent);transform:scale(1.12)}
+.stars.small i{width:16px;height:16px}
+.stars.small i.on{transform:none}
+.rewards{display:flex;gap:10px;flex-wrap:wrap}
+.rewards span{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:12px;background:rgba(255,255,255,.07);font:700 20px var(--f-cond);letter-spacing:.03em}
+.rewards svg{width:20px;height:20px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{padding:4px 10px;border-radius:999px;background:rgba(255,194,26,.14);color:var(--accent);font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
+.note{margin:0;color:var(--stable);font-weight:500}
+.note:empty{display:none}
+.meter{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--c,var(--accent))}
 .setting{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:16px}
 .setting small{display:block;color:var(--muted);font-size:13px}
 .switch{position:relative;display:inline-block;width:52px;height:30px;flex:none}
@@ -163,83 +266,91 @@ h2{margin:0;font-family:var(--f-cond);font-weight:700;font-size:32px;line-height
 .switch input:checked+span::after{transform:translateX(22px)}
 select{font:600 16px var(--f-body);color:var(--ink);background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 select option{color:#111}
-.big{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.big div{display:flex;flex-direction:column}
-.big b{font:700 40px var(--f-cond);line-height:1;font-variant-numeric:tabular-nums}
-.big small{font:600 13px var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.stats{margin:0;display:grid;grid-template-columns:1fr auto;gap:7px 16px;font-size:15px}
-.stats dt{color:var(--muted)}
-.stats dd{margin:0;text-align:right;font:700 17px var(--f-cond);letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chips span{padding:4px 10px;border-radius:999px;background:rgba(255,194,26,.14);color:var(--accent);font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
-.note{margin:0;color:var(--stable);font-weight:500}
-.note:empty{display:none}
-
-/* ---------- City ---------- */
-.city-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.city-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.label{font:600 12px var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.city-stats strong{display:block;font:700 28px var(--f-cond);font-variant-numeric:tabular-nums}
-.city-stats .of{color:var(--muted);font-size:18px}
-.meter{height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
-.meter i{display:block;height:100%;width:0;background:var(--accent)}
-.level-note{margin:0;font-size:14px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:8px;border-radius:12px;background:rgba(111,111,111,.5)}
-.tile{
-  position:relative;aspect-ratio:1;max-width:100%;padding:0;cursor:pointer;overflow:hidden;color:var(--ink);font:inherit;border-radius:6px;
-  border:1px solid rgba(0,0,0,.4);background:#8b6a3c;background-image:linear-gradient(#a3a3a3 0 14%,#5d5d5d 14% 20%,transparent 20%);
-}
-.tile .plus{position:absolute;inset:0;display:grid;place-items:center;font:700 22px var(--f-cond);color:rgba(255,246,214,.6)}
-.tile .mini{
-  position:absolute;left:26%;right:26%;bottom:8%;background-color:var(--c);
-  background-image:linear-gradient(90deg,transparent 0 18%,rgba(11,23,51,.9) 18% 42%,transparent 42% 58%,rgba(11,23,51,.9) 58% 82%,transparent 82%),
-    repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 2px,transparent 2px 7px);
-  box-shadow:0 0 0 1px #0a0a0a,inset 0 3px 0 #d4bb7c;
-}
-.tile .mini.unfinished{outline:2px dashed var(--accent);outline-offset:2px}
-.tile.sel{outline:3px solid var(--accent);outline-offset:1px;z-index:1}
-.rules{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px;color:var(--muted)}
-.rules b{color:var(--ink);font-weight:600}
-.sw{display:inline-block;width:10px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:2px;background:var(--c)}
-#scrim{position:absolute;inset:0;background:rgba(6,10,26,.55);cursor:default}
-.sheet{
-  position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:460px;max-height:80%;overflow-y:auto;box-sizing:border-box;cursor:default;
-  background:var(--glass-strong);border:1px solid var(--line);border-radius:20px 20px 0 0;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-  padding:18px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:10px;
-}
-.sheet p{margin:0;color:var(--muted)}
-.opt{
-  display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;min-height:54px;padding:8px 14px;
-  border-radius:14px;cursor:pointer;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);
-  font:700 16px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;
-}
-.opt small{display:block;margin-top:2px;font:400 13px var(--f-body);letter-spacing:0;text-transform:none;color:var(--muted)}
-.opt .go{font-size:14px;color:var(--accent)}
-.opt:disabled{cursor:not-allowed;opacity:.6}
-.opt:disabled .go{color:var(--danger);text-transform:none;font:400 13px var(--f-body);max-width:12ch;text-align:right}
-.opt .sw{width:14px;height:22px;margin:0}
+.howto{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.howto li{display:grid;grid-template-columns:112px 1fr;gap:12px;align-items:baseline}
+.howto b{font:700 16px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.howto span{font-size:15px}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.ach div{padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.ach div.on{border-color:rgba(255,194,26,.45);background:rgba(255,194,26,.08)}
+.ach b{display:block;font:700 15px var(--f-cond);letter-spacing:.04em;text-transform:uppercase}
+.ach small{display:block;color:var(--muted);font-size:12px;line-height:1.3}
+.ach div:not(.on) b{color:var(--muted)}
+.streak{display:flex;align-items:center;gap:10px;font:700 22px var(--f-cond)}
+.streak svg{width:28px;height:28px}
+.days{display:flex;gap:6px}
+.days span{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:10px;background:rgba(255,255,255,.05);font:600 12px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.days span i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18)}
+.days span.on i{background:var(--accent)}
+.days span.today{outline:1px solid var(--accent)}
+.toasts{position:absolute;left:50%;top:calc(var(--top) + 60px);transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(440px,calc(100% - 24px))}
+.toast{padding:9px 14px;border-radius:12px;background:var(--glass-strong);border:1px solid var(--line);font:600 15px var(--f-body);text-align:center;animation:toast 3.2s ease forwards}
+.toast.good{border-color:rgba(57,217,138,.5)}
+.toast.ach{border-color:rgba(201,168,255,.6)}
+@keyframes toast{0%{opacity:0;transform:translateY(-8px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+.lvup{text-align:center;align-items:center}
+.lvup .num{font:700 84px/1 var(--f-cond);color:var(--accent)}
+.unlocks{display:grid;gap:6px;width:100%}
+.unlocks div{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06);font:600 15px var(--f-body)}
+.unlocks div small{color:var(--muted);font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
 @media (min-width:760px) and (min-aspect-ratio:1/1){.screen:not(.center){align-items:flex-start;padding-left:48px}}
-/* Phones: keep the stability pill and the multiplier chip side by side without overlapping. */
 @media (max-width:480px){
   .stab{padding:7px 10px;gap:6px;font-size:13px;letter-spacing:.06em}
   .stab .segs{display:none}
   .mult{min-width:96px;padding:5px 10px 8px}
   .mult b{font-size:28px}
   .mult span{font-size:11px;letter-spacing:.1em}
+  .chip{height:36px;padding:0 9px;font-size:17px}
+  .lvl .lbar{display:none}
+  .lvl{padding-right:6px}
 }
-@media (prefers-reduced-motion: reduce){.stab[data-level="3"]{animation:none}.banner.show{animation-duration:2.4s}}
+@media (prefers-reduced-motion: reduce){.stab[data-level="3"]{animation:none}.banner.show{animation-duration:2.4s}.collect{animation:none}}
 </style>
 </head>
 <body>
 <div id="stage">
-  <canvas id="gl" aria-label="Skyline Forge construction site. Tap to drop a floor, hold to swing faster, swipe down while holding for a Power Drop, swipe up to recall."></canvas>
+  <canvas id="gl" aria-label="Skyline Forge. In the city, drag to pan, pinch or scroll to zoom and tap a lot. While building, tap to drop a floor."></canvas>
+  <div id="labels" aria-hidden="true"></div>
   <div id="fx" aria-hidden="true"></div>
 
+  <!-- City hub -->
+  <div class="hub" id="hub" hidden>
+    <div class="hub-top">
+      <div class="chip glass lvl" id="lvlChip" role="button" tabindex="0" aria-label="City level">
+        <span class="ring"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/><circle id="lvlRing" cx="18" cy="18" r="15" fill="none" stroke="#ffc21a" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/></svg><b id="lvlNum">1</b></span>
+        <span class="lbar"><span id="lvlNext">Level 2 at 40</span><i id="lvlBar"></i></span>
+      </div>
+      <div class="chip glass" title="Population"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="#e0b060"/><path d="M2.5 19c0-3.4 2.5-6 5.5-6s5.5 2.6 5.5 6z" fill="#c98a2e"/><circle cx="16.5" cy="9" r="2.7" fill="#e0b060"/><path d="M12.6 19c.4-3 2-5 3.9-5 2.6 0 4.5 2.2 4.5 5z" fill="#c98a2e"/></svg><span id="hubPop">0</span></div>
+      <div class="chip glass" title="Coins"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd257"/><circle cx="12" cy="12" r="6.3" fill="none" stroke="#b8860b" stroke-width="1.6"/><path d="M12 8v8M9.8 10h3.4a1.6 1.6 0 010 3.2h-2.4a1.6 1.6 0 000 3.2h3.4" fill="none" stroke="#8a5f00" stroke-width="1.4"/></svg><span id="hubCoins">0</span></div>
+      <div class="chip glass" title="Prestige"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.6L21.5 9l-5.3 4.5L18 20.5 12 16.8 6 20.5l1.8-7L2.5 9l6.9-.4z" fill="#c9a8ff"/></svg><span id="hubPrestige">0</span></div>
+    </div>
+    <button class="collect" id="collectBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#fff3c4"/><circle cx="12" cy="12" r="6.3" fill="none" stroke="#8a5f00" stroke-width="1.6"/></svg><span id="collectTxt">Collect 0</span></button>
+    <div class="rail">
+      <button class="icon-btn glass" id="btnContracts" type="button" aria-label="Contracts"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="2.5" width="6" height="3.5" rx="1" fill="currentColor"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" stroke="currentColor" stroke-width="1.6"/></svg><span class="badge" id="badgeContracts" hidden>0</span><small>Jobs</small></button>
+      <button class="icon-btn glass" id="btnDaily" type="button" aria-label="Daily challenge"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4" stroke="currentColor" stroke-width="1.8"/><path d="M12 11.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="currentColor"/></svg><span class="badge" id="badgeDaily" hidden>!</span><small>Daily</small></button>
+      <button class="icon-btn glass" id="btnRace" type="button" aria-label="Sky Race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21V6h8v15" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11h8M8 16h8M12 3v3" stroke="currentColor" stroke-width="1.8"/><path d="M4 21h16" stroke="currentColor" stroke-width="1.8"/></svg><small>Race</small></button>
+      <button class="icon-btn glass" id="btnTrophies" type="button" aria-label="Trophies"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v5a5 5 0 01-10 0z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5A3.5 3.5 0 0116.5 11M12 14v3M8 20h8M9.5 17h5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="badge" id="badgeTrophies" hidden>!</span><small>Trophies</small></button>
+      <button class="icon-btn glass" id="btnMenu" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2"/></svg><small>Menu</small></button>
+    </div>
+    <div class="hub-bottom">
+      <div class="goal glass" id="goal" role="button" tabindex="0"></div>
+      <div class="demand glass" aria-label="Demand">
+        <span class="dbar" style="--c:var(--res)"><span class="col"><i id="dR"></i></span>R</span>
+        <span class="dbar" style="--c:var(--com)"><span class="col"><i id="dC"></i></span>C</span>
+        <span class="dbar" style="--c:var(--off)"><span class="col"><i id="dO"></i></span>O</span>
+        <span class="happy">Happiness<b id="happy">55%</b></span>
+        <span class="happy">Income<b id="income">0/h</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Construction HUD -->
   <div class="hud" id="hud" hidden>
     <div class="stab glass" id="stab" data-level="0" role="status" aria-live="polite">
       <span class="ico" id="stabIco" aria-hidden="true">●</span><span class="txt" id="stabTxt">Stable</span>
       <span class="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     </div>
+    <div class="bpname" id="bpName"></div>
     <div class="mult glass" id="mult" hidden aria-hidden="true">
       <b id="multVal">×1.0</b><span id="multLbl">Safe</span><span class="bar"><i id="multBar"></i></span>
     </div>
@@ -254,137 +365,74 @@ select option{color:#111}
     <div class="hud-br">
       <div class="combo" id="combo" hidden><span id="comboLabel">Combo ×1</span><div class="combo-bar"><i id="comboFill"></i></div></div>
       <div class="lives" id="lives" aria-label="Lives"></div>
-      <span class="hud-pop glass" aria-label="Residents">
+      <span class="hud-pop glass" aria-label="Points">
         <svg viewBox="0 0 11 8" aria-hidden="true"><rect x="1" y="0" width="3" height="3" fill="#e0b060"/><rect x="0" y="3" width="5" height="3" fill="#c98a2e"/><rect x="1" y="6" width="1" height="2" fill="#c98a2e"/><rect x="3" y="6" width="1" height="2" fill="#c98a2e"/><rect x="7" y="0" width="3" height="3" fill="#e0b060"/><rect x="6" y="3" width="5" height="3" fill="#c98a2e"/><rect x="7" y="6" width="1" height="2" fill="#c98a2e"/><rect x="9" y="6" width="1" height="2" fill="#c98a2e"/></svg>
         <span id="hudPop">0</span>
       </span>
     </div>
   </div>
 
-  <section class="screen" id="title">
+  <!-- Title -->
+  <section class="screen" id="title" hidden>
     <div class="panel">
-      <p class="eyebrow">Crane-drop tower builder</p>
+      <p class="eyebrow">Build every tower. Grow your city.</p>
       <h1 class="wordmark">Skyline <span>Forge</span></h1>
-      <p class="lede" id="controlsHint"></p>
+      <p class="lede" id="titleLede"></p>
       <div class="btns">
-        <div class="btn-row">
-          <button class="btn primary" id="btnQuick" type="button">Quick Game</button>
-          <button class="btn" id="btnCity" type="button">Build City</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn" id="btnHow" type="button">How to play</button>
-          <button class="btn" id="btnSettings" type="button">Settings</button>
+        <button class="btn primary" id="btnPlay" type="button">Play</button>
+        <div class="btn-row three">
+          <button class="btn" id="btnTitleRace" type="button">Sky Race</button>
+          <button class="btn" id="btnTitleDaily" type="button">Daily</button>
+          <button class="btn" id="btnTitleSettings" type="button">Settings</button>
         </div>
       </div>
       <p class="best" id="bestLine"></p>
     </div>
   </section>
 
-  <section class="screen center" id="howto" hidden>
-    <div class="panel">
-      <h2>How to build</h2>
-      <ul class="howto">
-        <li><b>Tap</b><span>Drop the floor. It falls straight down from where it hangs.</span></li>
-        <li><b>Hold</b><span>The crane swings faster and your multiplier climbs from ×1.0 to ×4.0. Let go to drop.</span></li>
-        <li><b>Hold + swipe ↓</b><span>Power Drop. Lands harder for ×1.25 to ×2.5 more. A faster swipe hits harder.</span></li>
-        <li><b>Hold + swipe ↑</b><span>Recall the floor for another swing. Costs one step of your combo.</span></li>
-        <li><b>3 seconds</b><span>Forced release. Hold too long and the crane lets go on its own.</span></li>
-        <li><b>Keyboard</b><span>Hold Space, release to drop. ↓ for Power Drop (Shift ↓ for maximum), ↑ to recall.</span></li>
-      </ul>
-      <p class="lede">Land floors dead centre for a <b>Perfect</b>. Sloppy floors make the whole building sway, and a floor whose centre lands past the edge tips off. Three misses and the round is over.</p>
-      <div class="legend">
-        <span data-ico="●" style="--c:var(--stable)">Stable</span>
-        <span data-ico="◆" style="--c:var(--moving)">Moving</span>
-        <span data-ico="▲" style="--c:var(--danger)">Dangerous</span>
-        <span data-ico="✖" style="--c:var(--critical)">Critical</span>
-      </div>
-      <button class="btn primary" type="button" data-back>Got it</button>
-    </div>
-  </section>
-
-  <section class="screen center" id="settings" hidden>
-    <div class="panel">
-      <h2>Settings</h2>
-      <label class="setting"><span>Classic controls<small>Drop the moment you touch, like the phone original. Turns off hold, Power Drop and recall.</small></span><span class="switch"><input type="checkbox" id="setClassic"><span></span></span></label>
-      <label class="setting">Sound effects<span class="switch"><input type="checkbox" id="setSfx"><span></span></span></label>
-      <label class="setting">Music<span class="switch"><input type="checkbox" id="setMusic"><span></span></span></label>
-      <label class="setting">Vibration<span class="switch"><input type="checkbox" id="setHaptics"><span></span></span></label>
-      <label class="setting">Camera shake<span class="switch"><input type="checkbox" id="setShake"><span></span></span></label>
-      <label class="setting">Tips while building<span class="switch"><input type="checkbox" id="setTips"><span></span></span></label>
-      <label class="setting">Graphics
-        <select id="setQuality">
-          <option value="auto">Auto</option>
-          <option value="high">High</option>
-          <option value="balanced">Balanced</option>
-          <option value="battery">Battery saver</option>
-        </select>
-      </label>
-      <div class="btn-row">
-        <button class="btn" id="btnReplayTips" type="button">Replay tips</button>
-        <button class="btn primary" type="button" data-back>Done</button>
-      </div>
-    </div>
-  </section>
-
+  <!-- Pause -->
   <section class="screen center" id="pause" hidden>
     <div class="panel">
       <h2>Paused</h2>
+      <p class="lede" id="pauseInfo"></p>
       <div class="btns">
         <button class="btn primary" id="btnResume" type="button">Resume</button>
         <div class="btn-row">
           <button class="btn" id="btnRestart" type="button">Restart</button>
           <button class="btn" id="btnPauseSettings" type="button">Settings</button>
         </div>
-        <button class="btn ghost" id="btnQuit" type="button">Quit round</button>
+        <button class="btn ghost" id="btnQuit" type="button">Stop building</button>
       </div>
     </div>
   </section>
 
+  <!-- Results -->
   <section class="screen" id="result" hidden>
     <div class="panel">
-      <p class="eyebrow" id="resEyebrow">Game over</p>
-      <h2 id="resTitle">0 floors</h2>
+      <div>
+        <p class="eyebrow" id="resEyebrow"></p>
+        <h2 id="resTitle"></h2>
+      </div>
+      <div class="stars" id="resStars" aria-label="Stars"><i></i><i></i><i></i></div>
       <div class="big">
         <div><b id="resHeight">0</b><small id="resHeightSub">floors</small></div>
-        <div><b id="resPop">0</b><small>residents</small></div>
+        <div><b id="resCap">0</b><small id="resCapSub">residents</small></div>
       </div>
+      <div class="rewards" id="resRewards"></div>
       <dl class="stats" id="resStats"></dl>
       <div class="chips" id="resChips"></div>
       <p class="note" id="resNote"></p>
       <div class="btn-row">
-        <button class="btn primary" id="resPrimary" type="button">Play again</button>
-        <button class="btn" id="resSecondary" type="button">Menu</button>
+        <button class="btn primary" id="resPrimary" type="button"></button>
+        <button class="btn" id="resSecondary" type="button"></button>
       </div>
     </div>
   </section>
 
-  <section class="screen top" id="city" hidden>
-    <div class="panel">
-      <div class="city-head"><h2>Your city</h2><button class="btn small" id="cityBack" type="button">Back</button></div>
-      <div class="city-stats">
-        <div><span class="label">Population</span><strong id="cityPop">0</strong></div>
-        <div><span class="label">City level</span><strong><span id="cityLevel">1</span><span class="of"> / 20</span></strong></div>
-      </div>
-      <div class="meter" aria-hidden="true"><i id="cityLevelFill"></i></div>
-      <p class="level-note" id="cityLevelNote"></p>
-      <div class="grid" id="cityGrid"></div>
-      <ul class="rules">
-        <li><i class="sw" style="--c:var(--blue)"></i><b>Residential</b>: any lot, 10 floors</li>
-        <li><i class="sw" style="--c:var(--red)"></i><b>Commercial</b>: next to blue, 20 floors</li>
-        <li><i class="sw" style="--c:var(--green)"></i><b>Office</b>: next to blue and red, 30 floors</li>
-        <li><i class="sw" style="--c:var(--gold)"></i><b>Luxury</b>: next to blue, red and green, 40 floors</li>
-      </ul>
-      <button class="btn ghost small" id="cityReset" type="button">Clear city</button>
-    </div>
-  </section>
-
-  <div id="scrim" hidden></div>
-  <div class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle" hidden>
-    <h2 id="sheetTitle">Empty lot</h2>
-    <p id="sheetText"></p>
-    <div class="btns" id="sheetBody"></div>
-    <button class="btn ghost small" id="sheetClose" type="button">Close</button>
-  </div>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" hidden><div class="panel" id="modalPanel"></div></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <section class="screen center" id="fatal" hidden>
     <div class="panel"><h2>Can't start</h2><p class="lede" id="fatalText"></p></div>
@@ -392,1530 +440,15 @@ select option{color:#111}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-(() => {
-'use strict';
-const $ = id => document.getElementById(id);
-function fatal(msg) { for (const s of document.querySelectorAll('.screen')) s.hidden = true; $('hud').hidden = true; $('fatalText').textContent = msg; $('fatal').hidden = false; }
-if (!window.THREE) { fatal('The 3D engine could not load. Check your connection and reload the page.'); return; }
-const T = THREE;
-
-/* ================================================================== *
- * CLASSIC BASE. This is the retro version's engine, unchanged: same   *
- * units (classic screen pixels, y pointing down), rope, swing, drop,  *
- * sway, camera and rules. The 3D scene only draws its state.          *
- * ================================================================== */
-const CFG = {
-  blockW: 40,
-  blockH: 46,
-  towerTopRatio: 0.58,   // the tower top always sits this far down the screen
-  gapRatio: 0.14,        // hanging block bottom -> tower top
-  minGap: 60,
-  ropeRatio: 0.48,       // rope length; the crane stays above the top edge during play
-  dropTime: 0.36,        // seconds to fall the gap (sets gravity per screen size)
-  releaseMomentum: 0,    // 0 = the block drops straight down from where you let go
-  swingReach: { start: 30, perFloor: 0.6, max: 62 },    // px either side of centre
-  swingSpeed: { start: 2.3, perFloor: 0.03, max: 3.8 },  // phase speed, rad/s
-  hookLowerTime: 0.5,
-  nextDelay: 0.2,
-  perfectTol: 5,         // px from dead centre that still counts as perfect
-  slabHalf: 52,          // half-width of the concrete slab the first floor must land on
-  sway: {
-    period: 2.8,         // seconds per full swing of the building
-    gain: 0.7,           // top-of-tower sway added per px of misalignment
-    perfectKeep: 0.45,   // a perfect drop keeps this share of the sway
-    max: 30,             // px at the top of the tower
-    maxTilt: 0.06,       // radians; short towers can only lean this far
-  },
-  residents: { base: 6, accuracy: 14, perfect: 25 },
-  comboTime: 4.2,
-  comboBonus: 8,
-  lives: 3,
-  cameraRate: 7,
-  intro: { hold: 0.55, pan: 1.35, craneAt: 0.11 },   // show the crane, then slide down to the rope
-};
-
-/* ------------------------------------------------------------------ *
- * FORGE LAYER: the design document's Phase 1 features, on top of the  *
- * base. None of them change the swing, drop or sway unless the player *
- * holds, swipes or recalls.                                           *
- * ------------------------------------------------------------------ */
-const FORGE = {
-  hold: {
-    band: 0.5, cap: 3.0, warn: 2.2,                                   // seconds
-    speed: [1, 1.15, 1.4, 1.8, 2.5, 3.5],                             // swing speed per band (Appendix A)
-    mult:  [1, 1.2, 1.5, 2.0, 2.8, 4.0],                              // reward multiplier per band
-    label: ['Safe', 'Low risk', 'Committed', 'High risk', 'Very high risk', 'Extreme'],
-  },
-  // [min swipe speed px/ms, multiplier, name]; boost adds downward speed in units of a normal landing
-  power: { tiers: [[0, 1.25, 'Light'], [0.6, 1.5, 'Strong'], [1.2, 2.0, 'Fast'], [2.2, 2.5, 'Maximum']], swipe: 34, boost: 1.6, shove: 0.12 },
-  recallSwipe: 44,
-  //          name        max |dx|/W  quality   (Perfect is CFG.perfectTol)
-  ratings: [['Perfect',   0,    1.0],
-            ['Excellent', 0.15, 0.92],
-            ['Great',     0.25, 0.82],
-            ['Good',      0.35, 0.7],
-            ['Rough',     0.45, 0.55],
-            ['Dangerous', 0.5,  0.4]],
-  stability: [0.25, 0.5, 0.75],      // tower-top sway as a share of CFG.sway.max
-  recovery: [['Close Call', 50], ['Structural Save', 150]],
-};
-const holdBand = t => Math.min(FORGE.hold.speed.length - 1, Math.floor(t / FORGE.hold.band));
-
-const TYPES = {
-  blue:  { name: 'Residential', floors: 10, mult: 1,   needs: [],                       body: '#3b7fe0', light: '#86b6f5', dark: '#2356a8', outline: '#0c2250' },
-  red:   { name: 'Commercial',  floors: 20, mult: 1.5, needs: ['blue'],                 body: '#dc4a3a', light: '#f39185', dark: '#9c2b1e', outline: '#3f0e08' },
-  green: { name: 'Office',      floors: 30, mult: 2,   needs: ['blue', 'red'],          body: '#3cbf3c', light: '#86e486', dark: '#23862a', outline: '#0d3a0d' },
-  gold:  { name: 'Luxury',      floors: 40, mult: 3,   needs: ['blue', 'red', 'green'], body: '#ecbd2f', light: '#f8e07e', dark: '#a67d12', outline: '#402f05' },
-};
-const TYPE_ORDER = ['blue', 'red', 'green', 'gold'];
-const QUICK_TYPE = 'green';
-const W = CFG.blockW, H = CFG.blockH, ROOF_H = 10;
-const HANG = { foundation: 24, floor: 15, roof: 15 };   // rope end -> block top (pulley + sling, or pulley + hook)
-const extraTop = kind => (kind === 'roof' ? ROOF_H : 0);
-
-// 3D scale: one classic pixel is 0.15 m, so a 40 x 46 px block is a 6 x 6.9 m module.
-const S = 0.15, DEPTH = 6;
-
-const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const fmt = n => Math.round(n).toLocaleString('en-US');
-const smooth = t => t * t * (3 - 2 * t);
-const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
-function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const lin = hex => new T.Color(hex).convertSRGBToLinear();
-
-/* ---------------- Save & settings ---------------- */
-const SAVE_KEY = 'skyline-forge/v2';
-const save = {
-  best: { floors: 0, pop: 0 }, city: Array(25).fill(null), tips: {},
-  settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto' },
-};
-try {
-  const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-  if (d && typeof d === 'object') {
-    if (d.best) save.best = { floors: +d.best.floors || 0, pop: +d.best.pop || 0 };
-    if (Array.isArray(d.city) && d.city.length === 25) save.city = d.city.map(b => (b && TYPES[b.type]) ? { type: b.type, floors: +b.floors || 0, target: +b.target || TYPES[b.type].floors, residents: +b.residents || 0, done: !!b.done } : null);
-    if (d.settings) for (const k of Object.keys(save.settings)) if (k in d.settings) save.settings[k] = d.settings[k];
-    if (d.tips && typeof d.tips === 'object') save.tips = d.tips;
-  }
-} catch (e) { /* no storage: play without saving */ }
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
-const vib = p => { if (save.settings.haptics && navigator.vibrate) { try { navigator.vibrate(p); } catch (e) { /* ignore */ } } };
-
-/* ---------------- Renderer ---------------- */
-const canvas = $('gl');
-let renderer;
-try {
-  renderer = new T.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', stencil: false });
-} catch (e) { fatal('This device could not start WebGL, which the 3D city needs.'); return; }
-renderer.outputEncoding = T.sRGBEncoding;
-renderer.toneMapping = T.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.02;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = T.PCFSoftShadowMap;
-canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); fatal('The graphics context was lost. Reload the page to keep building.'); });
-const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-
-const scene = new T.Scene();
-const HORIZON = new T.Color('#e8d4ba');           // fog is applied after encoding in r128, so sRGB values match the sky
-scene.fog = new T.FogExp2(HORIZON.getHex(), 0.0012);
-const FOV = 40, TAN_HALF = Math.tan(FOV * Math.PI / 360);
-const camera = new T.PerspectiveCamera(FOV, 1, 1, 9000);
-
-/* ---------------- Sky (darkens with altitude, like the classic) ---------------- */
-const sunDir = new T.Vector3(0.52, 0.5, 0.69).normalize();
-const skyMat = new T.ShaderMaterial({
-  uniforms: { cTop: { value: new T.Color('#3d7ccc') }, cMid: { value: new T.Color('#8fbfe8') }, cHor: { value: HORIZON.clone() }, sun: { value: sunDir }, sunK: { value: 1 } },
-  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: [
-    'uniform vec3 cTop; uniform vec3 cMid; uniform vec3 cHor; uniform vec3 sun; uniform float sunK; varying vec3 vD;',
-    'void main(){',
-    '  vec3 d = normalize(vD); float h = d.y;',
-    '  vec3 c = mix(cHor, cMid, smoothstep(-0.02, 0.22, h));',
-    '  c = mix(c, cTop, smoothstep(0.22, 0.8, h));',
-    '  float s = max(dot(d, sun), 0.0);',
-    '  c += vec3(1.0, 0.86, 0.62) * (pow(s, 600.0) * 1.4 + pow(s, 10.0) * 0.2) * sunK;',
-    '  c = mix(c, cHor * 0.9, smoothstep(0.0, -0.25, h));',
-    '  gl_FragColor = vec4(c, 1.0);',
-    '}'].join('\n'),
-  side: T.BackSide, depthWrite: false, fog: false,
-});
-const sky = new T.Mesh(new T.SphereGeometry(4000, 32, 16), skyMat);
-sky.frustumCulled = false; sky.renderOrder = -2; scene.add(sky);
-// [altitude m, zenith, mid, horizon]: day, high sky, dusk blue, deep blue, space
-const SKY_KEYS = [
-  [0,   '#3d7ccc', '#8fbfe8', '#e8d4ba'],
-  [210, '#3a72c2', '#86b6e2', '#d9d3c8'],
-  [390, '#233f80', '#4d71b2', '#93a9cf'],
-  [540, '#101a46', '#223268', '#3d4c7c'],
-  [720, '#04060f', '#0a1030', '#141d44'],
-].map(k => [k[0], new T.Color(k[1]), new T.Color(k[2]), new T.Color(k[3])]);
-const skyTmp = [new T.Color(), new T.Color(), new T.Color()];
-function applySky(alt) {
-  let i = 1;
-  while (i < SKY_KEYS.length - 1 && alt > SKY_KEYS[i][0]) i++;
-  const a = SKY_KEYS[i - 1], b = SKY_KEYS[i], t = clamp((alt - a[0]) / (b[0] - a[0]), 0, 1);
-  for (let k = 0; k < 3; k++) skyTmp[k].copy(a[k + 1]).lerp(b[k + 1], t);
-  skyMat.uniforms.cTop.value.copy(skyTmp[0]); skyMat.uniforms.cMid.value.copy(skyTmp[1]); skyMat.uniforms.cHor.value.copy(skyTmp[2]);
-  skyMat.uniforms.sunK.value = 1 - clamp((alt - 400) / 300, 0, 0.8);
-  scene.fog.color.copy(skyTmp[2]);
-  scene.fog.density = 0.0012 * (1 - clamp((alt - 150) / 500, 0, 0.8));
-}
-const stars = (() => {
-  const r = mulberry32(5), n = 700, pos = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    const u = r() * 2 - 1, a = r() * Math.PI * 2, s = Math.sqrt(1 - u * u);
-    pos[i * 3] = Math.cos(a) * s * 3500; pos[i * 3 + 1] = Math.abs(u) * 3500; pos[i * 3 + 2] = Math.sin(a) * s * 3500;
-  }
-  const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
-  const p = new T.Points(g, new T.PointsMaterial({ color: '#ffffff', size: 2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-  p.frustumCulled = false; p.renderOrder = -1; scene.add(p);
-  return p;
-})();
-const hemi = new T.HemisphereLight(lin('#dbe8ff'), lin('#6d5d4c'), 0.6);
-const sun = new T.DirectionalLight(lin('#ffe4c0'), 2.3);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 20, far: 460 });
-sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = 0.03;
-scene.add(hemi, sun, sun.target);
-
-/* ---------------- Textures ---------------- */
-function canvasOf(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
-function tex(c) { const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = maxAniso; return t; }
-function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
-// The classic block design, painted at 8x so it stays crisp on a 3D face.
-const NAVY = '#0b1733', NAVY_2 = '#22427f';
-const GLASS = [['#c4e8ff', 7], ['#86c7f5', 7], ['#58a6e8', 5], ['#428fd4', 3], ['#3ea37c', 4]];   // sky reflection, top to bottom
-function paintGlass(g, x, y, w, h) {
-  let yy = y;
-  for (const [c, n] of GLASS) { const rows = Math.min(Math.round(n * h / 26), y + h - yy); if (rows > 0) rect(g, c, x, yy, w, rows); yy += rows; }
-  if (yy < y + h) rect(g, GLASS[GLASS.length - 1][0], x, yy, w, y + h - yy);
-  rect(g, '#eef9ff', x, y + 1, 1, Math.round(h * 0.4));
-}
-function paintBlock(g, t, door) {
-  rect(g, t.outline, 0, 0, W, H);
-  rect(g, t.body, 1, 1, W - 2, H - 2);
-  rect(g, t.light, 1, 5, 2, H - 9);
-  rect(g, t.dark, W - 3, 5, 2, H - 9);
-  rect(g, t.dark, 1, H - 4, W - 2, 3);
-  rect(g, '#efe0b2', 1, 1, W - 2, 1);          // concrete floor slab along the top
-  rect(g, '#d4bb7c', 1, 2, W - 2, 2);
-  rect(g, '#8c7644', 1, 4, W - 2, 1);
-  if (door) {
-    rect(g, NAVY, 7, 8, 26, H - 11);
-    rect(g, NAVY_2, 8, 9, 24, 1);
-    paintGlass(g, 9, 10, 22, 5);                 // transom
-    rect(g, NAVY, 9, 15, 22, 2);
-    paintGlass(g, 9, 17, 10, H - 21);            // door leaves
-    paintGlass(g, 21, 17, 10, H - 21);
-    rect(g, '#d8e6f5', 17, 28, 1, 3); rect(g, '#d8e6f5', 22, 28, 1, 3);
-  } else {
-    for (const x of [6, 22]) {
-      rect(g, NAVY, x, 8, 12, 31);
-      rect(g, NAVY_2, x + 1, 9, 10, 1);
-      paintGlass(g, x + 2, 10, 8, 27);
-      rect(g, t.light, x, 39, 12, 1);
-    }
-  }
-}
-function blockTexture(t, door) {
-  const K = 8, c = canvasOf(W * K, H * K), g = c.getContext('2d');
-  g.scale(K, K); paintBlock(g, t, door);
-  return tex(c);
-}
-const topTex = (() => {
-  const c = canvasOf(128, 128), g = c.getContext('2d'), r = mulberry32(3);
-  rect(g, '#cdb57f', 0, 0, 128, 128);
-  for (let i = 0; i < 500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.08)'; g.fillRect(r() * 128, r() * 128, 2, 2); }
-  return tex(c);
-})();
-const latticeTex = (() => {
-  const c = canvasOf(128, 128), g = c.getContext('2d');
-  g.strokeStyle = '#ffffff'; g.lineWidth = 14; g.strokeRect(7, 7, 114, 114);
-  g.lineWidth = 9; g.beginPath(); g.moveTo(7, 7); g.lineTo(121, 121); g.moveTo(121, 7); g.lineTo(7, 121); g.stroke();
-  const t = tex(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
-})();
-const puffTex = (() => {
-  const c = canvasOf(128, 128), g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return tex(c);
-})();
-const cloudTex = (() => {
-  const c = canvasOf(256, 128), g = c.getContext('2d'), r = mulberry32(11);
-  for (let i = 0; i < 14; i++) {
-    const x = 256 * (0.18 + r() * 0.64), y = 128 * (0.45 + r() * 0.25), rad = 128 * (0.16 + r() * 0.2);
-    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
-    gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
-  }
-  return tex(c);
-})();
-function planetTex(draw) { const c = canvasOf(256, 256), g = c.getContext('2d'); draw(g); return tex(c); }
-
-/* ---------------- Modules (the classic blocks, in 3D) ---------------- */
-const geoModule = new T.BoxGeometry(W * S, H * S, DEPTH);
-const matTop = new T.MeshStandardMaterial({ map: topTex, roughness: 0.9 });
-const matBottom = new T.MeshStandardMaterial({ color: lin('#3a3325'), roughness: 1 });
-const MATS = {};
-for (const key of TYPE_ORDER) {
-  const t = TYPES[key];
-  const f = new T.MeshStandardMaterial({ map: blockTexture(t, false), roughness: 0.55, metalness: 0.05 });
-  const d = new T.MeshStandardMaterial({ map: blockTexture(t, true), roughness: 0.55, metalness: 0.05 });
-  MATS[key] = { floor: [f, f, matTop, matBottom, f, f], foundation: [d, d, matTop, matBottom, d, d] };
-}
-function roofProps(key) {
-  const t = TYPES[key], g = new T.Group(), top = H * S / 2;
-  const m = c => new T.MeshStandardMaterial({ color: lin(c), roughness: 0.6 });
-  const add = (geo, mat, x, y, z) => { const o = new T.Mesh(geo, mat); o.position.set(x, top + y, z); o.castShadow = true; g.add(o); return o; };
-  add(new T.BoxGeometry(W * S + 0.2, 0.45, DEPTH + 0.2), m(t.outline), 0, 0.22, 0);
-  if (key === 'blue') {
-    add(new T.CylinderGeometry(0.85, 0.85, 1.3, 12), m('#7a5530'), 1.3, 1.1, 0);
-    add(new T.CylinderGeometry(0.05, 0.05, 2.2, 6), m('#2a2a2a'), -1.8, 1.5, 0);
-    add(new T.SphereGeometry(0.14, 8, 6), new T.MeshBasicMaterial({ color: '#ff5a4a' }), -1.8, 2.65, 0);
-  } else if (key === 'red') {
-    add(new T.BoxGeometry(4.4, 1.2, 0.18), m('#fff1e0'), 0, 1.2, 0);
-    add(new T.BoxGeometry(4.6, 0.14, 0.24), m(t.outline), 0, 1.86, 0);
-  } else if (key === 'green') {
-    add(new T.BoxGeometry(4.2, 0.6, 4.2), new T.MeshStandardMaterial({ color: lin('#9fe8ff'), roughness: 0.2, metalness: 0.4 }), 0, 0.75, 0);
-    add(new T.BoxGeometry(2.4, 0.5, 2.4), new T.MeshStandardMaterial({ color: lin('#d8f7ff'), roughness: 0.2, metalness: 0.4 }), 0, 1.3, 0);
-  } else {
-    add(new T.BoxGeometry(4.2, 0.45, 4.2), m(t.light), 0, 0.67, 0);
-    add(new T.BoxGeometry(2.6, 0.45, 2.6), m(t.body), 0, 1.1, 0);
-    add(new T.ConeGeometry(0.6, 2.4, 4), m('#fff3c9'), 0, 2.5, 0);
-  }
-  return g;
-}
-function makeModule(type, kind) {
-  const g = new T.Group();
-  const body = new T.Mesh(geoModule, kind === 'foundation' ? MATS[type].foundation : MATS[type].floor);
-  body.castShadow = body.receiveShadow = true;
-  g.add(body);
-  if (kind === 'roof') g.add(roofProps(type));
-  scene.add(g);
-  return g;
-}
-
-/* ---------------- Crane ---------------- */
-// Mast well to the left so, like the classic, only the rope shows while you build.
-const MAST_X = -40, JIB_TIP = 8, CJ_END = -52, TROLLEY = 1.6;
-function latticeMat(color, rx, ry) {
-  const t = latticeTex.clone(); t.needsUpdate = true; t.repeat.set(rx, ry);
-  return new T.MeshStandardMaterial({ map: t, color: lin(color), alphaTest: 0.5, side: T.DoubleSide, roughness: 0.55, metalness: 0.25 });
-}
-const mastMat = latticeMat('#f2b90f', 1, 10);
-const mast = new T.Mesh(new T.BoxGeometry(2.4, 1, 2.4).translate(0, 0.5, 0), mastMat);
-mast.position.set(MAST_X, 0, 0); mast.castShadow = true; scene.add(mast);
-const head = new T.Group(); scene.add(head);
-{
-  const jl = JIB_TIP - MAST_X, cl = MAST_X - CJ_END;
-  const jib = new T.Mesh(new T.BoxGeometry(jl, 1.9, 1.9), latticeMat('#f2b90f', jl / 1.9, 1)); jib.position.set((JIB_TIP + MAST_X) / 2, 0, 0); jib.castShadow = true;
-  const cjib = new T.Mesh(new T.BoxGeometry(cl, 1.5, 1.9), latticeMat('#f2b90f', cl / 1.5, 1)); cjib.position.set((MAST_X + CJ_END) / 2, -0.2, 0);
-  const apex = new T.Mesh(new T.ConeGeometry(1.6, 8, 4), latticeMat('#f2b90f', 2, 3)); apex.position.set(MAST_X, 4.9, 0); apex.rotation.y = Math.PI / 4;
-  const cab = new T.Mesh(new T.BoxGeometry(2.6, 2.3, 2.8), new T.MeshStandardMaterial({ color: lin('#2a3440'), roughness: 0.25, metalness: 0.5 })); cab.position.set(MAST_X + 2.6, -2, 1);
-  const trolley = new T.Mesh(new T.BoxGeometry(1.9, 0.8, 2.1), new T.MeshStandardMaterial({ color: lin('#3a3f46'), roughness: 0.6, metalness: 0.4 })); trolley.position.set(0, -1.2, 0);
-  head.add(jib, cjib, apex, cab, trolley);
-  const weight = new T.MeshStandardMaterial({ color: lin('#a7a39a'), roughness: 0.9 });
-  for (let k = 0; k < 3; k++) { const w = new T.Mesh(new T.BoxGeometry(1.5, 2.6, 2.3), weight); w.position.set(CJ_END + 1.5 + k * 1.7, -1.9, 0); head.add(w); }
-}
-const rodGeo = new T.CylinderGeometry(1, 1, 1, 6);
-const steelMat = new T.MeshStandardMaterial({ color: lin('#15171b'), roughness: 0.5, metalness: 0.5 });
-const UP = new T.Vector3(0, 1, 0), tmpA = new T.Vector3(), tmpB = new T.Vector3(), tmpD = new T.Vector3();
-function rod(r) { const m = new T.Mesh(rodGeo, steelMat); m.userData.r = r; scene.add(m); return m; }
-function placeRod(m, a, b) {
-  tmpD.subVectors(b, a); const len = tmpD.length();
-  if (len < 1e-4) { m.visible = false; return; }
-  m.visible = true;
-  m.position.copy(a).addScaledVector(tmpD, 0.5);
-  m.scale.set(m.userData.r, len, m.userData.r);
-  m.quaternion.setFromUnitVectors(UP, tmpD.multiplyScalar(1 / len));
-}
-const pendantA = rod(0.07), pendantB = rod(0.07);
-const rope = rod(0.12);                                   // the classic's heavy black rope
-const slings = [rod(0.045), rod(0.045), rod(0.045), rod(0.045)];
-const hookBlock = new T.Group();
-let hookClaw;
-{
-  const pulley = new T.Mesh(new T.BoxGeometry(1.05, 1.05, 0.8).translate(0, -0.52, 0), new T.MeshStandardMaterial({ color: lin('#c9a445'), roughness: 0.45, metalness: 0.4 }));
-  pulley.castShadow = true;
-  hookClaw = new T.Mesh(new T.TorusGeometry(0.34, 0.1, 6, 14, Math.PI * 1.4), new T.MeshStandardMaterial({ color: lin('#9aa0a6'), roughness: 0.4, metalness: 0.8 }));
-  hookClaw.position.set(0, -1.8, 0); hookClaw.rotation.z = Math.PI * 0.8;
-  hookBlock.add(pulley, hookClaw);
-}
-scene.add(hookBlock);
-// Momentum trail and forced-release warning (reused, never reallocated).
-const ghosts = [0.2, 0.12, 0.06].map(o => { const m = new T.Mesh(geoModule, new T.MeshBasicMaterial({ color: '#ffe1a0', transparent: true, opacity: o, depthWrite: false })); m.visible = false; scene.add(m); return m; });
-const warnGlow = new T.Mesh(new T.BoxGeometry(W * S + 0.5, H * S + 0.5, DEPTH + 0.5), new T.MeshBasicMaterial({ color: '#ff3b2f', transparent: true, opacity: 0.2, depthWrite: false, blending: T.AdditiveBlending }));
-warnGlow.visible = false; scene.add(warnGlow);
-
-/* ---------------- City (instanced) ---------------- */
-const BLOCK = 74, HALF_BLOCK = 30, CITY_N = 9;
-const cityRand = mulberry32(2026);
-const ground = new T.Mesh(new T.PlaneGeometry(6000, 6000), new T.MeshStandardMaterial({ color: lin('#4d5157'), roughness: 1 }));
-ground.rotation.x = -Math.PI / 2; ground.position.y = -0.4; ground.receiveShadow = true; scene.add(ground);
-const unitBox = new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-const parks = new Set(['1,0', '-2,1', '2,-3', '-3,-4', '4,2']);
-const DT = { x: -90, z: -300 };
-const blocks = [], buildings = [], roofs = [];
-for (let i = -CITY_N; i <= CITY_N; i++) {
-  for (let j = -CITY_N; j <= CITY_N; j++) {
-    const cx = i * BLOCK, cz = j * BLOCK, site = i === 0 && j === 0, park = parks.has(`${i},${j}`);
-    const plaza = j >= 1 && j <= 2 && Math.abs(i) <= 1;   // open ground between the camera and the site
-    blocks.push({ x: cx, z: cz, c: site ? '#8b7760' : park ? '#6d8f4e' : plaza ? '#6b5a44' : '#b5afa4' });   // plaza: packed earth, like the classic's dirt
-    if (site || park || plaza) continue;
-    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
-      if (cityRand() < 0.1) continue;
-      const lx = cx - 15 + a * 30 + (cityRand() - 0.5) * 3, lz = cz - 15 + b * 30 + (cityRand() - 0.5) * 3;
-      const w = 15 + cityRand() * 11, d = 15 + cityRand() * 11;
-      const dist = Math.hypot(lx - DT.x, lz - DT.z);
-      let h = 9 + cityRand() * 22 + 178 * Math.exp(-((dist / 330) ** 2)) * Math.pow(cityRand(), 0.8);
-      if (Math.abs(lx) < 115 && Math.abs(lz) < 115) h = Math.min(h, 26 + cityRand() * 12);
-      if (lz > 160) h *= 0.55;
-      const pal = ['#a9b0b8', '#98a2ad', '#8793a0', '#b3aa9d', '#7b8896', '#a0968a', '#6b798a', '#bbb8b2', '#5c7087'];
-      const col = pal[Math.floor(cityRand() * pal.length)];
-      if (h > 80 && cityRand() < 0.7) {
-        const split = h * (0.45 + cityRand() * 0.2);
-        buildings.push({ x: lx, z: lz, w, d, y: 0, h: split, c: col });
-        buildings.push({ x: lx, z: lz, w: w * 0.72, d: d * 0.72, y: split, h: h - split, c: col });
-        roofs.push({ x: lx, z: lz, w: w * 0.34, d: d * 0.34, y: h, h: 3 + cityRand() * 4 });
-      } else {
-        buildings.push({ x: lx, z: lz, w, d, y: 0, h, c: col });
-        if (cityRand() < 0.6) roofs.push({ x: lx + (cityRand() - 0.5) * w * 0.3, z: lz + (cityRand() - 0.5) * d * 0.3, w: w * 0.3, d: d * 0.3, y: h, h: 2 + cityRand() * 2.5 });
-      }
-    }
-  }
-}
-const mtx = new T.Matrix4(), q0 = new T.Quaternion(), vPos = new T.Vector3(), vScale = new T.Vector3(), col3 = new T.Color();
-function instanced(geo, mat, list, place) {
-  const m = new T.InstancedMesh(geo, mat, list.length);
-  list.forEach((it, i) => { place(it); m.setMatrixAt(i, mtx.compose(vPos, q0, vScale)); if (it.c) m.setColorAt(i, col3.set(it.c).convertSRGBToLinear()); });
-  m.instanceMatrix.needsUpdate = true;
-  if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  m.frustumCulled = false;
-  scene.add(m);
-  return m;
-}
-instanced(unitBox, new T.MeshStandardMaterial({ roughness: 0.95 }), blocks, b => { vPos.set(b.x, -0.4, b.z); vScale.set(HALF_BLOCK * 2, 0.15, HALF_BLOCK * 2); }).receiveShadow = true;
-// Facade windows are computed in world space so every building gets the same storey rhythm.
-const cityMat = new T.MeshStandardMaterial({ roughness: 0.85, metalness: 0.05 });
-cityMat.onBeforeCompile = sh => {
-  sh.vertexShader = sh.vertexShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vFP;\nvarying vec3 vFN;')
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 fpw = modelMatrix * instanceMatrix * vec4(position, 1.0);\nvFP = fpw.xyz;\nvFN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);');
-  sh.fragmentShader = sh.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat fWin = 0.0;\nfloat fLit = 0.0;\nfloat fHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
-    .replace('#include <color_fragment>', [
-      '#include <color_fragment>',
-      'if (abs(vFN.y) < 0.5) {',
-      '  float fu = abs(vFN.x) > 0.5 ? vFP.z : vFP.x;',
-      '  vec2 cell = vec2(fu / 3.2, (vFP.y + 0.25) / 3.4);',
-      '  vec2 f = fract(cell);',
-      '  float w = step(0.14, f.x) * step(f.x, 0.86) * step(0.2, f.y) * step(f.y, 0.84) * step(1.0, cell.y);',
-      '  float r = fHash(floor(cell) + floor(vFP.xz * 0.02) * 3.7);',
-      '  vec3 glass = mix(vec3(0.07, 0.1, 0.14), vec3(0.3, 0.4, 0.5), clamp(r * 0.7 + f.y * 0.3, 0.0, 1.0));',
-      '  diffuseColor.rgb = mix(diffuseColor.rgb, glass, w * 0.9);',
-      '  fWin = w; fLit = w * step(0.94, r);',
-      '  diffuseColor.rgb *= mix(0.55, 1.0, step(3.6, vFP.y));',
-      '} else { diffuseColor.rgb *= 0.72; }'].join('\n'))
-    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.16, fWin);')
-    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.8, 0.5) * fLit * 0.3;');
-};
-cityMat.customProgramCacheKey = () => 'city-windows';
-instanced(unitBox, cityMat, buildings, b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); });
-instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofs, r => { vPos.set(r.x, r.y - 0.25, r.z); vScale.set(r.w, r.h, r.d); });
-const trees = [];
-for (const key of parks) {
-  const [i, j] = key.split(',').map(Number);
-  for (let k = 0; k < 22; k++) trees.push({ x: i * BLOCK + (cityRand() - 0.5) * 54, z: j * BLOCK + (cityRand() - 0.5) * 54, s: 0.8 + cityRand() * 0.6 });
-}
-// Street trees on the back and sides only: the camera looks at the site from the front street.
-for (let k = 0; k < 16; k++) { const side = k % 4; if (side === 1) continue; const t = (Math.floor(k / 4) - 1.5) * 13; trees.push({ x: side < 2 ? t : (side === 2 ? -1 : 1) * 33.5, z: side < 2 ? -33.5 : t, s: 0.7 }); }
-instanced(new T.IcosahedronGeometry(2.4, 0).translate(0, 4.2, 0), new T.MeshStandardMaterial({ color: lin('#4f7d3f'), roughness: 0.9, flatShading: true }), trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
-instanced(new T.CylinderGeometry(0.22, 0.3, 2.4, 5).translate(0, 1.2, 0), new T.MeshStandardMaterial({ color: lin('#5a4634'), roughness: 1 }), trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
-const slab = new T.Mesh(new T.BoxGeometry(CFG.slabHalf * S * 2, 0.8, CFG.slabHalf * S * 2).translate(0, -0.4, 0), matTop);
-slab.receiveShadow = true; scene.add(slab);
-{
-  const panels = [];
-  for (let s = 0; s < 4; s++) for (let k = 0; k < 14; k++) {
-    if (s === 1) continue;                            // no front fence: it would sit between the camera and the tower
-    const t = -26 + k * 4;
-    panels.push({ x: s < 2 ? t : (s === 2 ? -28.5 : 28.5), z: s < 2 ? -28.5 : t, r: s < 2 ? 0 : Math.PI / 2 });
-  }
-  const fm = new T.InstancedMesh(new T.BoxGeometry(3.9, 2.2, 0.08).translate(0, 0.8, 0), latticeMat('#2f6b45', 6, 3.4), panels.length);
-  panels.forEach((p, i) => { fm.setMatrixAt(i, mtx.compose(vPos.set(p.x, 0, p.z), q0.setFromAxisAngle(UP, p.r), vScale.set(1, 1, 1))); });
-  q0.identity(); fm.frustumCulled = false; scene.add(fm);
-  const office = new T.MeshStandardMaterial({ color: lin('#e9e4da'), roughness: 0.7 });
-  const blue = new T.MeshStandardMaterial({ color: lin('#2f5d8a'), roughness: 0.6 });
-  for (const [x, y, z, m] of [[-21, -0.3, 18, office], [-21, 2.5, 18, blue], [20, -0.3, 20, blue]]) {
-    const c = new T.Mesh(new T.BoxGeometry(6, 2.8, 2.5).translate(0, 1.4, 0), m); c.position.set(x, y, z); c.castShadow = c.receiveShadow = true; scene.add(c);
-  }
-  const pallet = new T.MeshStandardMaterial({ color: lin('#b38b5d'), roughness: 0.9 });
-  for (let k = 0; k < 4; k++) { const p = new T.Mesh(new T.BoxGeometry(2.4, 1.2, 2.4).translate(0, 0.6, 0), pallet); p.position.set(14 + (k % 2) * 3, -0.3, -16 + Math.floor(k / 2) * 3); p.castShadow = true; scene.add(p); }
-}
-const cars = [];
-for (let k = 0; k < 170; k++) {
-  const alongX = cityRand() < 0.5;
-  let road = Math.floor(cityRand() * (CITY_N * 2)) - CITY_N;
-  if (alongX && road >= 0 && road <= 2) road -= 3;    // keep the streets between the camera and the site clear
-  const dir = cityRand() < 0.5 ? 1 : -1;
-  cars.push({ alongX, line: road * BLOCK + BLOCK / 2 + dir * 3.1, pos: (cityRand() - 0.5) * 1400, v: (9 + cityRand() * 7) * dir, c: ['#e4e4e4', '#1f2833', '#a3262a', '#2c5aa0', '#d8b53c', '#6b7178'][Math.floor(cityRand() * 6)] });
-}
-const carMesh = instanced(new T.BoxGeometry(4.2, 1.4, 1.9).translate(0, 0.7, 0), new T.MeshStandardMaterial({ roughness: 0.4, metalness: 0.4 }), cars, () => { vPos.set(0, -1000, 0); vScale.set(1, 1, 1); });
-const carQ = new T.Quaternion().setFromAxisAngle(UP, Math.PI / 2);
-function updateCars(dt) {
-  for (let k = 0; k < carMesh.count; k++) {
-    const c = cars[k];
-    c.pos += c.v * dt;
-    if (c.pos > 700) c.pos -= 1400; else if (c.pos < -700) c.pos += 1400;
-    if (c.alongX) mtx.compose(vPos.set(c.pos, -0.4, c.line), q0, vScale.set(1, 1, 1));
-    else mtx.compose(vPos.set(c.line, -0.4, c.pos), carQ, vScale.set(1, 1, 1));
-    carMesh.setMatrixAt(k, mtx);
-  }
-  carMesh.instanceMatrix.needsUpdate = true;
-}
-const clouds = [];
-{
-  const cr = mulberry32(99);
-  for (let k = 0; k < 26; k++) {
-    const s = new T.Sprite(new T.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.85, depthWrite: false, fog: true }));
-    // Always behind the tower, so a cloud never drifts between the camera and the drop.
-    const sc = 90 + cr() * 150;
-    s.position.set((cr() - 0.5) * 1800, 150 + cr() * 260, -120 - cr() * 900);
-    s.scale.set(sc, sc * 0.5, 1); s.userData.v = 1 + cr() * 2;
-    scene.add(s); clouds.push(s);
-  }
-}
-// The classic's moon, ringed planet and Jupiter, revealed as the tower climbs.
-const planets = [
-  { tex: planetTex(g => { g.fillStyle = '#e6e2d3'; g.beginPath(); g.arc(128, 128, 100, 0, 7); g.fill(); g.fillStyle = '#c9c4b2'; for (const [x, y, r] of [[95, 100, 22], [160, 150, 16], [140, 80, 9]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } }), pos: [260, 620, -2200], size: 170, from: 280 },
-  { tex: planetTex(g => { g.strokeStyle = '#cdb57a'; g.lineWidth = 10; g.beginPath(); g.ellipse(128, 128, 118, 30, 0, 0, 7); g.stroke(); g.fillStyle = '#e3c68a'; g.beginPath(); g.arc(128, 128, 62, 0, 7); g.fill(); g.fillStyle = '#c9a86a'; g.fillRect(66, 118, 124, 8); g.strokeStyle = '#cdb57a'; g.beginPath(); g.ellipse(128, 128, 118, 30, 0, 0, Math.PI); g.stroke(); }), pos: [-380, 900, -2400], size: 280, from: 420 },
-  { tex: planetTex(g => { const b = ['#e9d6b3', '#c99a6b', '#f1e3c9', '#b7794d', '#ecd9b8', '#c28e61', '#e9d6b3']; g.save(); g.beginPath(); g.arc(128, 128, 110, 0, 7); g.clip(); b.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, 18 + i * 32, 256, 33); }); g.fillStyle = '#b8503a'; g.beginPath(); g.ellipse(160, 160, 22, 13, 0, 0, 7); g.fill(); g.restore(); }), pos: [120, 1250, -2600], size: 460, from: 560 },
-].map(p => { const s = new T.Sprite(new T.SpriteMaterial({ map: p.tex, transparent: true, opacity: 0, depthWrite: false, fog: false })); s.position.set(...p.pos); s.scale.set(p.size, p.size, 1); s.renderOrder = -1; scene.add(s); return { s, from: p.from }; });
-
-/* ---------------- Particles ---------------- */
-const bursts = [];
-function burst(x, y, z, count, color, speed, up, life, size, additive) {
-  const n = reduceMotion ? Math.ceil(count / 3) : count;
-  const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    pos[i * 3] = x + (Math.random() - 0.5) * 1.2; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z + (Math.random() - 0.5) * 1.2;
-    const a = Math.random() * Math.PI * 2, s = speed * (0.4 + Math.random() * 0.6);
-    vel[i * 3] = Math.cos(a) * s; vel[i * 3 + 1] = up * (0.3 + Math.random() * 0.7); vel[i * 3 + 2] = Math.sin(a) * s;
-  }
-  const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
-  const mat = new T.PointsMaterial({ map: puffTex, color, size, transparent: true, opacity: 0.9, depthWrite: false, blending: additive ? T.AdditiveBlending : T.NormalBlending });
-  const pts = new T.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
-  bursts.push({ pts, vel, t: 0, life, grav: additive ? -4 : -2.5 });
-}
-function updateBursts(dt) {
-  for (let i = bursts.length - 1; i >= 0; i--) {
-    const b = bursts[i]; b.t += dt;
-    if (b.t >= b.life) { scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); bursts.splice(i, 1); continue; }
-    const p = b.pts.geometry.attributes.position.array;
-    for (let k = 0; k < p.length; k += 3) { b.vel[k + 1] += b.grav * dt; p[k] += b.vel[k] * dt; p[k + 1] += b.vel[k + 1] * dt; p[k + 2] += b.vel[k + 2] * dt; b.vel[k] *= 0.985; b.vel[k + 2] *= 0.985; }
-    b.pts.geometry.attributes.position.needsUpdate = true;
-    b.pts.material.opacity = 0.9 * (1 - b.t / b.life);
-  }
-}
-// Engine coordinates in, world coordinates out.
-const dust = (x, y, n, s = 4) => burst(x * S, -y * S, 1, n, '#d9cfbd', s, 2.5, 1.2, 2.4, false);
-const sparkle = (x, y) => burst(x * S, -y * S, 0, 26, '#ffd76a', 5, 7, 0.9, 1, true);
-
-/* ---------------- Sound ---------------- */
-const Sound = {
-  ctx: null, master: null, sfx: null, music: null, noise: null, wind: null,
-  init() {
-    if (this.ctx) return;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    try { this.ctx = new AC(); } catch (e) { return; }
-    const c = this.ctx;
-    this.master = c.createGain(); this.master.gain.value = 0.9; this.master.connect(c.destination);
-    this.sfx = c.createGain(); this.sfx.connect(this.master);
-    this.music = c.createGain(); this.music.connect(this.master);
-    const buf = c.createBuffer(1, c.sampleRate, c.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    this.noise = buf;
-    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6;
-    this.wind = c.createGain(); this.wind.gain.value = 0;
-    src.connect(bp).connect(this.wind).connect(this.sfx); src.start();
-    this.apply();
-    Music.start();
-  },
-  resume() { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
-  apply() { if (!this.ctx) return; this.sfx.gain.value = save.settings.sfx ? 1 : 0; this.music.gain.value = save.settings.music ? 0.5 : 0; },
-  tone(f, dur, o = {}) {
-    const c = this.ctx; if (!c) return;
-    try {
-      const t0 = c.currentTime + (o.delay || 0), osc = c.createOscillator(), g = c.createGain();
-      osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t0);
-      if (o.slide) osc.frequency.exponentialRampToValueAtTime(o.slide, t0 + dur);
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(o.vol || 0.2, t0 + (o.attack || 0.006));
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(g).connect(o.dest || this.sfx); osc.start(t0); osc.stop(t0 + dur + 0.05);
-    } catch (e) { /* ignore */ }
-  },
-  hiss(dur, o = {}) {
-    const c = this.ctx; if (!c) return;
-    try {
-      const t0 = c.currentTime + (o.delay || 0), src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-      src.buffer = this.noise; f.type = o.type || 'lowpass'; f.frequency.setValueAtTime(o.freq || 800, t0); f.Q.value = o.q || 0.7;
-      if (o.sweep) f.frequency.exponentialRampToValueAtTime(o.sweep, t0 + dur);
-      g.gain.setValueAtTime(o.vol || 0.2, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      src.connect(f).connect(g).connect(o.dest || this.sfx); src.start(t0); src.stop(t0 + dur + 0.05);
-    } catch (e) { /* ignore */ }
-  },
-  impact(E) {
-    const k = Math.min(3, E);
-    this.tone(95 - k * 12, 0.22 + k * 0.08, { vol: 0.32 + k * 0.08, slide: 36 });
-    this.hiss(0.12 + k * 0.06, { freq: 900 - k * 150, vol: 0.14 + k * 0.06 });
-  },
-  // The classic's rising three-note chime: higher with every Perfect in the combo.
-  perfect(streak, power) {
-    const b = 660 + Math.min(streak, 6) * 60;
-    [1, 1.26, 1.5].forEach((m, i) => this.tone(b * m, 0.14, { type: 'triangle', vol: 0.08, delay: i * 0.06 }));
-    if (power) this.tone(55, 0.7, { vol: 0.22, type: 'triangle' });   // Power Perfect accent
-  },
-  release() { this.tone(520, 0.1, { type: 'triangle', vol: 0.07, slide: 300 }); this.hiss(0.15, { type: 'highpass', freq: 2500, vol: 0.05 }); },
-  band(b) { this.tone(440 + b * 110, 0.06, { type: 'triangle', vol: 0.05 }); },
-  beep() { this.tone(1500, 0.06, { type: 'square', vol: 0.04 }); },
-  power() { this.hiss(0.3, { type: 'bandpass', freq: 300, sweep: 3000, q: 1.5, vol: 0.18 }); },
-  recall() { this.hiss(0.4, { type: 'bandpass', freq: 3000, sweep: 400, q: 1.4, vol: 0.14 }); },
-  ratchet() { for (let i = 0; i < 6; i++) this.hiss(0.02, { type: 'highpass', freq: 3000, vol: 0.035, delay: i * 0.055 }); },
-  miss() { this.tone(300, 0.5, { type: 'sawtooth', vol: 0.06, slide: 80 }); },
-  complete() { [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.5, { type: 'triangle', vol: 0.1, delay: i * 0.12 })); },
-  over() { [392, 330, 262].forEach((f, i) => this.tone(f, 0.3, { type: 'triangle', vol: 0.09, delay: i * 0.16 })); },
-  bonus() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.3, { type: 'triangle', vol: 0.09, delay: i * 0.07 })); },
-  setWind(k) { if (this.wind) this.wind.gain.setTargetAtTime(k * 0.1, this.ctx.currentTime, 0.5); },
-};
-// Generative music: layers join as the combo grows and fall away on a miss.
-const Music = {
-  next: 0, step: 0, spb: 60 / 96 / 4, lv: { perc: 0, bass: 0, arp: 0 }, target: { perc: 0, bass: 0, arp: 0 }, timer: 0,
-  start() { if (this.timer) return; this.next = Sound.ctx.currentTime + 0.1; this.timer = setInterval(() => this.tick(), 60); },
-  setChain(c) { this.target = { perc: c >= 2 ? 1 : 0, bass: c >= 4 ? 1 : 0, arp: c >= 7 ? 1 : 0 }; },
-  tick() {
-    const c = Sound.ctx;
-    if (!c || c.state !== 'running' || !save.settings.music || document.hidden) { if (c) this.next = c.currentTime + 0.1; return; }
-    for (const k in this.lv) this.lv[k] += clamp(this.target[k] - this.lv[k], -0.02, 0.02);
-    while (this.next < c.currentTime + 0.25) { this.play(this.step, this.next - c.currentTime); this.next += this.spb; this.step = (this.step + 1) % 64; }
-  },
-  play(st, delay) {
-    const mt = m => 440 * Math.pow(2, (m - 69) / 12), dest = Sound.music;
-    const chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], ch = chords[Math.floor(st / 16) % 4], b = st % 16;
-    if (b === 0) for (const n of ch) Sound.tone(mt(n), 2.4, { vol: 0.025, type: 'triangle', attack: 0.4, delay, dest });
-    const L = this.lv;
-    if (L.perc > 0.01) {
-      if (b % 8 === 0) Sound.tone(120, 0.18, { vol: 0.12 * L.perc, slide: 40, delay, dest });
-      if (b % 4 === 2) Sound.hiss(0.05, { type: 'highpass', freq: 6000, vol: 0.03 * L.perc, delay, dest });
-    }
-    if (L.bass > 0.01 && (b === 0 || b === 6 || b === 10)) Sound.tone(mt(ch[0] - 24), 0.35, { vol: 0.09 * L.bass, type: 'triangle', delay, dest });
-    if (L.arp > 0.01 && b % 2 === 0) Sound.tone(mt(ch[(b / 2) % 3] + 12), 0.18, { vol: 0.035 * L.arp, type: 'square', delay, dest });
-  },
-};
-
-/* ---------------- Quality & adaptive performance ---------------- */
-const QUALITY = {
-  high:     { dpr: 2,   shadow: 2048, cars: 170, clouds: 26 },
-  balanced: { dpr: 1.5, shadow: 1024, cars: 110, clouds: 16 },
-  battery:  { dpr: 1,   shadow: 0,    cars: 45,  clouds: 8 },
-};
-const LADDER = [['high', 1], ['balanced', 1], ['balanced', 0.8], ['battery', 1], ['battery', 0.75]];
-const touchDevice = matchMedia('(pointer: coarse)').matches;
-let rung = touchDevice ? 1 : 0;
-function applyQuality() {
-  const mode = save.settings.quality;
-  const [name, scale] = mode === 'auto' ? LADDER[rung] : [mode, 1];
-  const q = QUALITY[name];
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.dpr) * scale);
-  layout();
-  if (q.shadow) {
-    sun.castShadow = true;
-    if (sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  } else sun.castShadow = false;
-  carMesh.count = q.cars;
-  clouds.forEach((c, i) => { c.visible = i < q.clouds; });
-}
-const perf = { ema: 1 / 60, slow: 0, fast: 0 };
-function adapt(dt) {
-  if (save.settings.quality !== 'auto' || document.hidden) return;
-  perf.ema += (dt - perf.ema) * 0.05;
-  if (perf.ema > 1 / 42) { perf.slow += dt; perf.fast = 0; if (perf.slow > 2 && rung < LADDER.length - 1) { rung++; perf.slow = 0; applyQuality(); } }
-  else if (perf.ema < 1 / 57) { perf.fast += dt; perf.slow = 0; if (perf.fast > 8 && rung > 0) { rung--; perf.fast = 0; applyQuality(); } }
-  else { perf.slow = 0; perf.fast = 0; }
-}
-
-/* ---------------- Classic view and rig (unchanged) ---------------- */
-// The classic sized its screen at 240x320 or more; the 3D camera frames exactly that view.
-const view = { w: 270, h: 360 };
-let RIG = null;
-function layout() {
-  const w = window.innerWidth, h = window.innerHeight, dpr = window.devicePixelRatio || 1;
-  const devW = Math.round(w * dpr), devH = Math.round(h * dpr);
-  const s = Math.max(1, Math.floor(Math.min(devW / 240, devH / 320)));
-  view.w = Math.ceil(devW / s); view.h = Math.ceil(devH / s);
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h; camera.updateProjectionMatrix();
-  pausedFrames = 0;           // resizing clears the canvas, so draw again even while paused
-  // All in screen pixels for the play framing.
-  const topScreen = Math.round(view.h * CFG.towerTopRatio);
-  const gap = Math.max(CFG.minGap, Math.round(view.h * CFG.gapRatio));
-  const ropeEnd = topScreen - gap - H - HANG.floor;
-  const L = Math.max(Math.round(view.h * CFG.ropeRatio), ropeEnd + 40);
-  RIG = { topScreen, gap, ropeEnd, L, pivot: ropeEnd - L, lowerDist: Math.min(L - 10, ropeEnd + H + HANG.foundation + 30) };
-}
-const gravity = () => 2 * RIG.gap / (CFG.dropTime * CFG.dropTime);
-
-/* ---------------- Game state (classic) ---------------- */
-let state = 'title';        // title | play | pause | result | city
-let game = null;
-let sceneTime = 0;
-
-function newGame(kind, opts = {}) {
-  const g = {
-    kind, type: opts.type || QUICK_TYPE, target: opts.target || 0, lot: opts.lot ?? -1,
-    tower: [], lives: CFG.lives, pop: 0, perfects: 0, maxCombo: 0,
-    combo: { timer: 0, streak: 0 },
-    swingPhase: opts.swingPhase || 0,
-    // e: 0 = reeled up out of sight, 1 = fully lowered. The title hangs it higher, clear of the menu.
-    hook: { has: true, next: false, e: opts.hookE ?? (kind === 'attract' ? 0.3 : 0.55), wait: 0, recall: false },
-    falling: null, debris: [],
-    sway: { phase: 0, amp: 0, target: 0 },
-    camY: 0, shake: 0, time: 0,
-    intro: kind === 'attract' ? null : { t: 0 },
-    ending: null, pan: null, hold: false, finished: false,
-    // Forge layer
-    charge: null, swingMult: 1, trail: [], ratings: {}, quality: 0, landed: 0, powerPerfects: 0, bestRisk: 1, recoveries: [], danger: null, level: 0,
-    // 3D
-    group: new T.Group(), hookMesh: null,
-  };
-  scene.add(g.group);
-  g.hookMesh = makeModule(g.type, nextKind(g));
-  g.camY = introCam(g);
-  if (g.intro) g.intro.from = g.camY;
-  return g;
-}
-function disposeGame(g) {
-  if (!g) return;
-  scene.remove(g.group);
-  if (g.hookMesh) scene.remove(g.hookMesh);
-  if (g.falling) scene.remove(g.falling.mesh);
-  for (const d of g.debris) scene.remove(d.mesh);
-}
-
-const cameraTarget = g => -g.tower.length * H - RIG.topScreen;
-const introCam = g => cameraTarget(g) + RIG.pivot - Math.round(view.h * CFG.intro.craneAt);
-const pivotWorldY = g => cameraTarget(g) + RIG.pivot;     // the crane climbs with the tower
-function swingParams(g) {
-  const n = g.tower.length;
-  return {
-    reach: Math.min(CFG.swingReach.max, CFG.swingReach.start + n * CFG.swingReach.perFloor),
-    w: Math.min(CFG.swingSpeed.max, CFG.swingSpeed.start + n * CFG.swingSpeed.perFloor),
-  };
-}
-function ropeAngle(g) { return Math.asin(Math.min(0.9, swingParams(g).reach / RIG.L)) * Math.sin(g.swingPhase); }
-function ropeLength(g) {
-  const h = g.hook, k = h.has ? smooth(h.e) : h.e;
-  return RIG.L - RIG.lowerDist * (1 - k);
-}
-function nextKind(g) {
-  const n = g.tower.length;
-  if (n === 0) return 'foundation';
-  if (g.kind === 'city' && n === g.target - 1) return 'roof';
-  return 'floor';
-}
-// The building rocks as one rigid piece about the middle of its base.
-function swayAngle(g) {
-  const n = g.tower.length;
-  if (!n) return 0;
-  const d = g.sway.amp * Math.sin(g.sway.phase);
-  return clamp(Math.atan2(d, n * H), -CFG.sway.maxTilt, CFG.sway.maxTilt);
-}
-function toWorld(g, lx, ly, a) {
-  const p0 = g.tower[0].x, x = lx - p0;
-  return { x: p0 + x * Math.cos(a) - ly * Math.sin(a), y: x * Math.sin(a) + ly * Math.cos(a) };
-}
-function towerTop(g) {
-  const n = g.tower.length;
-  if (!n) return { x: 0, y: 0 };
-  return toWorld(g, g.tower[n - 1].x, -n * H, swayAngle(g));
-}
-
-function drop(tier, forced) {
-  const g = game;
-  if (!g || state !== 'play' || g.kind === 'attract' || g.intro || !g.hook.has || g.hook.e < 1 || g.hook.recall || g.falling || g.ending) return false;
-  const th = ropeAngle(g), { reach, w } = swingParams(g);
-  const kind = nextKind(g), off = HANG[kind] + extraTop(kind) + H / 2, L = RIG.L;
-  const ex = L * Math.sin(th), ey = pivotWorldY(g) + L * Math.cos(th);
-  const v = reach * w * Math.cos(g.swingPhase) * CFG.releaseMomentum;
-  // Forge: hold band and Power Drop ride along with the block.
-  const band = g.charge ? holdBand(g.charge.t) : 0, hold = FORGE.hold.mult[band], power = tier ? tier[1] : 1;
-  const vy = tier ? (power - 1) * FORGE.power.boost * gravity() * CFG.dropTime : 0;
-  g.falling = { x: ex, y: ey + off, vx: v, vy, ang: 0, kind, type: g.type, hold, power, forced: !!forced, E: 1, mesh: g.hookMesh };
-  g.hookMesh = null;
-  g.hook.has = false; g.hook.next = false; g.hook.wait = 0;
-  g.charge = null;
-  Sound.release(); vib(8);
-  if (tier) { Sound.power(); vib([25, 15, 25]); doneTip('power'); }
-  if (forced) popup('Forced release', ex, ey + off - H, 'info');
-  doneTip('tap');
-  if (band > 0) doneTip('hold');
-  return true;
-}
-
-function stepFalling(g, dt) {
-  const b = g.falling;
-  b.vy += gravity() * dt; b.x += b.vx * dt; b.y += b.vy * dt;
-  b.ang *= Math.exp(-14 * dt);
-  const n = g.tower.length, top = towerTop(g);
-  if (b.y + H / 2 < top.y) return;
-  b.E = Math.max(1, (b.vy / (gravity() * CFG.dropTime)) ** 2);   // impact energy vs a normal drop
-  b.y = top.y - H / 2;
-  if (n === 0) {
-    if (Math.abs(b.x) > CFG.slabHalf) {
-      g.falling = null;
-      g.debris.push({ state: 'wreck', x: b.x, y: -H / 2, ang: 0, t: 0.9, mesh: b.mesh });
-      dust(b.x, 0, 14);
-      loseLife(g, b.x, -H, 'Off site');
-      return;
-    }
-    settle(g, b, b.x);
-    return;
-  }
-  let dx = b.x - top.x;
-  // Forge: a heavy off-centre Power Drop shoves the floor further out.
-  if (b.power > 1 && Math.abs(dx) > CFG.perfectTol) { dx *= 1 + FORGE.power.shove * (b.E - 1); b.x = top.x + dx; }
-  if (Math.abs(dx) >= W) {                       // clean miss: keeps falling past the tower
-    g.falling = null;
-    g.debris.push({ state: 'fall', x: b.x, y: b.y, vx: b.vx, vy: b.vy, ang: b.ang, spin: Math.sign(dx) * 1.5, mesh: b.mesh });
-    loseLife(g, b.x, top.y, 'Miss');
-  } else if (Math.abs(dx) > W / 2) {             // centre past the edge: tips over the side
-    const sgn = Math.sign(dx), ex = top.x + sgn * W / 2;
-    g.falling = null;
-    g.debris.push({ state: 'tip', x: b.x, y: b.y, ang: 0, av: 0, sgn, px: ex, py: top.y, rx: b.x - ex, ry: -H / 2, mesh: b.mesh });
-    loseLife(g, b.x, top.y, 'Miss');
-  } else {
-    settle(g, b, dx);
-  }
-}
-
-function rateLanding(dx, perfect, first) {
-  if (perfect) return FORGE.ratings[0];
-  const r = Math.abs(dx) / (first ? 2 * CFG.slabHalf : W);   // the first floor is rated against the slab
-  for (let i = 1; i < FORGE.ratings.length; i++) if (r <= FORGE.ratings[i][1]) return FORGE.ratings[i];
-  return FORGE.ratings[FORGE.ratings.length - 1];
-}
-
-function settle(g, b, dx) {
-  const n = g.tower.length, t = TYPES[g.type];
-  const perfect = Math.abs(dx) <= CFG.perfectTol;
-  if (perfect) dx = 0;
-  const x = n === 0 ? dx : g.tower[n - 1].x + dx;
-  const acc = 1 - Math.min(1, Math.abs(dx) / (n === 0 ? CFG.slabHalf : W / 2));
-  const c = g.combo, active = c.timer > 0;
-  const raw = perfect ? CFG.residents.perfect : Math.round(CFG.residents.base + CFG.residents.accuracy * acc);
-  const bonus = active ? c.streak * CFG.comboBonus : 0;
-  if (perfect) { c.streak = active ? c.streak + 1 : 1; c.timer = CFG.comboTime; g.perfects++; g.maxCombo = Math.max(g.maxCombo, c.streak); }
-  const risk = b.hold * b.power;                                  // Forge: hold x power multiplier
-  const residents = Math.round((raw + bonus) * t.mult * risk);
-  g.tower.push({ x, kind: b.kind, type: b.type, residents, mesh: b.mesh });
-  const p0 = g.tower[0].x;
-  g.group.position.x = p0 * S;
-  g.group.add(b.mesh);
-  b.mesh.position.set((x - p0) * S, (n * H + H / 2) * S, 0); b.mesh.rotation.set(0, 0, 0);
-  g.pop += residents;
-  g.falling = null;
-
-  // Forge: rating ladder and report stats.
-  const rt = rateLanding(dx, perfect, n === 0);
-  g.ratings[rt[0]] = (g.ratings[rt[0]] || 0) + 1; g.quality += rt[2]; g.landed++;
-  g.bestRisk = Math.max(g.bestRisk, risk);
-  if (perfect && b.power > 1) g.powerPerfects++;
-
-  // Instability: every sloppy floor makes the whole building swing more, a perfect one calms it.
-  // Forge: a heavier impact multiplies the sway it adds; a centred heavy one settles the tower.
-  const s = g.sway, E = b.E || 1;
-  const settled = !perfect && n > 0 && E > 1.25 && Math.abs(dx) <= FORGE.ratings[1][1] * W;
-  if (perfect) s.target *= CFG.sway.perfectKeep;
-  else if (settled) s.target *= 0.6;
-  else if (n > 0) {
-    if (s.amp < 1.5) s.phase = dx > 0 ? 0 : Math.PI;   // start swinging toward the heavy side
-    s.target = Math.min(CFG.sway.max, s.target + Math.abs(dx) * CFG.sway.gain * E);
-  }
-  if (g.danger) g.danger.placed++;
-
-  const top = towerTop(g);
-  if (!reduceMotion && save.settings.shake) g.shake = 1 + (E - 1) * 0.8;
-  dust(top.x - W / 2, top.y + H, 8, 3 + E); dust(top.x + W / 2, top.y + H, 8, 3 + E);
-  if (perfect) {
-    sparkle(top.x, top.y);
-    popup(b.power > 1 ? 'Power Perfect' : 'Perfect', top.x, top.y - 16, 'perfect');
-    if (c.streak >= 2) popup(`Combo ×${c.streak}`, top.x, top.y - 40, 'combo', 0.08);
-  } else {
-    popup(rt[0], top.x, top.y - 16, rt[0].toLowerCase());
-  }
-  popup(`+${fmt(residents)}`, top.x, top.y + 6, 'pts', perfect ? 0.1 : 0.05);
-  if (risk > 1.01) popup(`×${risk.toFixed(1)} risk`, top.x, top.y + 26, 'info', 0.15);
-  if (settled) popup('Settled', top.x, top.y + 44, 'info', 0.2);
-  Sound.impact(E);
-  if (perfect) Sound.perfect(c.streak, b.power > 1);
-  vib(perfect ? (E > 1.2 ? [45, 25, 60] : 28) : (E > 1.2 ? 45 : 12));
-  Music.setChain(c.streak);
-
-  if (g.kind === 'city' && g.tower.length >= g.target) {
-    g.ending = { t: 1.0 };
-    Sound.complete();
-    banner(`${t.name} tower`, 'Topped out');
-  } else {
-    g.hook.next = true; g.hook.wait = CFG.nextDelay;
-  }
-  updateHud();
-}
-
-function loseLife(g, x, y, label) {
-  g.lives--;
-  g.combo.timer = 0; g.combo.streak = 0;
-  g.ratings.Miss = (g.ratings.Miss || 0) + 1;
-  popup(label, x, y - 10, 'miss');
-  Sound.miss(); vib([20, 40, 20]);
-  Music.setChain(0);
-  if (g.lives <= 0) { g.ending = { t: 1.1 }; setTimeout(() => Sound.over(), 500); }
-  else { g.hook.next = true; g.hook.wait = CFG.nextDelay + 0.35; }
-  updateHud();
-}
-
-function stepDebris(g, d, dt) {
-  if (d.state === 'tip') {
-    d.av += d.sgn * 18 * dt; d.ang += d.av * dt;
-    const c = Math.cos(d.ang), s = Math.sin(d.ang);
-    d.x = d.px + d.rx * c - d.ry * s; d.y = d.py + d.rx * s + d.ry * c;
-    if (Math.abs(d.ang) > 0.9) { d.state = 'fall'; d.vx = d.sgn * 70; d.vy = 40; d.spin = d.av; }
-  } else if (d.state === 'fall') {
-    d.vy += gravity() * 0.8 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.ang += d.spin * dt;
-    if (d.y + H / 2 >= 0) { d.state = 'wreck'; d.y = -H / 2; d.ang = 0; d.t = 0.8; dust(d.x, 0, 12); }
-  } else {
-    d.t -= dt;
-  }
-}
-
-// Forge: the stability readout is the classic sway, shown as four levels.
-function stabilityLevel(g) {
-  const n = g.tower.length;
-  if (n < 2) return 0;
-  const shown = Math.min(g.sway.amp, n * H * Math.tan(CFG.sway.maxTilt)) / CFG.sway.max;
-  const L = FORGE.stability;
-  return shown < L[0] ? 0 : shown < L[1] ? 1 : shown < L[2] ? 2 : 3;
-}
-function awardRecovery(g, worst) {
-  const [name, pts] = FORGE.recovery[worst >= 3 ? 1 : 0];
-  const add = Math.round(pts * TYPES[g.type].mult);
-  g.pop += add; g.recoveries.push(name);
-  banner(name, `+${fmt(add)} residents`);
-  Sound.bonus(); vib([15, 30, 15]);
-  doneTip('recover');
-  updateHud();
-}
-
-function update(dt) {
-  const g = game;
-  g.time += dt;
-
-  // Forge: holding speeds the swing up in Appendix A bands; letting go eases it back to the classic speed.
-  const ch = g.charge;
-  const targetMult = ch ? FORGE.hold.speed[holdBand(ch.t)] : 1;
-  g.swingMult += (targetMult - g.swingMult) * Math.min(1, dt * 10);
-  if (!ch && Math.abs(g.swingMult - 1) < 0.002) g.swingMult = 1;
-  g.swingPhase += swingParams(g).w * g.swingMult * dt;
-  if (ch) {
-    ch.t += dt;
-    const band = holdBand(ch.t);
-    if (band !== ch.band) { ch.band = band; Sound.band(band); vib(6); }
-    if (ch.t >= FORGE.hold.warn) {
-      showTip('forced');
-      const period = Math.max(0.07, 0.3 - (ch.t - FORGE.hold.warn) * 0.3);
-      if (ch.t - ch.beep >= period) { ch.beep = ch.t; Sound.beep(); vib(8); }
-    }
-    if (ch.t >= FORGE.hold.cap) { input.down = false; if (!drop(null, true)) g.charge = null; doneTip('forced'); }
-  } else if (input.down && input.pending && canCharge()) { input.pending = false; startCharge(); }
-
-  const hk = g.hook;
-  if (g.kind !== 'attract') {
-    if (hk.has) {
-      if (hk.recall) { hk.e = Math.max(0.4, hk.e - dt * 3); if (hk.e <= 0.4) hk.recall = false; }   // Forge: recall reels it up a way
-      else hk.e = Math.min(1, hk.e + dt / CFG.hookLowerTime);
-    } else {
-      hk.e = Math.max(0, hk.e - dt * 4);                 // empty hook reels up out of sight
-      if (hk.next) {
-        hk.wait -= dt;
-        if (hk.wait <= 0 && hk.e <= 0) { hk.has = true; hk.next = false; hk.e = 0; g.hookMesh = makeModule(g.type, nextKind(g)); Sound.ratchet(); }   // next floor comes down
-      }
-    }
-  }
-
-  const s = g.sway;
-  s.phase += dt * 2 * Math.PI / CFG.sway.period;
-  s.amp += (s.target - s.amp) * Math.min(1, dt * 1.5);
-
-  if (g.combo.timer > 0) { g.combo.timer -= dt; if (g.combo.timer <= 0) { g.combo.timer = 0; g.combo.streak = 0; Music.setChain(0); } }
-
-  if (g.falling) stepFalling(g, dt);
-  for (const d of g.debris) stepDebris(g, d, dt);
-  for (let i = g.debris.length - 1; i >= 0; i--) {
-    const d = g.debris[i];
-    if (d.state === 'wreck' ? d.t <= 0 : d.y - g.camY >= view.h + 120) { scene.remove(d.mesh); g.debris.splice(i, 1); }
-  }
-
-  // Forge: stability readout and recovery bonuses.
-  if (g.kind !== 'attract') {
-    const lv = stabilityLevel(g);
-    if (lv !== g.level) { if (lv >= 2 && g.level < 2) vib([12, 40, 12]); g.level = lv; }
-    if (lv >= 1 && g.tower.length >= 6) showTip('sway');
-    if (lv >= 2) { if (!g.danger) g.danger = { worst: lv, placed: 0 }; g.danger.worst = Math.max(g.danger.worst, lv); showTip('recover'); }
-    else if (lv === 0 && g.danger) { if (g.danger.placed > 0 && !g.ending) awardRecovery(g, g.danger.worst); g.danger = null; }
-  }
-
-  if (g.pan) {
-    const d = g.pan.to - g.camY, step = g.pan.speed * dt;
-    if (Math.abs(d) <= step) { g.camY = g.pan.to; g.pan = null; g.hold = true; finishRound(g); }
-    else g.camY += Math.sign(d) * step;
-  } else if (g.kind === 'attract') {
-    g.camY = introCam(g);
-  } else if (g.intro) {
-    g.intro.t += dt;
-    const { hold, pan } = CFG.intro, k = clamp((g.intro.t - hold) / pan, 0, 1);
-    g.camY = g.intro.from + (cameraTarget(g) - g.intro.from) * easeInOut(k);
-    if (k >= 1) { g.intro = null; showTip('tap'); }
-  } else if (!g.hold) {
-    g.camY += (cameraTarget(g) - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
-  }
-  if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 9);
-
-  if (g.ending && !g.ending.started) {
-    g.ending.t -= dt;
-    if (g.ending.t <= 0 && !g.falling) { g.ending.started = true; startPan(g); }
-  }
-}
-
-// After the round, the camera slides back down the whole tower to the street,
-// which ends just above the results card.
-const endCam = () => -Math.round(view.h * 0.55);
-function startPan(g) {
-  const to = endCam(), dist = Math.abs(to - g.camY);
-  if (dist < 4) { g.hold = true; finishRound(g); return; }
-  g.pan = { to, speed: Math.max(260, dist / 1.8) };
-}
-
-/* ---------------- Drawing the classic state in 3D ---------------- */
-const hookPos = new T.Vector3(), pivotPos = new T.Vector3(), corner = new T.Vector3();
-function syncScene(g) {
-  g.group.rotation.z = -swayAngle(g);
-
-  // Crane, rope, hook and the hanging block, exactly where the classic drew them.
-  const py = pivotWorldY(g), th = ropeAngle(g), len = ropeLength(g);
-  const rx = len * Math.sin(th), ry = py + len * Math.cos(th);
-  pivotPos.set(0, -py * S, 0);
-  hookPos.set(rx * S, -ry * S, 0);
-  head.position.y = pivotPos.y + TROLLEY;
-  mast.scale.y = Math.max(1, head.position.y + 0.9); mastMat.map.repeat.y = mast.scale.y / 2.4;
-  placeRod(pendantA, tmpA.set(MAST_X, head.position.y + 8.6, 0), tmpB.set(JIB_TIP - 0.5, head.position.y + 0.95, 0));
-  placeRod(pendantB, tmpA.set(MAST_X, head.position.y + 8.6, 0), tmpB.set(CJ_END + 0.5, head.position.y + 0.75, 0));
-  placeRod(rope, pivotPos, hookPos);
-  hookBlock.position.copy(hookPos);
-  const kind = nextKind(g), m = g.hookMesh;
-  const sling = kind === 'foundation' && g.hook.has;
-  hookClaw.visible = !sling;
-  if (g.hook.has && m) {
-    const topY = ry + HANG[kind] + extraTop(kind);      // block top, classic px
-    m.position.set(rx * S, -(topY + H / 2) * S, 0); m.rotation.set(0, 0, 0);
-    let i = 0;
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      const r = slings[i++];
-      if (sling) placeRod(r, tmpA.set(hookPos.x, hookPos.y - 1.05, 0), corner.set(hookPos.x + sx * (W * S / 2 - 0.4), -topY * S, sz * (DEPTH / 2 - 0.4)));
-      else r.visible = false;
-    }
-    // Forge: momentum trail and forced-release warning.
-    const fast = g.swingMult >= 1.35 && !reduceMotion;
-    if (fast) { g.trail.unshift(m.position.x, m.position.y); if (g.trail.length > 24) g.trail.length = 24; } else g.trail.length = 0;
-    ghosts.forEach((gh, k) => { const j = (k + 1) * 6; gh.visible = fast && g.trail.length > j + 1; if (gh.visible) gh.position.set(g.trail[j], g.trail[j + 1], 0); });
-    warnGlow.visible = !!(g.charge && g.charge.t >= FORGE.hold.warn);
-    if (warnGlow.visible) { warnGlow.position.copy(m.position); warnGlow.material.opacity = 0.12 + 0.18 * (0.5 + 0.5 * Math.sin(g.time * 30)); }
-  } else {
-    for (const r of slings) r.visible = false;
-    for (const gh of ghosts) gh.visible = false;
-    warnGlow.visible = false;
-  }
-
-  if (g.falling) { const b = g.falling; b.mesh.position.set(b.x * S, -b.y * S, 0); b.mesh.rotation.set(0, 0, -b.ang); }
-  for (const d of g.debris) {
-    d.mesh.position.set(d.x * S, -d.y * S, 0); d.mesh.rotation.set(0, 0, -d.ang);
-    d.mesh.visible = !(d.state === 'wreck' && Math.floor(d.t * 10) % 2);
-  }
-
-  // Camera: level and straight-on, framing exactly the classic screen.
-  let camY = g.camY;
-  if (g.shake > 0) camY += (Math.floor(sceneTime * 60) % 2 ? 1 : -1) * g.shake;
-  const hv = view.h * S, yc = -(camY + view.h / 2) * S;
-  camera.position.set(0, yc, hv / (2 * TAN_HALF));
-  camera.lookAt(0, yc, 0);
-  sky.position.copy(camera.position);
-  stars.position.copy(camera.position);
-
-  const alt = Math.max(0, yc);
-  applySky(alt);
-  stars.material.opacity = clamp((alt - 270) / 240, 0, 1);
-  for (const p of planets) p.s.material.opacity = clamp((alt - p.from) / 150, 0, 1);
-  const cloudFade = 0.85 * (1 - clamp((alt - 390) / 120, 0, 1));   // the classic's clouds thin out above 390 m
-  for (const c of clouds) c.material.opacity = cloudFade;
-  Sound.setWind(state === 'pause' ? 0 : Math.min(1, alt / 200));
-  tmpA.set(0, Math.max(0, g.tower.length * H * S - 20), 0);
-  sun.target.position.copy(tmpA); sun.position.copy(tmpA).addScaledVector(sunDir, 260);
-}
-function updateWorld(dt) {
-  updateCars(dt);
-  for (const c of clouds) { if (!c.visible) continue; c.position.x += c.userData.v * dt; if (c.position.x > 1100) c.position.x -= 2200; }
-  updateBursts(dt);
-}
-
-/* ---------------- Floating text ---------------- */
-const pops = [];
-const vProj = new T.Vector3();
-function popup(text, x, y, cls, delay = 0) {
-  const el = document.createElement('div');
-  el.className = 'pop ' + cls; el.textContent = text; el.style.opacity = '0';
-  $('fx').appendChild(el);
-  pops.push({ el, wx: x * S, wy: -y * S, t: -delay, life: cls === 'perfect' ? 1.2 : 1 });
-}
-function updatePops(dt) {
-  const w = window.innerWidth, h = window.innerHeight;
-  for (let i = pops.length - 1; i >= 0; i--) {
-    const p = pops[i]; p.t += dt;
-    if (p.t >= p.life) { p.el.remove(); pops.splice(i, 1); continue; }
-    if (p.t < 0) continue;
-    vProj.set(p.wx, p.wy, 0).project(camera);
-    const k = p.t / p.life, rise = reduceMotion ? 0 : 30 * Math.min(1, k * 1.6);
-    const sx = (vProj.x * 0.5 + 0.5) * w, sy = (-vProj.y * 0.5 + 0.5) * h - rise;
-    p.el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-50%)`;
-    p.el.style.opacity = String(k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3);
-  }
-}
-function clearPops() { for (const p of pops) p.el.remove(); pops.length = 0; }
-let bannerTimer = 0;
-function banner(title, sub) {
-  const b = $('banner');
-  $('bannerTitle').textContent = title; $('bannerSub').textContent = sub || '';
-  b.hidden = false; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
-  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => { b.hidden = true; }, 1950);
-}
-
-/* ---------------- HUD ---------------- */
-const hudCache = {};
-function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
-const LIFE_SVG = '<svg class="life" viewBox="0 0 10 7" aria-hidden="true"><rect x="2" y="1" width="6" height="4" fill="currentColor"/><rect x="0" y="5" width="10" height="2" fill="currentColor"/><rect x="4" y="0" width="2" height="1" fill="currentColor"/></svg>';
-$('lives').innerHTML = LIFE_SVG.repeat(CFG.lives);
-function updateHud() {
-  const g = game;
-  if (!g || g.kind === 'attract') return;
-  const n = g.tower.length, city = g.kind === 'city';
-  setText('hudBadge', String(city ? g.target : n));
-  setText('hudLabel', city ? TYPES[g.type].name : 'Floors');
-  $('gaugeBar').hidden = !city;
-  if (city) {
-    $('gaugeFill').style.setProperty('--c', TYPES[g.type].body);
-    $('gaugeFill').style.height = `calc(${(n / g.target * 100).toFixed(1)}% - 4px)`;
-  }
-  setText('hudPop', fmt(g.pop));
-  $('lives').setAttribute('aria-label', `${g.lives} of ${CFG.lives} lives left`);
-  [...$('lives').children].forEach((el, i) => el.classList.toggle('lost', i >= g.lives));
-}
-const LEVELS = [['Stable', '●'], ['Moving', '◆'], ['Dangerous', '▲'], ['Critical', '✖']];
-function updateLiveHud() {
-  const g = game;
-  if (!g) return;
-  const c = g.combo, on = c.timer > 0 && state === 'play';
-  $('combo').hidden = !on;
-  if (on) { $('comboFill').style.width = (c.timer / CFG.comboTime * 100).toFixed(1) + '%'; setText('comboLabel', `Combo ×${c.streak}`); }
-  const ch = g.charge, f = g.falling, box = $('mult');
-  const showMult = state === 'play' && !!(ch || (f && (f.hold > 1 || f.power > 1)));
-  box.hidden = !showMult;
-  if (showMult) {
-    const hm = ch ? FORGE.hold.mult[holdBand(ch.t)] : f.hold, pm = ch ? 1 : f.power;
-    setText('multVal', `×${(hm * pm).toFixed(1)}`);
-    setText('multLbl', ch ? FORGE.hold.label[holdBand(ch.t)] : (f.power > 1 ? `Power ×${f.power}` : FORGE.hold.label[FORGE.hold.mult.indexOf(f.hold)] || ''));
-    $('multBar').style.width = ch ? `${Math.min(100, ch.t / FORGE.hold.cap * 100).toFixed(1)}%` : '100%';
-    box.className = 'mult glass' + (ch && ch.t >= FORGE.hold.warn ? ' warn' : '') + (!ch && f.power > 1 ? ' power' : '');
-  }
-  const lv = String(g.level);
-  if ($('stab').dataset.level !== lv) { $('stab').dataset.level = lv; $('stabTxt').textContent = LEVELS[g.level][0]; $('stabIco').textContent = LEVELS[g.level][1]; }
-}
-
-/* ---------------- Tutorial tips ---------------- */
-let lastInput = touchDevice ? 'touch' : 'mouse';
-const TIPS = {
-  tap:     { touch: '<b>Tap</b> to drop the lobby onto the slab.', mouse: '<b>Click</b> to drop the lobby onto the slab.', key: 'Press <b>Space</b> to drop the lobby onto the slab.' },
-  hold:    { touch: '<b>Press and hold</b>: the crane swings faster and your multiplier climbs. Let go to drop.', mouse: '<b>Click and hold</b>: the crane swings faster and your multiplier climbs. Let go to drop.', key: '<b>Hold Space</b>: the crane swings faster and your multiplier climbs. Release to drop.' },
-  power:   { touch: 'While holding, <b>swipe down</b> for a Power Drop. It hits harder and multiplies again.', mouse: 'While holding, <b>drag down</b> for a Power Drop. It hits harder and multiplies again.', key: 'While holding Space, press <b>↓</b> for a Power Drop, or <b>Shift ↓</b> for maximum.' },
-  recall:  { touch: 'Bad swing? While holding, <b>swipe up</b> to recall the floor. It costs one step of your combo.', mouse: 'Bad swing? While holding, <b>drag up</b> to recall the floor. It costs one step of your combo.', key: 'Bad swing? While holding Space, press <b>↑</b> to recall the floor. It costs one step of your combo.' },
-  forced:  'Let go soon. At <b>3 seconds</b> the crane releases on its own.',
-  sway:    'The building is swaying. Drop as the top swings back under the rope.',
-  recover: 'The tower is swinging hard. <b>Perfect</b> floors calm it down, and a recovery pays a bonus.',
-};
-const coach = { id: null, t: 0 };
-function showTip(id) {
-  if (!save.settings.tips || save.tips[id] || coach.id === id || state !== 'play') return;
-  if (save.settings.classic && id !== 'tap' && id !== 'sway' && id !== 'recover') return;
-  if (coach.id && coach.t < 3) return;
-  const tip = TIPS[id];
-  coach.id = id; coach.t = 0;
-  $('coach').innerHTML = typeof tip === 'string' ? tip : (tip[lastInput] || tip.touch);
-  $('coach').hidden = false;
-}
-function doneTip(id) {
-  if (!save.tips[id]) { save.tips[id] = true; persist(); }
-  if (coach.id === id) { coach.id = null; $('coach').hidden = true; }
-}
-
-/* ---------------- Screens ---------------- */
-const screens = ['title', 'howto', 'settings', 'pause', 'result', 'city'].map($);
-let returnTo = 'title';
-function setState(next, screenId, focus = true) {
-  state = next;
-  for (const el of screens) el.hidden = el.id !== screenId;
-  $('hud').hidden = !(next === 'play' || next === 'pause');
-  if (next !== 'play') { $('coach').hidden = true; coach.id = null; }
-  if (screenId && focus) {
-    const b = $(screenId).querySelector('.btn.primary') || $(screenId).querySelector('.btn');
-    if (b) b.focus({ preventScroll: true });
-  } else if (!screenId && document.activeElement && document.activeElement !== document.body) {
-    document.activeElement.blur();
-  }
-}
-function showOverlay(id) { for (const el of screens) el.hidden = el.id !== id; }
-function renderBest() {
-  $('bestLine').textContent = save.best.floors > 0 ? `Best: ${save.best.floors} floors · ${fmt(save.best.pop)} residents` : 'No tower built yet';
-}
-function renderControlsHint() {
-  $('controlsHint').innerHTML = save.settings.classic
-    ? 'Classic controls: tap, click or press <b>Space</b> to drop the floor the moment you touch.'
-    : 'Tap to drop the floor. <b>Hold</b> to swing faster for a bigger multiplier. While holding, swipe <b>down</b> for a Power Drop or <b>up</b> to recall.';
-}
-function attractGame() { return newGame('attract', { type: QUICK_TYPE, swingPhase: game ? game.swingPhase : 0 }); }
-function replaceGame(g) { disposeGame(game); game = g; for (const b of bursts) b.t = b.life; }
-function toTitle() {
-  clearPops(); closeSheet();
-  replaceGame(attractGame());
-  setState('title', 'title', false);
-  renderBest(); renderControlsHint();
-}
-function startRound(opts) {
-  Sound.resume(); clearPops(); closeSheet();
-  const from = game && game.kind === 'attract' ? game.hook.e : undefined;   // lower on from where the title left it
-  replaceGame(newGame(opts.kind, { ...opts, swingPhase: game ? game.swingPhase : 0, hookE: from }));
-  lastRound = opts;
-  setState('play', null);
-  updateHud(); Music.setChain(0);
-}
-let lastRound = null;
-const startQuick = () => startRound({ kind: 'quick', type: QUICK_TYPE });
-const startCity = (idx, type) => startRound({ kind: 'city', type, target: TYPES[type].floors, lot: idx });
-function openCity() {
-  clearPops();
-  if (!game || game.kind !== 'attract') replaceGame(attractGame());
-  setState('city', 'city', false);
-  renderCity();
-}
-function pause() { if (state === 'play' && game && !game.finished) { if (game.charge) game.charge = null; input.down = false; setState('pause', 'pause'); } }
-function resume() { if (state === 'pause') setState('play', null); }
-
-function finishRound(g) {
-  if (g.finished) return;
-  g.finished = true;
-  const n = g.tower.length, stats = [];
-  const quality = g.landed ? Math.round(g.quality / g.landed * 100) : 0;
-  let eyebrow, title, note = '', primary, secondary;
-  if (g.kind === 'quick') {
-    const bestF = n > save.best.floors, bestP = g.pop > save.best.pop;
-    if (bestF) save.best.floors = n;
-    if (bestP) save.best.pop = g.pop;
-    persist();
-    eyebrow = 'Game over';
-    title = `${n} ${n === 1 ? 'floor' : 'floors'}`;
-    stats.push(['Perfect drops', g.perfects], ['Longest combo', g.maxCombo ? `×${g.maxCombo}` : 'none'], ['Construction quality', `${quality}%`],
-      ['Power Perfects', g.powerPerfects], ['Recoveries', g.recoveries.length], ['Highest risk', `×${g.bestRisk.toFixed(1)}`],
-      ['Best tower', `${save.best.floors} ${save.best.floors === 1 ? 'floor' : 'floors'}`]);
-    note = bestF ? 'New tallest tower.' : bestP ? 'New population record.' : '';
-    primary = ['Play again', startQuick]; secondary = ['Menu', toTitle];
-  } else {
-    const t = TYPES[g.type], done = n >= g.target;
-    eyebrow = `${t.name} tower`;
-    title = done ? 'Tower complete' : 'Construction stopped';
-    stats.push(['Floors', `${n} / ${g.target}`], ['Perfect drops', g.perfects], ['Construction quality', `${quality}%`], ['Power Perfects', g.powerPerfects], ['Recoveries', g.recoveries.length]);
-    if (n > 0) {
-      const prev = save.city[g.lot];
-      if (!prev || prev.type !== g.type || g.pop >= prev.residents) {
-        save.city[g.lot] = { type: g.type, floors: n, target: g.target, residents: g.pop, done };
-        persist();
-        note = done ? 'Residents are moving in.' : 'The unfinished tower still counts. Build again to top it off.';
-      } else {
-        note = `Your earlier build housed ${fmt(prev.residents)} people, so it stays.`;
-      }
-    } else {
-      note = 'Nothing was built on this lot.';
-    }
-    primary = ['Back to city', openCity]; secondary = ['Build again', () => startCity(g.lot, g.type)];
-  }
-  $('resEyebrow').textContent = eyebrow;
-  $('resTitle').textContent = title;
-  $('resHeight').textContent = String(n);
-  $('resHeightSub').textContent = `floors · ${Math.round(n * H * S)} m`;
-  $('resPop').textContent = fmt(g.pop);
-  const dl = $('resStats'); dl.innerHTML = '';
-  for (const [k, v] of stats) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = String(v); dl.append(dt, dd); }
-  const chips = $('resChips'); chips.innerHTML = '';
-  for (const name of g.recoveries) { const s = document.createElement('span'); s.textContent = name; chips.appendChild(s); }
-  chips.hidden = !g.recoveries.length;
-  $('resNote').textContent = note;
-  $('resPrimary').textContent = primary[0]; $('resPrimary').onclick = primary[1];
-  $('resSecondary').textContent = secondary[0]; $('resSecondary').onclick = secondary[1];
-  setState('result', 'result');
-}
-
-/* ---------------- City (classic) ---------------- */
-const levelNeed = l => 30 * (l - 1) * l;
-function levelFor(pop) { let l = 1; while (l < 20 && pop >= levelNeed(l + 1)) l++; return l; }
-const cityPop = () => save.city.reduce((s, b) => s + (b ? b.residents : 0), 0);
-function neighbors(i) {
-  const r = Math.floor(i / 5), c = i % 5, out = [];
-  if (r > 0) out.push(i - 5); if (r < 4) out.push(i + 5); if (c > 0) out.push(i - 1); if (c < 4) out.push(i + 1);
-  return out;
-}
-function missingFor(i, type) {
-  const have = new Set(neighbors(i).map(j => save.city[j] && save.city[j].type).filter(Boolean));
-  return TYPES[type].needs.filter(t => !have.has(t));
-}
-function needText(m) {
-  if (m.length === 1) return `Needs a ${m[0]} neighbor`;
-  return `Needs ${m.slice(0, -1).join(', ')} and ${m[m.length - 1]} neighbors`;
-}
-let selected = -1;
-function renderCity() {
-  const pop = cityPop(), lvl = levelFor(pop);
-  $('cityPop').textContent = fmt(pop);
-  $('cityLevel').textContent = lvl;
-  const cur = levelNeed(lvl), next = levelNeed(lvl + 1);
-  $('cityLevelFill').style.width = lvl < 20 ? ((pop - cur) / (next - cur) * 100).toFixed(1) + '%' : '100%';
-  $('cityLevelNote').textContent = lvl < 20 ? `${fmt(next - pop)} more residents to reach level ${lvl + 1}.` : 'Top city level reached.';
-  const grid = $('cityGrid');
-  grid.innerHTML = '';
-  save.city.forEach((b, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'tile' + (i === selected ? ' sel' : ''); btn.id = `lot-${i}`;
-    const where = `Row ${Math.floor(i / 5) + 1}, column ${i % 5 + 1}`;
-    if (b) {
-      const mini = document.createElement('span');
-      mini.className = 'mini' + (b.done ? '' : ' unfinished');
-      mini.style.setProperty('--c', TYPES[b.type].body);
-      mini.style.height = Math.round(14 + 72 * b.floors / 40) + '%';
-      btn.appendChild(mini);
-      btn.setAttribute('aria-label', `${where}: ${TYPES[b.type].name}, ${b.floors} of ${b.target} floors, ${fmt(b.residents)} residents`);
-    } else {
-      btn.innerHTML = '<span class="plus" aria-hidden="true">+</span>';
-      btn.setAttribute('aria-label', `${where}: empty lot`);
-    }
-    btn.addEventListener('click', () => openSheet(i));
-    grid.appendChild(btn);
-  });
-}
-function optionButton(type, detail, status, disabled, onPick) {
-  const t = TYPES[type], btn = document.createElement('button');
-  btn.type = 'button'; btn.className = 'opt'; btn.disabled = disabled;
-  btn.innerHTML = `<i class="sw" style="--c:${t.body}"></i><span>${t.name}<small>${detail}</small></span><span class="go">${status}</span>`;
-  if (!disabled) btn.addEventListener('click', onPick);
-  return btn;
-}
-function openSheet(i) {
-  selected = i;
-  renderCity();
-  const b = save.city[i], body = $('sheetBody');
-  body.innerHTML = '';
-  if (b) {
-    $('sheetTitle').textContent = `${TYPES[b.type].name} tower`;
-    $('sheetText').textContent = `${b.floors} of ${b.target} floors, ${fmt(b.residents)} residents${b.done ? '' : ', unfinished'}. A new build replaces it only if it houses more people.`;
-    body.appendChild(optionButton(b.type, `${b.target} floors`, 'Build again', false, () => startCity(i, b.type)));
-  } else {
-    $('sheetTitle').textContent = 'Empty lot';
-    $('sheetText').textContent = 'Pick a tower. Bigger towers hold more people but need the right neighbors.';
-    for (const type of TYPE_ORDER) {
-      const miss = missingFor(i, type), t = TYPES[type];
-      body.appendChild(optionButton(type, `${t.floors} floors · ×${t.mult} residents`, miss.length ? needText(miss) : 'Build', miss.length > 0, () => startCity(i, type)));
-    }
-  }
-  $('scrim').hidden = false; $('sheet').hidden = false;
-  const first = body.querySelector('.opt:not(:disabled)');
-  if (first) first.focus({ preventScroll: true });
-}
-function closeSheet() {
-  $('sheet').hidden = true; $('scrim').hidden = true;
-  if (selected >= 0) { selected = -1; if (state === 'city') renderCity(); }
-}
-let resetArmed = 0;
-$('cityReset').addEventListener('click', () => {
-  const btn = $('cityReset');
-  if (Date.now() - resetArmed < 3000) {
-    save.city = Array(25).fill(null); persist(); resetArmed = 0;
-    btn.textContent = 'Clear city'; renderCity();
-  } else {
-    resetArmed = Date.now(); btn.textContent = 'Tap again to clear';
-    setTimeout(() => { if (Date.now() - resetArmed >= 3000) btn.textContent = 'Clear city'; }, 3100);
-  }
-});
-
-/* ---------------- Input: classic tap, plus the Forge gestures ---------------- */
-const input = { down: false, id: null, y0: 0, samples: [], pending: false };
-function canCharge() {
-  const g = game;
-  return !!g && state === 'play' && g.kind !== 'attract' && !g.intro && g.hook.has && g.hook.e >= 1 && !g.hook.recall && !g.falling && !g.ending && !g.pan;
-}
-function startCharge() { game.charge = { t: 0, band: 0, beep: 0 }; }
-function press(y, t, via) {
-  lastInput = via;
-  Sound.resume();
-  if (state !== 'play' || !game) return;
-  if (game.pan) { game.camY = game.pan.to; return; }
-  if (game.intro) { game.intro.t = CFG.intro.hold + CFG.intro.pan; return; }
-  if (save.settings.classic) { drop(null, false); return; }        // classic: drop the moment you touch
-  input.down = true; input.y0 = y; input.samples = [[y, t]];
-  if (canCharge()) { startCharge(); input.pending = false; } else input.pending = true;
-}
-function move(y, t) {
-  if (!input.down) return;
-  const s = input.samples; s.push([y, t]); while (s.length > 2 && t - s[0][1] > 110) s.shift();
-  if (!game || !game.charge) return;
-  const dy = y - input.y0;
-  if (dy > FORGE.power.swipe) {
-    const v = (s[s.length - 1][0] - s[0][0]) / Math.max(1, s[s.length - 1][1] - s[0][1]);
-    let tier = FORGE.power.tiers[0];
-    for (const x of FORGE.power.tiers) if (v >= x[0]) tier = x;
-    input.down = false; drop(tier, false);
-  } else if (dy < -FORGE.recallSwipe) { input.down = false; recall(); }
-}
-function release() {
-  if (!input.down) return;
-  input.down = false; input.pending = false;
-  if (game && game.charge) drop(null, false);
-}
-function recall() {
-  const g = game;
-  if (!g || !g.charge) return;
-  g.charge = null; g.hook.recall = true;
-  const c = g.combo;
-  const y = pivotWorldY(g) + RIG.L + HANG.floor;
-  if (c.streak > 0) { c.streak--; if (!c.streak) c.timer = 0; popup('Recalled · combo −1', 0, y, 'info'); } else popup('Recalled', 0, y, 'info');
-  Music.setChain(c.streak);
-  Sound.recall(); vib(15);
-  doneTip('recall');
-}
-const stage = $('stage');
-stage.addEventListener('pointerdown', e => {
-  if (e.target.closest('button, .screen, .sheet, #scrim, label, select')) return;
-  if (e.button > 0) return;
-  e.preventDefault();
-  try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-  input.id = e.pointerId;
-  press(e.clientY, e.timeStamp, e.pointerType === 'mouse' ? 'mouse' : 'touch');
-});
-stage.addEventListener('pointermove', e => { if (e.pointerId === input.id) move(e.clientY, e.timeStamp); });
-stage.addEventListener('pointerup', e => { if (e.pointerId === input.id) release(); });
-stage.addEventListener('pointercancel', () => { input.down = false; input.pending = false; if (game) game.charge = null; });
-window.addEventListener('keydown', e => {
-  const k = e.key;
-  if (state === 'play') {
-    if (k === ' ' || k === 'Enter') { e.preventDefault(); if (!e.repeat) press(0, e.timeStamp, 'key'); }
-    else if (k === 'ArrowDown') {
-      e.preventDefault(); if (e.repeat) return;
-      if (game && game.charge) { input.down = false; drop(e.shiftKey ? FORGE.power.tiers[3] : FORGE.power.tiers[1], false); }
-      else { press(0, e.timeStamp, 'key'); release(); }
-    } else if (k === 'ArrowUp' && game && game.charge) { e.preventDefault(); input.down = false; recall(); }
-    else if (k === 'Escape' || k === 'p' || k === 'P') { e.preventDefault(); pause(); }
-  } else if (state === 'pause' && (k === 'Escape' || k === 'p' || k === 'P')) {
-    e.preventDefault(); resume();
-  } else if (state === 'city' && k === 'Escape' && !$('sheet').hidden) {
-    closeSheet();
-  }
-});
-window.addEventListener('keyup', e => { if ((e.key === ' ' || e.key === 'Enter') && input.down) { e.preventDefault(); release(); } });
-document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
-window.addEventListener('resize', () => {
-  layout();
-  if (!game || state === 'play') return;
-  game.camY = game.hold ? endCam() : (game.kind === 'attract' ? introCam(game) : cameraTarget(game));
-});
-
-/* ---------------- Menus ---------------- */
-$('btnQuick').addEventListener('click', startQuick);
-$('btnCity').addEventListener('click', openCity);
-$('btnHow').addEventListener('click', () => { returnTo = state; showOverlay('howto'); });
-$('btnSettings').addEventListener('click', () => { returnTo = state; showOverlay('settings'); });
-$('btnPauseSettings').addEventListener('click', () => { returnTo = 'pause'; showOverlay('settings'); });
-for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => { showOverlay(returnTo === 'pause' ? 'pause' : 'title'); renderControlsHint(); });
-$('pauseBtn').addEventListener('click', pause);
-$('btnResume').addEventListener('click', resume);
-$('btnRestart').addEventListener('click', () => { if (lastRound) startRound(lastRound); });
-$('btnQuit').addEventListener('click', () => { if (game && game.kind === 'city') openCity(); else toTitle(); });
-$('cityBack').addEventListener('click', toTitle);
-$('scrim').addEventListener('click', closeSheet);
-$('sheetClose').addEventListener('click', closeSheet);
-const SETS = [['setClassic', 'classic'], ['setSfx', 'sfx'], ['setMusic', 'music'], ['setHaptics', 'haptics'], ['setShake', 'shake'], ['setTips', 'tips']];
-for (const [id, key] of SETS) {
-  $(id).checked = !!save.settings[key];
-  $(id).addEventListener('change', e => { save.settings[key] = e.target.checked; persist(); Sound.apply(); if (key === 'haptics' && e.target.checked) vib(20); });
-}
-$('setQuality').value = save.settings.quality;
-$('setQuality').addEventListener('change', e => { save.settings.quality = e.target.value; persist(); applyQuality(); });
-$('btnReplayTips').addEventListener('click', () => { save.tips = {}; save.settings.tips = true; $('setTips').checked = true; persist(); $('btnReplayTips').textContent = 'Tips reset'; });
-// Android back button (called by the APK wrapper): pause, step back through menus, or leave from the title.
-window.skylineBack = () => {
-  if (state === 'play') pause();
-  else if (state === 'pause') { if ($('settings').hidden) resume(); else showOverlay('pause'); }
-  else if (state === 'city') { if (!$('sheet').hidden) closeSheet(); else toTitle(); }
-  else if (state === 'result') { if (game && game.kind === 'city') openCity(); else toTitle(); }
-  else if (!$('howto').hidden || !$('settings').hidden) showOverlay('title');
-  else location.href = 'skyline://exit';
-};
-
-/* ---------------- Loop (fixed 120 Hz steps, like the classic) ---------------- */
-const STEP = 1 / 120;
-let last = performance.now(), acc = 0, pausedFrames = 0;
-function frame(now) {
-  requestAnimationFrame(frame);
-  const dt = Math.min(0.1, (now - last) / 1000);
-  last = now;
-  if (state === 'pause') { if (pausedFrames++ > 1) return; } else pausedFrames = 0;
-  adapt(dt);
-  if (game && state !== 'pause') {
-    sceneTime += dt;
-    acc += dt;
-    while (acc >= STEP) { update(STEP); acc -= STEP; }
-    updateWorld(dt);
-    if (coach.id) { coach.t += dt; if (coach.t > 9 && coach.id !== 'tap') doneTip(coach.id); }
-    if (state === 'play' && !save.settings.classic) {
-      const n = game.tower.length;
-      if (n >= 3 && !save.tips.hold) showTip('hold');
-      else if (n >= 6 && save.tips.hold && !save.tips.power) showTip('power');
-      else if (n >= 9 && save.tips.power && !save.tips.recall) showTip('recall');
-    }
-  }
-  if (game) syncScene(game);
-  updateLiveHud();
-  updatePops(state === 'pause' ? 0 : dt);
-  renderer.render(scene, camera);
-}
-
-applyQuality();
-toTitle();
-requestAnimationFrame(frame);
-})();
-</script>
+<script src="js/core.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/world.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/city.js"></script>
+<script src="js/meta.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

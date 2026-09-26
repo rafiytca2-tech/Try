@@ -28,6 +28,9 @@ import urllib.request
 import zipfile
 import zlib
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from bundle import bundle  # noqa: E402  (inlines js/ into one page)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.join(HERE, '..', 'index.html')
 CACHE = os.path.join(HERE, '.cache')
@@ -37,8 +40,8 @@ OUT_APK = os.path.join(DIST, 'SkylineForge.apk')
 
 PACKAGE = 'com.skylineforge.game'
 APP_NAME = 'Skyline Forge'
-VERSION_CODE = 4
-VERSION_NAME = '0.4.0'
+VERSION_CODE = 5
+VERSION_NAME = '1.0.0'
 MIN_SDK = 24          # Android 7.0: v2 signatures only (apksig's v1 signer needs JDK 8 internals)
 TARGET_SDK = 34
 
@@ -295,7 +298,7 @@ def font_css():
 
 
 def game_assets():
-    html = open(GAME, encoding='utf-8').read()
+    html = bundle(GAME)
     html = html.replace(THREE_CDN, 'three.min.js')
     html = re.sub(r'<link rel="preconnect"[^>]*>\n', '', html)
     html = re.sub(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com[^>]*>\n', '<style>\n' + font_css() + '\n</style>\n', html)

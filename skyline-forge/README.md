@@ -1,97 +1,96 @@
 # Skyline Forge
 
-The classic Skyline Stack game running in stylized 3D (three.js r128), with the *Skyline Forge
-Master Game Design Document*'s Phase 1 features added on top. It's a single `index.html` with no
-build step, and it runs in any browser with WebGL. An Android APK wrapper lives in
-[`android/`](android/).
+A crane tower-stacking city builder in stylized 3D. You drop every floor of every building
+yourself, using the classic Skyline Stack / City Bloxx feel. Every tower you top out stays in
+your harbour city, leans and all, and moves people in.
 
-The original 2D pixel version is still in [`../skyline-stack/`](../skyline-stack/).
+It runs in any browser with WebGL. It needs no build step and works offline once loaded. An
+Android APK wrapper lives in [`android/`](android/).
 
-## The classic base, unchanged
+- **[DESIGN.md](DESIGN.md)**: how the *Skyline Forge Master Game Design Document* maps onto the
+  game's systems and numbers.
+- **[`../skyline-stack/`](../skyline-stack/)**: the original 2D pixel version.
 
-The game runs the 2D version's engine as is. It keeps the same units (classic screen pixels, y
-pointing down), the same tuning values and the same rules. The 3D scene only draws that state:
-one classic pixel is 0.15 m, so the 40 × 46 px block is a 6 × 6.9 m module.
+## How it plays
 
-- **Blocks**: the classic design, painted onto every face of the 3D module:
-  - dark outline and tan concrete slab rim;
-  - two tall windows with stepped sky reflections;
-  - glass doors on the first floor;
-  - small roof props on the last floor of a city tower.
-- **Rope**: the same pendulum from a pivot above the screen, with the same reach and speed
-  growth per floor. The first floor hangs from a four-cable sling and the rest from the hook. The
-  load hangs level while the rope swings.
-- **Drop**: straight down from where you let go. Gravity is set so a floor falls the gap in
-  0.36 s.
-- **Landing**:
-  - within 5 px of centre is Perfect;
-  - a floor sticks if its centre lands on the one below;
-  - a floor whose centre is past the edge tips off;
-  - a wider miss falls past the tower.
-- **Rounds**: three misses end a Quick Game.
-- **Sway**: the whole building rocks as one rigid piece. Every sloppy floor makes it swing more
-  and a Perfect keeps only 45% of the swing. Short towers can only lean a little.
-- **Camera**: level and straight-on, framing exactly the classic screen. At the start it shows
-  the crane, then pans down until only the rope is left. It keeps the tower top 58% down the
-  screen and slides back down to the street when the round ends.
-- **Modes**: Quick Game, and Build City, the 5 × 5 city with Residential, Commercial, Office
-  and Luxury towers and their neighbour rules.
+- **Construction**: the classic engine, unchanged.
+  - The crane shows first, then the camera pans down to the rope.
+  - The floor swings on the rope and drops straight down.
+  - Within 5 px of centre is a Perfect.
+  - A floor whose centre lands past the edge tips off, and three misses end the build.
+  - Sloppy floors make the whole tower rock. Perfects calm it.
+- **The Forge moves**:
 
-## Controls: the Forge layer
+  | Gesture | Keyboard | Unlocks | Effect |
+  |---|---|---|---|
+  | Tap | `Space` | Level 1 | Drop the floor. Until Hold unlocks, it drops the moment you touch, like the original. |
+  | Press and hold | Hold `Space` | Level 2 | Hold Momentum: faster swing, multiplier ×1.0 → ×4.0, forced release at 3 s. |
+  | Hold + swipe down | `↓` (`Shift ↓` = max) | Level 4 | Power Drop ×1.25 → ×2.5, harder impact. |
+  | Hold + swipe up | `↑` | Level 5 | Recall for another swing. Costs a combo step. |
 
-None of these change the swing, drop or sway unless you hold, swipe or recall. A quick tap is a
-classic drop.
+  **Settings → Classic controls** keeps the drop-on-touch feel forever.
+- **Each build**:
+  - lands special floors, such as a Sky Garden: a Perfect adds 3% capacity;
+  - earns recovery bonuses, from Close Call to Legendary Recovery;
+  - gets 1–3 stars from its construction quality.
+- **The city**:
+  - Tap a lot to build. Needs you to build **homes**, **shops** and **offices** that keep one
+    another busy.
+  - Watch the **R/C/O demand** bars and the **happiness** meter.
+  - Place **parks, plazas, bus stops and metro stations** to raise land value.
+  - Buy **eight districts** along the harbour, including historic Old Town with its height limit.
+  - Income builds up while you're away, for up to 8 hours. **Collect** it when you return.
+- **Coming back**:
+  - Three **contracts** at a time, refilling every 15 minutes.
+  - A seeded **Daily Challenge** with modifiers and a streak.
+  - **Sky Race**, the endless classic mode. Your best run stands as the **Record Tower** on the
+    pier.
+  - **Achievements**, blueprint mastery stars, and crane paint unlocked with prestige.
+- **Progression**:
+  - 30 city levels unlock 9 blueprints, from Starter Flats up to the 100-floor Forge Megatower,
+    and the districts.
+  - New moves unlock in the design document's tutorial order.
 
-| Gesture | Keyboard | What happens |
-|---|---|---|
-| Tap | Tap `Space` | **Drop**, the classic way. |
-| Press and hold | Hold `Space` | **Hold Momentum**. The crane swings faster and the multiplier climbs. Let go to drop. |
-| Hold + swipe down | `↓` (`Shift ↓` = max) | **Power Drop**. Adds downward speed. A faster swipe means ×1.25 → ×2.5. |
-| Hold + swipe up | `↑` | **Recall**. The floor is lifted for another swing. Costs one step of the combo. |
-| Hold for 3 s | | **Forced Release**. Beeps, a red glow and vibration warn you first. |
+## Controls in the city
 
-**Classic controls** in Settings drops the moment you touch, like the phone original, and turns
-the Forge gestures off.
+- **Pan**: drag.
+- **Zoom**: pinch or scroll.
+- **Open a lot, building or pier**: tap it.
+- **Keyboard**: arrows pan, `+`/`-` zoom, `Esc` closes sheets and pauses builds.
 
-Hold bands follow Appendix A:
+## Files
 
-| Hold | Swing speed | Multiplier | Label |
-|---|---|---|---|
-| 0–0.5 s | 1.0× | ×1.0 | Safe |
-| 0.5–1.0 s | 1.15× | ×1.2 | Low risk |
-| 1.0–1.5 s | 1.4× | ×1.5 | Committed |
-| 1.5–2.0 s | 1.8× | ×2.0 | High risk |
-| 2.0–2.5 s | 2.5× | ×2.8 | Very high risk |
-| 2.5–3.0 s | 3.5× | ×4.0 | Extreme |
+- **`index.html`**: markup and styles.
+- **`js/`**: the game, as classic scripts that share one global scope:
+  - `core` and `data`: helpers and the tuning tables;
+  - `audio` and `gfx`: sound, rendering and textures;
+  - `world`: the city map and the crane;
+  - `engine`: the classic construction engine and the Forge moves;
+  - `city` and `meta`: the simulation, economy and reasons to come back;
+  - `ui` and `main`: screens and the main loop.
 
-## Scoring and feedback
+  `index.html` runs as is from a web server or `file://`.
+- **`bundle.py`**: inlines the scripts into `dist/skyline-forge.html`, one file for hosting and
+  for the APK.
 
-- **Residents**: the classic formula (accuracy, Perfect bonus, combo bonus, tower type), times
-  the hold and Power multipliers.
-- **Ratings**: Perfect (the classic 5 px), then Excellent, Great, Good, Rough and Dangerous,
-  measured by how far off centre the floor lands.
-- **Power impact**: a Power Drop lands harder.
-  - Off centre, it adds more sway and shoves the floor further out.
-  - A Strong or harder one that lands within 6 px of centre settles the tower instead, removing
-    40% of the sway.
-- **Stability readout**: the sway, shown as Stable, Moving, Dangerous or Critical.
-- **Recovery bonuses**: bring the tower from Dangerous back to Stable with new floors to earn a
-  Close Call bonus. Starting from Critical earns a Structural Save instead.
-- **Report**: height, residents, Perfect drops, longest combo, construction quality, Power
-  Perfects, recoveries and highest risk.
+All tuning lives in `js/data.js`.
 
-Classic tuning lives in `CFG` and the Forge layer's in `FORGE`, both at the top of the script.
+## Saving
+
+- **Where**: progress is saved in the browser's local storage (`skyline-forge/v3`).
+- **Upgrading**: a 0.4 save is carried over. Its best Quick Game becomes the Sky Race record,
+  and its City Bloxx buildings move to Harbor Row.
+- **Resetting**: Settings → Reset all progress erases the save.
 
 ## Performance
 
 - **Graphics setting**: Auto, High, Balanced or Battery saver. Auto watches frame time and
-  steps render resolution, shadow-map size, traffic and cloud counts down, and back up again
-  when there's headroom.
-- **City rendering**: the whole city is drawn with a few instanced meshes. Window patterns
-  come from a world-space shader, so there are no per-building textures.
-- **Simulation**: the engine runs in fixed 120 Hz steps, like the 2D version.
-- **Idle cost**: rendering stops while paused, and the game pauses automatically when the tab
-  or app goes to the background.
+  steps render resolution, shadow-map size, traffic and clouds down, and back up again when
+  there's headroom.
+- **Draw calls**: the backdrop city, the traffic and all of your towers are drawn with a few
+  instanced meshes, so a full city adds only a few draw calls.
+- **Idle cost**: rendering stops while paused, and the game pauses when it goes to the
+  background.
 
 ## Android APK
 
@@ -111,7 +110,7 @@ The app:
 - Works fully offline.
 - Runs fullscreen and keeps the screen on while you play.
 - Pauses when you leave it.
-- Back pauses the game, steps back through menus, or exits from the title screen.
+- Back closes sheets, pauses a build, returns to the title, or exits from the title screen.
 
 It's signed with the committed **debug** key (`android/debug.keystore`, password
 `android`), so a newer build installs over an older one. Use your own key before publishing
