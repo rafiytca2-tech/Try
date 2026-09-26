@@ -1,21 +1,57 @@
 # Skyline Forge
 
-The Phase 1 construction prototype from the *Skyline Forge Master Game Design Document*. You
-build one tower, the 50-floor Skyline Residence, in stylized 3D (three.js r128). It's a single
-`index.html` with no build step, and it runs in any browser with WebGL. An Android APK wrapper
-lives in [`android/`](android/).
+The classic Skyline Stack game running in stylized 3D (three.js r128), with the *Skyline Forge
+Master Game Design Document*'s Phase 1 features added on top. It's a single `index.html` with no
+build step, and it runs in any browser with WebGL. An Android APK wrapper lives in
+[`android/`](android/).
 
-The older 2D pixel game, with its City mode, is still in [`../skyline-stack/`](../skyline-stack/).
+The original 2D pixel version is still in [`../skyline-stack/`](../skyline-stack/).
 
-## Controls: the one-finger language
+## The classic base, unchanged
+
+The game runs the 2D version's engine as is. It keeps the same units (classic screen pixels, y
+pointing down), the same tuning values and the same rules. The 3D scene only draws that state:
+one classic pixel is 0.15 m, so the 40 × 46 px block is a 6 × 6.9 m module.
+
+- **Blocks**: the classic design, painted onto every face of the 3D module:
+  - dark outline and tan concrete slab rim;
+  - two tall windows with stepped sky reflections;
+  - glass doors on the first floor;
+  - small roof props on the last floor of a city tower.
+- **Rope**: the same pendulum from a pivot above the screen, with the same reach and speed
+  growth per floor. The first floor hangs from a four-cable sling and the rest from the hook. The
+  load hangs level while the rope swings.
+- **Drop**: straight down from where you let go. Gravity is set so a floor falls the gap in
+  0.36 s.
+- **Landing**:
+  - within 5 px of centre is Perfect;
+  - a floor sticks if its centre lands on the one below;
+  - a floor whose centre is past the edge tips off;
+  - a wider miss falls past the tower.
+- **Rounds**: three misses end a Quick Game.
+- **Sway**: the whole building rocks as one rigid piece. Every sloppy floor makes it swing more
+  and a Perfect keeps only 45% of the swing. Short towers can only lean a little.
+- **Camera**: level and straight-on, framing exactly the classic screen. At the start it shows
+  the crane, then pans down until only the rope is left. It keeps the tower top 58% down the
+  screen and slides back down to the street when the round ends.
+- **Modes**: Quick Game, and Build City, the 5 × 5 city with Residential, Commercial, Office
+  and Luxury towers and their neighbour rules.
+
+## Controls: the Forge layer
+
+None of these change the swing, drop or sway unless you hold, swipe or recall. A quick tap is a
+classic drop.
 
 | Gesture | Keyboard | What happens |
 |---|---|---|
-| Tap / quick release | Tap `Space` | **Normal Drop**. The floor falls straight down. |
-| Press and hold | Hold `Space` | **Hold Momentum**. The crane swings faster and the multiplier climbs. |
-| Hold + swipe down | `↓` (`Shift ↓` = max) | **Power Drop**. Adds real downward speed. A faster swipe means ×1.25 → ×2.5. |
-| Hold + swipe up | `↑` | **Recall**. The floor goes back up for another swing. Costs one step of the Perfect chain. |
+| Tap | Tap `Space` | **Drop**, the classic way. |
+| Press and hold | Hold `Space` | **Hold Momentum**. The crane swings faster and the multiplier climbs. Let go to drop. |
+| Hold + swipe down | `↓` (`Shift ↓` = max) | **Power Drop**. Adds downward speed. A faster swipe means ×1.25 → ×2.5. |
+| Hold + swipe up | `↑` | **Recall**. The floor is lifted for another swing. Costs one step of the combo. |
 | Hold for 3 s | | **Forced Release**. Beeps, a red glow and vibration warn you first. |
+
+**Classic controls** in Settings drops the moment you touch, like the phone original, and turns
+the Forge gestures off.
 
 Hold bands follow Appendix A:
 
@@ -28,43 +64,23 @@ Hold bands follow Appendix A:
 | 2.0–2.5 s | 2.5× | ×2.8 | Very high risk |
 | 2.5–3.0 s | 3.5× | ×4.0 | Extreme |
 
-The hold and Power multipliers multiply together.
+## Scoring and feedback
 
-## Physics and scoring
+- **Residents**: the classic formula (accuracy, Perfect bonus, combo bonus, tower type), times
+  the hold and Power multipliers.
+- **Ratings**: Perfect (the classic 5 px), then Excellent, Great, Good, Rough and Dangerous,
+  measured by how far off centre the floor lands.
+- **Power impact**: a Power Drop lands harder.
+  - Off centre, it adds more sway and shoves the floor further out.
+  - A Strong or harder one that lands within 6 px of centre settles the tower instead, removing
+    40% of the sway.
+- **Stability readout**: the sway, shown as Stable, Moving, Dangerous or Critical.
+- **Recovery bonuses**: bring the tower from Dangerous back to Stable with new floors to earn a
+  Close Call bonus. Starting from Critical earns a Structural Save instead.
+- **Report**: height, residents, Perfect drops, longest combo, construction quality, Power
+  Perfects, recoveries and highest risk.
 
-- **Ratings** go Perfect, Excellent, Great, Good, Rough, Dangerous, Miss. They're based on
-  alignment after the landing. A moving tower drags the floor a little as it lands.
-- **Stacking statics**: every joint compares the centre of mass of everything above it with
-  the contact area below. Floors offset the same way add up, so you counterbalance by placing
-  the next floors toward the other side.
-- **Sway**: the whole building rocks as one rigid body. Wind grows with height. Off-centre
-  impacts add sway, a Perfect damps it, and a centred Power Drop settles the tower. Short
-  buildings barely move.
-- **Power impact**: a heavy drop can knock loose poorly supported joints near the top
-  ("Floors shifted").
-- **Tipping and collapse**: when a joint's margin goes negative, the section above rocks on
-  its edge, with creaks, vibration and a red "Critical" readout. Fix it in time and it
-  settles back. If not, only the floors above that joint fall (**partial collapse**) and you
-  keep building. Failure at the lobby joint is a **full collapse** and ends the run.
-- **Recoveries**: pulling the tower back from Dangerous or Critical with new placements
-  awards Close Call, Structural Save, Master Recovery, Impossible Recovery or Legendary
-  Recovery.
-- **Score** = placement points × hold × power × chain multiplier × structural consequence,
-  plus recovery and topping-out bonuses.
-- **Modules**: 62 are delivered for 50 floors. Misses and collapsed floors use up the spares.
-  The run ends when finishing is no longer possible.
-- **Quality report**: height, construction quality, structural stability, Perfect floors,
-  longest chain, Power Perfects, recoveries, floors lost, capacity and prestige.
-
-**Camera**: level and straight-on, matching the classic side view. It only slides up and down
-and moves in and out, never tilting, so alignment always reads as left and right on screen.
-- **Title**: shows the crane with the lobby hanging.
-- **Intro**: pans straight down to the site.
-- **Play**: holds the tower top 58% down the screen from the first floor, pulling back as the
-  swing widens.
-- **End of a round**: slides back down and pulls back until the whole tower is in view.
-
-All tuning lives in the `CFG` object at the top of the script.
+Classic tuning lives in `CFG` and the Forge layer's in `FORGE`, both at the top of the script.
 
 ## Performance
 
@@ -73,8 +89,9 @@ All tuning lives in the `CFG` object at the top of the script.
   when there's headroom.
 - **City rendering**: the whole city is drawn with a few instanced meshes. Window patterns
   come from a world-space shader, so there are no per-building textures.
-- **Idle cost**: the per-step physics reuses its vectors and result objects, rendering stops
-  while paused, and the game pauses automatically when the tab or app goes to the background.
+- **Simulation**: the engine runs in fixed 120 Hz steps, like the 2D version.
+- **Idle cost**: rendering stops while paused, and the game pauses automatically when the tab
+  or app goes to the background.
 
 ## Android APK
 
