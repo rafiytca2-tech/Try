@@ -289,10 +289,78 @@ function buildRoofProps(style) {
     add(new T.BoxGeometry(3.4, 1.2, 3.4), gold, 0, 3.8, 0);
     add(new T.ConeGeometry(2.2, 7, 4), gold, 0, 7.9, 0).rotation.y = Math.PI / 4;
     add(new T.SphereGeometry(0.5, 12, 10), new T.MeshBasicMaterial({ color: '#fff1c2' }), 0, 11.8, 0);
+  } else if (style === 'brick') {                      // Harbor Works: sawtooth skylights and a smoking chimney
+    for (const x of [-1.8, 0, 1.8]) add(new T.BoxGeometry(1.6, 0.9, 4.6), propMat('#8a4a33'), x, 0.8, 0).rotation.z = 0.35;
+    for (const x of [-1.8, 0, 1.8]) add(new T.BoxGeometry(0.1, 0.7, 4.4), new T.MeshStandardMaterial({ color: lin('#9fd4f0'), roughness: 0.2, metalness: 0.4 }), x + 0.62, 0.95, 0).rotation.z = 0.35;
+    add(new T.CylinderGeometry(0.4, 0.55, 5.4, 12), propMat('#6e3322'), 2.2, 3.1, -2);
+    add(new T.CylinderGeometry(0.47, 0.47, 0.5, 12), propMat('#f2f2ee'), 2.2, 5.0, -2);
+    const smoke = new T.Object3D(); smoke.position.set(2.2, top + 5.9, -2); smoke.userData.smoke = 1; g.add(smoke);
+  } else if (style === 'mint') {                        // School: rooftop sports court and a flag
+    const court = add(new T.BoxGeometry(5, 0.12, 5), new T.MeshStandardMaterial({ map: courtTex(), roughness: 0.8 }), 0, 0.5, 0); court.castShadow = false;
+    for (const [x, z] of [[-2.5, 0], [2.5, 0]]) add(new T.BoxGeometry(0.06, 1.2, 5), propMat('#2f6b45'), x, 1.1, z);
+    add(new T.CylinderGeometry(0.05, 0.05, 3.4, 6), propMat('#d8d2c4'), -2.6, 2.2, 2.6);
+    add(new T.BoxGeometry(1.4, 0.8, 0.04), propMat('#2f7fd8'), -1.9, 3.5, 2.6);
+  } else if (style === 'white') {                       // Clinic and hospital: helipad and a red cross
+    add(new T.CylinderGeometry(2.6, 2.6, 0.2, 24), new T.MeshStandardMaterial({ map: helipadTex(), roughness: 0.7 }), 0, 0.55, 0).rotation.y = Math.PI / 2;
+    add(new T.BoxGeometry(0.5, 1.6, 0.14), propMat('#d8352a'), 2.4, 1.3, 3.05);
+    add(new T.BoxGeometry(1.6, 0.5, 0.14), propMat('#d8352a'), 2.4, 1.3, 3.05);
+  } else if (style === 'navy') {                        // Fire and police: light bar and radio mast
+    add(new T.BoxGeometry(3, 0.9, 2), propMat('#d8d2c4'), -1, 0.9, -1);
+    add(new T.BoxGeometry(0.9, 0.35, 0.5), new T.MeshBasicMaterial({ color: '#ff3b2f' }), -1.5, 1.55, -1);
+    add(new T.BoxGeometry(0.9, 0.35, 0.5), new T.MeshBasicMaterial({ color: '#2f7fff' }), -0.5, 1.55, -1);
+    add(new T.CylinderGeometry(0.06, 0.12, 6, 6), propMat('#c9ced4'), 2, 3.2, 1.5);
+    add(new T.BoxGeometry(0.9, 0.08, 0.08), propMat('#c9ced4'), 2, 4.6, 1.5);
+  } else if (style === 'orange') {                      // Arena: floodlight masts around a curved roof
+    const dome = add(new T.SphereGeometry(3.1, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#f4efe6'), roughness: 0.4, metalness: 0.2 }), 0, 0.45, 0); dome.scale.y = 0.4;
+    for (const [x, z] of [[-2.7, -2.7], [2.7, -2.7], [-2.7, 2.7], [2.7, 2.7]]) {
+      add(new T.CylinderGeometry(0.08, 0.12, 4.4, 6), propMat('#3a3f46'), x, 2.6, z);
+      add(new T.BoxGeometry(1, 0.6, 0.2), new T.MeshStandardMaterial({ color: lin('#fff7dc'), emissive: new T.Color('#fff2c0'), emissiveIntensity: 0.8 }), x, 4.9, z).lookAt(0, 0, 0);
+    }
+  } else if (style === 'sand') {                        // University: clock cupola
+    add(new T.BoxGeometry(2.6, 2.6, 2.6), propMat(st.light), 0, 1.75, 0);
+    add(new T.ConeGeometry(2.2, 2.4, 4), propMat('#6e3322'), 0, 4.25, 0).rotation.y = Math.PI / 4;
+    add(new T.CylinderGeometry(0.75, 0.75, 0.08, 20).rotateX(Math.PI / 2), propMat('#fbf6ea'), 0, 1.9, 1.34);
+    add(new T.BoxGeometry(0.06, 0.55, 0.04), propMat('#2a2a2a'), 0, 2.1, 1.4);
+    add(new T.CylinderGeometry(0.05, 0.05, 1.6, 6), propMat('#c9a86a'), 0, 6.2, 0);
+  } else if (style === 'sky') {                         // Tech campus: glass pavilion and a dish
+    add(new T.BoxGeometry(3.6, 1.6, 3.6), new T.MeshStandardMaterial({ color: lin('#a8e4f8'), roughness: 0.1, metalness: 0.5, emissive: new T.Color('#9fe8ff'), emissiveIntensity: 0.18 }), -0.6, 1.25, -0.4);
+    const dish = add(new T.SphereGeometry(1.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), new T.MeshStandardMaterial({ color: lin('#eef1f4'), roughness: 0.4, side: T.DoubleSide }), 2, 1.6, 2); dish.rotation.x = -0.9;
+    add(new T.CylinderGeometry(0.08, 0.08, 1.1, 6), propMat('#8d99a6'), 2, 1, 2);
   } else {
     add(new T.BoxGeometry(4.2, 0.45, 4.2), propMat(st.light), 0, 0.67, 0);
     add(new T.BoxGeometry(2.6, 0.45, 2.6), propMat(st.body), 0, 1.1, 0);
     add(new T.ConeGeometry(0.6, 2.4, 4), propMat('#fff3c9'), 0, 2.5, 0);
+  }
+  return g;
+}
+function courtTex() {
+  const c = canvasOf(128, 128), g = c.getContext('2d');
+  rect(g, '#3f8f5a', 0, 0, 128, 128); rect(g, '#c85a3a', 12, 12, 104, 104);
+  g.strokeStyle = '#f4f4f0'; g.lineWidth = 3; g.strokeRect(14, 14, 100, 100); g.beginPath(); g.moveTo(64, 14); g.lineTo(64, 114); g.stroke();
+  g.beginPath(); g.arc(64, 64, 14, 0, 7); g.stroke();
+  return tex(c);
+}
+function helipadTex() {
+  const c = canvasOf(128, 128), g = c.getContext('2d');
+  rect(g, '#3a3f46', 0, 0, 128, 128);
+  g.strokeStyle = '#f2f2ee'; g.lineWidth = 5; g.beginPath(); g.arc(64, 64, 52, 0, 7); g.stroke();
+  g.fillStyle = '#f2f2ee'; g.fillRect(40, 34, 12, 60); g.fillRect(76, 34, 12, 60); g.fillRect(40, 58, 48, 12);
+  return tex(c);
+}
+// Renovation extras on a finished roof: a green planter border and rows of solar panels.
+const renoTemplates = {};
+function renoProps(kind) { return (renoTemplates[kind] || (renoTemplates[kind] = buildRenoProps(kind))).clone(); }
+function buildRenoProps(kind) {
+  const g = new T.Group(), top = H * S / 2 + 0.45;
+  if (kind === 'garden') {
+    const leaf = new T.MeshStandardMaterial({ color: lin('#4f9d3f'), roughness: 0.9, flatShading: true });
+    for (const z of [-2.55, 2.55]) {
+      const bed = new T.Mesh(new T.BoxGeometry(5.6, 0.35, 0.8), propMat('#7a5532')); bed.position.set(0, top + 0.17, z); g.add(bed);
+      for (let x = -2.3; x <= 2.3; x += 1.15) { const b = new T.Mesh(new T.IcosahedronGeometry(0.42, 0), leaf); b.position.set(x, top + 0.55, z); b.castShadow = true; g.add(b); }
+    }
+  } else if (kind === 'solar') {
+    const panel = new T.MeshStandardMaterial({ color: lin('#1f3b66'), roughness: 0.18, metalness: 0.6 });
+    for (const x of [-2.45, 2.45]) for (const z of [-1.2, 1.2]) { const p = new T.Mesh(new T.BoxGeometry(0.9, 0.08, 2), panel); p.position.set(x, top + 0.35, z); p.rotation.z = x < 0 ? 0.35 : -0.35; g.add(p); }
   }
   return g;
 }

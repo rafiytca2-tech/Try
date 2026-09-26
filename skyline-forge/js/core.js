@@ -64,6 +64,7 @@ function defaultSave() {
   return {
     v: 3, created: now, seen: now,
     coins: 500, prestige: 0, level: 1, freeFlats: true,
+    materials: 50,               // steel and concrete for big towers; Harbor Works and Perfect floors make more
     districts: { harbor: true },
     lots: {},                    // lot id -> building { bp, xs[], ... } or placeable { place }
     bank: 0,                     // income waiting to be collected
@@ -79,6 +80,11 @@ function defaultSave() {
     ftue: 0,                     // onboarding step: 0 new, 1 first build started, 2 done
     pending: null,               // a paid permit whose build hasn't finished (refunded on next start)
     seenAch: 0,                  // achievements already seen in Trophies (drives the badge)
+    events: { active: null, next: 0, seen: 0 },   // rotating city events (meta.js)
+    weekly: { key: '', best: 0, claimed: false },
+    stadium: { stage: 0, parts: {} },            // the Harbor Stadium megaproject
+    custom: [],                  // player-made blueprints
+    overlay: '',                 // hub map overlay
   };
 }
 let save = defaultSave();

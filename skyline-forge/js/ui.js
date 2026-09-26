@@ -6,9 +6,11 @@
 const ICON = {
   coin: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffd257"/><circle cx="12" cy="12" r="6.3" fill="none" stroke="#b8860b" stroke-width="1.6"/></svg>',
   prestige: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.6L21.5 9l-5.3 4.5L18 20.5 12 16.8 6 20.5l1.8-7L2.5 9l6.9-.4z" fill="#c9a8ff"/></svg>',
+  mat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l9-4 9 4v9l-9 4-9-4z" fill="#b8875a"/><path d="M3 8l9 4 9-4M12 12v9" fill="none" stroke="#6e4a2a" stroke-width="1.5"/></svg>',
   flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4-3 5.5-3 10a3 3 0 006 0c0-1.6-.8-2.6-.8-2.6S17 11 17 14.5A5 5 0 017 15c0-5.5 5-7 5-13z" fill="#ff8a2b"/></svg>',
 };
 const coinTxt = n => `<span class="coin">${ICON.coin}</span>${fmt(n)}`;
+const matTxt = n => `<span class="coin">${ICON.mat}</span>${fmt(n)}`;
 const starsHtml = (n, cls = 'small') => `<span class="stars ${cls}">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
 const styleColor = s => STYLES[s] ? STYLES[s].body : '#888';
 
@@ -143,6 +145,15 @@ function updateHubHud() {
   }
   setText('happy', `${Math.round(A.happy * 100)}%`);
   setText('income', `${fmtK(City.rate)}/h`);
+  $('matChip').hidden = save.level < ECON.renoLevel;
+  setText('hubMat', fmtK(Math.floor(save.materials)));
+  const pl = A.power ? A.powerUse / A.power : 0, wl = A.water ? A.waterUse / A.water : 0, load = Math.max(pl, wl);
+  setText('gridLbl', pl >= wl ? 'Power' : 'Water'); setText('grid', `${Math.round(load * 100)}%`);
+  $('grid').className = load > 1 ? 'bad' : load > 0.85 ? 'warn' : '';
+  const tr = A.commute / Math.max(1, A.roadCap);
+  setText('traffic', tr < 0.6 ? 'Light' : tr < 1 ? 'Busy' : 'Jammed');
+  $('traffic').className = tr >= 1 ? 'bad' : tr > 0.85 ? 'warn' : '';
+  setTraffic(A); refreshOverlay();
   const nc = contractsReady();
   $('badgeContracts').hidden = !nc; setText('badgeContracts', String(nc));
   $('btnContracts').style.opacity = contractsOn() ? '' : '0.55';
@@ -170,8 +181,14 @@ function nextGoal() {
   if (contractsReady()) return `A contract is complete. <b>Tap Jobs</b> to claim it.`;
   if (save.bank >= 1 && save.bank >= incomeCap() * 0.99) return `Income storage is <b>full</b>. Collect it so your city keeps earning.`;
   if (save.bank >= 50) return `Your city has earned <b>${fmt(save.bank)}</b> coins. Tap <b>Collect</b>.`;
+  const short = A.powerUse > A.power ? ['Power', 'power', 'a <b>Power Plant</b>', 'power'] : A.waterUse > A.water ? ['Water', 'water', 'a <b>Water Tower</b>', 'tower'] : null;
+  if (short) return save.level >= PLACEABLES[short[3]].level ? `<b>${short[0]} shortage</b>: buildings are emptying. Place ${short[2]} on a free lot.` : `The old grid is running out of ${short[1]}. ${short[2]} unlocks at level ${PLACEABLES[short[3]].level}.`;
   const unfinished = buildingsList().find(([, b]) => !b.done);
   if (unfinished) return `<b>${BLUEPRINTS[unfinished[1].bp].name}</b> is unfinished. Tap it to continue building.`;
+  if (A.congestion > 0.2) return save.level >= PLACEABLES.bus.level ? '<b>Traffic jams</b> are cutting income. Place a <b>Bus Stop</b> or other transit.' : 'Streets are getting jammed. Transit unlocks at level 5.';
+  if (A.pollShare > 0.3) return '<b>Pollution</b> is hurting homes. Keep factories away from housing, or move them to the Dockyards.';
+  if (save.level >= BLUEPRINTS.school.level && A.Rcap > 400 && A.svc.edu < 0.4) return 'Families want a <b>school</b>. Build a Harbor School near homes.';
+  if (save.level >= BLUEPRINTS.clinic.level && A.Rcap > 600 && A.svc.health < 0.4) return 'Residents need <b>healthcare</b>. Build a Neighbourhood Clinic near homes.';
   if (A.demand.C > 0.3 && save.level >= BLUEPRINTS.market.level) return 'Residents want shops. Build a <b>Corner Market</b> next to your homes.';
   if (A.demand.O > 0.3 && save.level >= BLUEPRINTS.office.level) return 'Residents need jobs. Build an <b>Office Tower</b> near homes and shops.';
   if (A.demand.R > 0.3) return 'Jobs are going unfilled. Build more <b>homes</b>.';
@@ -258,24 +275,37 @@ function bind(root, sel, fn) { for (const el of root.querySelectorAll(sel)) el.a
 function estimate(key) { const bp = BLUEPRINTS[key]; return Math.round(bp.floors * 20 * bp.mult / 10) * 10; }
 function bpCard(key, lot, check) {
   const bp = BLUEPRINTS[key];
-  const cost = check.cost ?? permitCost(key);
-  const status = check.ok ? (cost ? `Build ${coinTxt(cost)}` : 'Build · Free') : esc(check.reason);
+  const cost = check.cost ?? permitCost(key), mat = check.mat ?? matCost(key);
+  const status = check.ok ? (cost ? `Build ${coinTxt(cost)}` : 'Build · Free') + (mat ? `<br>${matTxt(mat)}` : '') : esc(check.reason);
   return `<button class="card" type="button" data-bp="${key}" aria-disabled="${!check.ok}">
     <i class="sw" style="--c:${styleColor(bp.style)}"></i>
     <span><b>${bp.name}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small><small>${esc(bp.blurb)}</small></span>
     <span class="go">${status}</span></button>`;
 }
+const PLACE_COL = { park: '#5c9a45', plaza: '#cbbfa6', bus: '#2f5d8a', tram: '#c8342c', ferry: '#3b7fe0', metro: '#d83a2f', rail: '#b88a5a', power: '#8f7f6d', tower: '#6fa8c8', solar: '#1f3b66', wind: '#e8ebee', waterworks: '#4a8fb0' };
 function placeCard(key, lot) {
   const P = PLACEABLES[key], r = canPlace(key, lot);
   return `<button class="card" type="button" data-place="${key}" aria-disabled="${!r.ok}">
-    <i class="sw" style="--c:${key === 'park' ? '#5c9a45' : key === 'plaza' ? '#cbbfa6' : key === 'bus' ? '#2f5d8a' : '#d83a2f'}"></i>
+    <i class="sw" style="--c:${PLACE_COL[key] || '#888'}"></i>
     <span><b>${P.name}</b><small>${esc(P.blurb)}</small></span>
     <span class="go">${r.ok ? `Place ${coinTxt(P.cost)}` : esc(r.reason)}</span></button>`;
 }
 function lotTitle(lot) { return `${DISTRICT_BY_ID[lot.d].name} · ${lot.row}${lot.col}`; }
 function lotPills(lot) {
-  const lv = City.lv[lot.id] || 1;
-  return `<div class="pills"><span class="${lv > 1.05 ? 'good' : ''}">Land value ×${lv.toFixed(2)}</span>${lot.water ? '<span class="good">Waterfront</span>' : ''}${DISTRICT_BY_ID[lot.d].maxFloors ? `<span>Max ${DISTRICT_BY_ID[lot.d].maxFloors} floors</span>` : ''}</div>`;
+  const lv = City.lv[lot.id] || 1, c = (City.ctx && City.ctx[lot.id]) || { svc: {}, poll: 0, transit: 0 };
+  return `<div class="pills"><span class="${lv > 1.05 ? 'good' : lv < 0.95 ? 'bad' : ''}">Land value ×${lv.toFixed(2)}</span>${lot.water ? '<span class="good">Waterfront</span>' : ''}${DISTRICT_BY_ID[lot.d].maxFloors ? `<span>Max ${DISTRICT_BY_ID[lot.d].maxFloors} floors</span>` : ''}${c.transit ? '<span class="good">Transit</span>' : ''}${SERVICE_ROLES.filter(r => c.svc[r]).map(r => `<span class="good">${SERVICE_NAMES[r]}</span>`).join('')}${c.poll ? '<span class="bad">Polluted</span>' : ''}</div>`;
+}
+const SVC_ROLES = new Set(['edu', 'health', 'safety', 'ent']);
+const UTIL_KEYS = new Set(['power', 'tower', 'solar', 'wind', 'waterworks']);
+// Unlocked first, then the next couple of locked ones, so the list stays short.
+function byLevel(keys, table) {
+  const open = keys.filter(k => table[k].level <= save.level).sort((a, b) => table[a].level - table[b].level);
+  const locked = keys.filter(k => table[k].level > save.level).sort((a, b) => table[a].level - table[b].level).slice(0, 2);
+  return open.concat(locked);
+}
+function gridLine() {
+  const A = City.A;
+  return `<p class="sub">Power ${fmt(A.powerUse)} of ${fmt(A.power)} used · Water ${fmt(A.waterUse)} of ${fmt(A.water)} used</p>`;
 }
 function openLotSheet(lot, tab = 'towers') {
   sheetLot = lot; selectRing(lot);
@@ -302,16 +332,23 @@ function openLotSheet(lot, tab = 'towers') {
   }
   if (b && b.bp && tab !== 'rebuild') { openBuildingSheet(lot, b); return; }
   const rebuild = tab === 'rebuild';
-  const tabs = rebuild ? '' : `<div class="tabs" role="tablist"><button class="tab" role="tab" data-tab="towers" aria-selected="${tab === 'towers'}">Towers</button><button class="tab" role="tab" data-tab="places" aria-selected="${tab === 'places'}">Parks &amp; transit</button></div>`;
-  let list;
-  if (tab === 'places') list = Object.keys(PLACEABLES).map(k => placeCard(k, lot)).join('');
-  else list = BP_KEYS.map(k => { const c = canBuild(k, lot); if (rebuild && c.reason === 'Lot in use') c.ok = true; return bpCard(k, lot, c); }).join('');
-  openSheet(`${head(rebuild ? 'Rebuild' : 'Empty lot', lotTitle(lot))}${lotPills(lot)}${rebuild ? '<p class="lede">The new tower replaces the old one only if it is better (finished beats unfinished, then more capacity).</p>' : ''}${tabs}<div class="cards">${list}</div>`, s => {
+  const TABS = [['towers', 'Towers'], ['services', 'Services'], ['places', 'Parks &amp; transit'], ['utility', 'Utilities']];
+  const tabs = rebuild ? '' : `<div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${n}</button>`).join('')}</div>`;
+  let list, extra = '';
+  if (tab === 'places' || tab === 'utility') {
+    list = byLevel(Object.keys(PLACEABLES).filter(k => UTIL_KEYS.has(k) === (tab === 'utility')), PLACEABLES).map(k => placeCard(k, lot)).join('');
+    if (tab === 'utility') extra = gridLine();
+  } else {
+    const keys = rebuild ? BP_KEYS.slice() : BP_KEYS.filter(k => SVC_ROLES.has(BLUEPRINTS[k].role) === (tab === 'services'));
+    list = byLevel(keys, BLUEPRINTS).map(k => bpCard(k, lot, canBuild(k, lot))).join('');
+  }
+  openSheet(`${head(rebuild ? 'Rebuild' : 'Empty lot', lotTitle(lot))}${lotPills(lot)}${rebuild ? '<p class="lede">The new tower replaces the old one only if it is better (finished beats unfinished, then more capacity).</p>' : ''}${tabs}${extra}<div class="cards">${list || '<p class="sub">Nothing here yet. Keep growing your city.</p>'}</div>`, s => {
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
     bind(s, '[data-tab]', el => openLotSheet(lot, el.dataset.tab));
     bind(s, '[data-bp]', el => {
       const key = el.dataset.bp, c = canBuild(key, lot);
-      if (!c.ok && !(rebuild && c.reason === 'Lot in use')) { Sound.deny(); toast(c.reason); return; }
+      if (!c.ok && c.matShort) { offerMaterials(c.matShort, c.cost, () => { closeSheet(); startCityBuild(lot, key, false); }); return; }
+      if (!c.ok) { Sound.deny(); toast(c.reason); return; }
       closeSheet(); startCityBuild(lot, key, false);
     });
     bind(s, '[data-place]', el => {
@@ -321,6 +358,21 @@ function openLotSheet(lot, tab = 'towers') {
       closeSheet(); updateHubHud(); afterCityChange();
     });
   });
+}
+// Short on materials: offer to buy the difference, then carry on.
+function offerMaterials(n, alsoCoins, then) {
+  const price = matPrice(n), can = save.coins >= price + (alsoCoins || 0);
+  openModal(`${head('Not enough materials', `You have ${fmt(Math.floor(save.materials))}. Harbor Works and Perfect floors make more.`)}
+    <p class="lede">Buy <b>${fmt(n)}</b> materials for <b class="coin">${fmt(price)}</b> coins${then ? ' and start building' : ''}?</p>
+    <div class="btn-row"><button class="btn" type="button" data-close>Not now</button><button class="btn primary" type="button" id="buyM" ${can ? '' : 'disabled'}>${can ? `Buy ${fmt(price)}` : 'Not enough coins'}</button></div>`, p => {
+    bind(p, '#buyM', () => { if (buyMaterials(n)) { Sound.coin(2); $('modal').hidden = true; modalClose = null; updateHubHud(); if (then) then(); } });
+  });
+}
+function renoCard(lot, b, R) {
+  const r = canRenovate(lot, R.id), cost = renoCost(b, R);
+  const status = r.done ? '✓ Done' : r.ok ? `${coinTxt(cost)}${R.mat ? `<br>${matTxt(R.mat)}` : ''}` : esc(r.reason);
+  return `<button class="card ${r.done ? 'done' : ''}" type="button" data-reno="${R.id}" aria-disabled="${!r.ok}"><i class="sw" style="--c:${r.done ? 'var(--stable)' : 'var(--accent)'}"></i>
+    <span><b>${esc(R.name)}</b><small>${esc(R.desc)}</small></span><span class="go">${status}</span></button>`;
 }
 function openBuildingSheet(lot, b) {
   const bp = BLUEPRINTS[b.bp], caps = capsOf(b), total = capTotal(caps), occ = b.occ ?? 0;
@@ -343,12 +395,24 @@ function openBuildingSheet(lot, b) {
       <dt>Started</dt><dd>${date}</dd>
     </dl>
     ${b.recoveries && b.recoveries.length ? `<div class="chips">${b.recoveries.slice(-6).map(n => `<span>${esc(n)}</span>`).join('')}</div>` : ''}
+    ${City.A && City.A.util < 0.99 ? `<p class="sub" style="color:var(--danger)">${City.A.powerRatio < City.A.waterRatio ? 'Power' : 'Water'} shortage: people are moving out. Add supply in the Utilities tab of an empty lot.</p>` : ''}
+    ${b.done && save.level >= ECON.renoLevel ? `<h3>Renovate</h3><div class="cards">${RENOVATIONS.map(R => renoCard(lot, b, R)).join('')}</div>` : ''}
     <div class="btns">
-      ${!b.done ? `<button class="btn primary" type="button" id="cont" ${cont.ok ? '' : 'disabled'}>${cont.ok ? `Continue building · ${fmt(contCost)}` : esc(cont.reason)}</button>` : ''}
+      ${!b.done ? `<button class="btn primary" type="button" id="cont" ${cont.ok || cont.matShort ? '' : 'disabled'}>${cont.ok || cont.matShort ? `Continue building · ${fmt(contCost)}${cont.mat ? ` + ${fmt(cont.mat)} materials` : ''}` : esc(cont.reason)}</button>` : ''}
       <div class="btn-row"><button class="btn" type="button" id="rebuild">Rebuild</button><button class="btn danger" type="button" id="demo">Demolish (+${fmt(Math.round(bp.cost * ECON.demolishRefund))})</button></div>
     </div>`, s => {
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
-    bind(s, '#cont', () => { closeSheet(); startCityBuild(lot, b.bp, true); });
+    bind(s, '#cont', () => {
+      const c = canBuild(b.bp, lot, { cont: true });
+      if (!c.ok && c.matShort) { offerMaterials(c.matShort, c.cost, () => { closeSheet(); startCityBuild(lot, b.bp, true); }); return; }
+      closeSheet(); startCityBuild(lot, b.bp, true);
+    });
+    bind(s, '[data-reno]', el => {
+      const R = RENOVATIONS.find(x => x.id === el.dataset.reno), r = canRenovate(lot, R.id);
+      if (!r.ok) { if (!r.done) { Sound.deny(); toast(r.reason); } return; }
+      renovate(lot, R.id); Sound.place(); rebuildLots(); burst(lot.x, b.xs.length * H * S, lot.z, 26, '#ffd76a', 6, 5, 1.2, 1.6, true);
+      toast(`${R.name} done`, 'good'); openBuildingSheet(lot, buildingAt(lot.id)); updateHubHud(); afterCityChange();
+    });
     bind(s, '#rebuild', () => openLotSheet(lot, 'rebuild'));
     bind(s, '#demo', el => { if (el.dataset.arm) { demolishFx(lot, b); Sound.demolish(); clearLot(lot); rebuildLots(); closeSheet(); updateHubHud(); vib([40, 30, 80]); } else { el.dataset.arm = 1; el.textContent = 'Tap again to demolish'; } });
   });
@@ -387,6 +451,7 @@ function showLevelUps(ups, then) {
   if (state === 'hub') fireworks(cam.look.x, 20, cam.look.z - 20, 6);
   openModal(`<div class="lvup panel" style="padding:0;background:none;border:0;backdrop-filter:none">
       <p class="eyebrow">City level</p><div class="num">${u.level}</div>
+      ${rankFor(u.level) !== rankFor(u.level - 1) ? `<p class="lede" style="text-align:center">Your city is now a <b>${rankFor(u.level)}</b>.</p>` : ''}
       <div class="rewards"><span>${ICON.coin}+${fmt(u.reward)}</span></div>
       ${u.unlocks.length ? `<h3>Unlocked</h3><div class="unlocks">${unlockRows(u.unlocks)}</div>` : ''}
       <button class="btn primary" type="button" data-close style="width:100%">Great</button></div>`, null, () => showLevelUps(ups.slice(1), then));
@@ -518,15 +583,41 @@ function showHowto(onDone) {
 function showCityInfo() {
   const A = City.A, lp = levelProgress();
   const next = []; for (let l = save.level + 1; l <= Math.min(MAX_LEVEL, save.level + 3); l++) for (const u of unlocksAt(l)) next.push({ ...u, name: `${u.name} (level ${l})` });
-  openModal(`${head(`City level ${lp.l}`, lp.next == null ? 'Top level reached' : `${fmt(population())} of ${fmt(lp.next)} residents for level ${lp.l + 1}`)}
+  const pct = v => `${Math.round(v * 100)}%`;
+  const matOn = save.level >= ECON.renoLevel;
+  openModal(`${head(`${rankFor(lp.l)} · level ${lp.l}`, lp.next == null ? 'Top level reached' : `${fmt(population())} of ${fmt(lp.next)} residents for level ${lp.l + 1}`)}
     <div class="meter"><i style="width:${(lp.frac * 100).toFixed(1)}%"></i></div>
     <dl class="stats">
       <dt>Residents</dt><dd>${fmt(A.pop)}</dd><dt>Jobs filled</dt><dd>${fmt(A.filled)} of ${fmt(A.jobs)}</dd>
-      <dt>Hotel guests</dt><dd>${fmt(A.guests)}</dd><dt>Happiness</dt><dd>${Math.round(A.happy * 100)}%</dd>
-      <dt>Unemployment</dt><dd>${Math.round(A.unemployment * 100)}%</dd><dt>Income</dt><dd>${fmt(City.rate)} coins/hour</dd>
+      <dt>Hotel guests</dt><dd>${fmt(A.guests)}</dd><dt>Happiness</dt><dd>${pct(A.happy)}</dd>
+      <dt>Unemployment</dt><dd>${pct(A.unemployment)}</dd><dt>Income</dt><dd>${fmt(City.rate)} coins/hour</dd>
       <dt>Income storage</dt><dd>up to ${ECON.incomeCapHours} hours</dd></dl>
+    <h3>Infrastructure</h3>
+    <dl class="stats">
+      <dt>Power</dt><dd>${fmt(A.powerUse)} / ${fmt(A.power)}</dd><dt>Water</dt><dd>${fmt(A.waterUse)} / ${fmt(A.water)}</dd>
+      <dt>Commuters / road and transit capacity</dt><dd>${fmt(A.commute)} / ${fmt(A.roadCap)}</dd>
+      <dt>Homes with education</dt><dd>${pct(A.svc.edu)}</dd><dt>Homes with healthcare</dt><dd>${pct(A.svc.health)}</dd><dt>Homes with safety</dt><dd>${pct(A.svc.safety)}</dd>
+      <dt>Homes near pollution</dt><dd>${pct(A.pollShare)}</dd><dt>Tourism</dt><dd>${pct(A.tourism)}</dd></dl>
+    ${matOn ? `<h3>Materials</h3><dl class="stats"><dt>In store</dt><dd>${fmt(Math.floor(save.materials))} / ${fmt(materialCap())}</dd><dt>Harbor Works output</dt><dd>+${A.matRate.toFixed(1)}/hour</dd><dt>Perfect floors</dt><dd>+${ECON.matPerPerfect} each</dd></dl>
+    <div class="btn-row"><button class="btn" type="button" data-buy="10">Buy 10 · ${fmt(matPrice(10))}</button><button class="btn" type="button" data-buy="50">Buy 50 · ${fmt(matPrice(50))}</button></div>` : ''}
     ${next.length ? `<h3>Coming up</h3><div class="unlocks">${unlockRows(next)}</div>` : ''}
-    <button class="btn primary" type="button" data-close>Close</button>`);
+    <button class="btn primary" type="button" data-close>Close</button>`, p => {
+    bind(p, '[data-buy]', el => { if (buyMaterials(+el.dataset.buy)) { Sound.coin(2); showCityInfo(); updateHubHud(); } else { Sound.deny(); toast('Not enough coins'); } });
+  });
+}
+/* ---------------- Map overlays ---------------- */
+function setOverlayUI() {
+  const O = OVERLAYS[save.overlay];
+  $('ovKey').hidden = !O; $('btnMap').classList.toggle('on', !!O);
+  if (O) {
+    setText('ovName', O.name); setText('ovLo', O.lo); setText('ovHi', O.hi);
+    const r = $('ovRamp').style; r.setProperty('--a', O.cols[0]); r.setProperty('--b', O.cols[1]); r.setProperty('--c', O.cols[2]);
+  }
+  refreshOverlay();
+}
+function cycleOverlay() {
+  save.overlay = OVERLAY_ORDER[(OVERLAY_ORDER.indexOf(save.overlay) + 1) % OVERLAY_ORDER.length]; persist();
+  setOverlayUI();
 }
 
 /* ---------------- Results ---------------- */
@@ -544,6 +635,7 @@ function showResults(r, sum) {
     capLabel = roles.length === 1 ? ROLE_NAMES[roles[0]] : 'capacity';
     rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
     if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
+    if (sum.materials) rewards.push(`<span>${ICON.mat}+${fmt(sum.materials)}</span>`);
     note = sum.kept ? `Your earlier ${BLUEPRINTS[sum.prev.bp].name} was better, so it stays.` : !r.xs.length ? 'Nothing was built on this lot.' : r.done ? (sum.firstTop ? `First ${bp.name}! Residents are moving in.` : 'Residents are moving in.') : 'The unfinished tower still counts. Tap it in the city to continue.';
     primary = ['Back to city', () => leaveSession()];
     const canCont = !r.done && sum.saved;

@@ -15,108 +15,170 @@ function capsOf(b) { return b.caps || { [BLUEPRINTS[b.bp].role === 'mixed' ? 're
 const capTotal = caps => Object.values(caps).reduce((s, v) => s + v, 0);
 const hasRole = (b, role) => { const c = capsOf(b); return (c[role] || 0) > 0; };
 
-/* ---------------- Land value ---------------- */
-function landValue(lot) {
-  const d = DISTRICT_BY_ID[lot.d];
-  let v = d.lv + (lot.water ? 0.1 : 0), parks = 0, plazas = 0, transit = 0, landmark = false;
-  for (const o of LOTS) {
-    if (o.id === lot.id) continue;
-    const p = placeAt(o.id), dist = lotDist(lot, o);
+/* ---------------- Per-lot context: land value, services, pollution, transit ---------------- */
+function serviceRadius(b, lot) { const bp = BLUEPRINTS[b.bp]; return (bp.radius || 0) * (bp.role === 'edu' && lot.d === 'unihill' ? 1.5 : 1); }
+function lotContext() {
+  const src = { park: [], plaza: [], transit: [], poll: [], svc: [], landmark: [] }, ctx = {};
+  for (const lot of LOTS) {
+    const p = placeAt(lot.id), b = buildingAt(lot.id), docks = !!DISTRICT_BY_ID[lot.d].docks;
     if (p) {
       const P = PLACEABLES[p];
-      if (dist <= P.radius) {
-        if (p === 'park' && parks < 2) { parks++; v += P.lv; }
-        else if (p === 'plaza' && plazas < 1) { plazas++; v += P.lv; }
-        else if (P.transit) transit = Math.max(transit, P.lv);
-      }
+      if (p === 'park') src.park.push(lot); else if (p === 'plaza') src.plaza.push(lot);
+      if (P.transit) src.transit.push([lot, P]);
+      if (P.pollution) src.poll.push([lot, P.pollution * (docks ? 0.5 : 1)]);
     }
-    const b = buildingAt(o.id);
-    if (b && BLUEPRINTS[b.bp].role === 'landmark' && b.done && dist <= 150) landmark = true;
+    if (b) {
+      const bp = BLUEPRINTS[b.bp];
+      if (SERVICE_ROLES.includes(bp.role) && b.done) src.svc.push([lot, bp.role, serviceRadius(b, lot)]);
+      if (bp.pollution && b.xs.length) src.poll.push([lot, bp.pollution * (docks ? 0.5 : 1)]);
+      if (bp.role === 'landmark' && b.done) src.landmark.push(lot);
+    }
   }
-  return v + transit + (landmark ? 0.2 : 0);
+  for (const lot of LOTS) {
+    const c = { svc: {}, poll: 0, transit: 0, parks: 0 };
+    let v = DISTRICT_BY_ID[lot.d].lv + (lot.water ? 0.1 : 0);
+    for (const o of src.park) if (o.id !== lot.id && c.parks < 2 && lotDist(lot, o) <= PLACEABLES.park.radius) { c.parks++; v += PLACEABLES.park.lv; }
+    for (const o of src.plaza) if (o.id !== lot.id && lotDist(lot, o) <= PLACEABLES.plaza.radius) { v += PLACEABLES.plaza.lv; break; }
+    for (const [o, P] of src.transit) if (lotDist(lot, o) <= P.radius) c.transit = Math.max(c.transit, P.lv);
+    v += c.transit;
+    for (const [o, role, r] of src.svc) if (lotDist(lot, o) <= r) c.svc[role] = true;
+    v += 0.04 * Object.keys(c.svc).length;
+    for (const [o, r] of src.poll) if (o.id !== lot.id && lotDist(lot, o) <= r) c.poll++;
+    v -= 0.15 * Math.min(2, c.poll);
+    if (src.landmark.some(o => lotDist(lot, o) <= 150)) v += 0.2;
+    const b = buildingAt(lot.id);
+    if (b && b.reno && b.reno.facade) v += 0.1;
+    c.lv = Math.max(0.5, v);
+    ctx[lot.id] = c;
+  }
+  return ctx;
 }
+const landValue = lot => (City.ctx && City.ctx[lot.id] ? City.ctx[lot.id].lv : DISTRICT_BY_ID[lot.d].lv);
 
 /* ---------------- The simulation ---------------- */
 function recomputeCity() {
-  const A = { Rcap: 0, Ccap: 0, Ocap: 0, Gcap: 0, Vcap: 0, parks: 0, plazas: 0, landmarks: 0, covered: 0, buildings: 0, waterHotels: 0 };
+  const A = { Rcap: 0, Ccap: 0, Ocap: 0, Icap: 0, Gcap: 0, Vcap: 0, Svc: 0, Ecap: 0, parks: 0, plazas: 0, landmarks: 0, arenas: 0, covered: 0, buildings: 0,
+    waterHotels: 0, floors: 0, power: UTIL.basePower, water: UTIL.baseWater, powerUse: 0, waterUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
+    svc: { health: 0, edu: 0, safety: 0 }, extraTourism: 0 };
+  const ctx = City.ctx = lotContext();
   const list = buildingsList();
+  A.roadCap += 60 * Object.keys(save.districts).length;
   for (const lot of LOTS) {
-    City.lv[lot.id] = landValue(lot);
-    const p = placeAt(lot.id);
+    City.lv[lot.id] = ctx[lot.id].lv;
+    const p = placeAt(lot.id); if (!p) continue;
+    const P = PLACEABLES[p];
     if (p === 'park') A.parks++;
     if (p === 'plaza') A.plazas++;
+    A.power += P.power || 0; A.water += P.water || 0; A.roadCap += P.cap || 0; A.extraTourism += P.tourism || 0;
   }
-  let oldTownTourism = 0;
+  let oldTownTourism = 0, resCovered = 0, resTotal = 0;
   for (const [lot, b] of list) {
-    const c = capsOf(b);
-    A.Rcap += c.res || 0; A.Ccap += c.com || 0; A.Ocap += c.off || 0; A.Gcap += c.hot || 0; A.Vcap += c.landmark || 0;
-    A.buildings++;
-    if (BLUEPRINTS[b.bp].role === 'landmark' && b.done) A.landmarks++;
+    const c = capsOf(b), bp = BLUEPRINTS[b.bp], n = b.xs.length;
+    A.Rcap += c.res || 0; A.Ccap += c.com || 0; A.Ocap += c.off || 0; A.Icap += c.ind || 0; A.Gcap += c.hot || 0; A.Vcap += c.landmark || 0;
+    A.Svc += (c.edu || 0) + (c.health || 0) + (c.safety || 0); A.Ecap += c.ent || 0;
+    A.buildings++; A.floors += n;
+    const heavy = bp.role === 'ind' || bp.role === 'landmark' || bp.role === 'mixed';
+    A.powerUse += n * (heavy ? UTIL.heavyPerFloor : UTIL.perFloor); A.waterUse += n * UTIL.perFloor;
+    if (b.reno && b.reno.solar) A.power += n;
+    if (b.reno && b.reno.garden) A.gardens++;
+    if (b.reno && b.reno.lights) A.lights++;
+    if (bp.role === 'landmark' && b.done) A.landmarks++;
+    if (bp.role === 'ent' && b.done) A.arenas++;
+    if (bp.role === 'ind') A.industry++;
     if ((c.hot || 0) > 0 && lot.water) A.waterHotels++;
     if (DISTRICT_BY_ID[lot.d].tourism) oldTownTourism = DISTRICT_BY_ID[lot.d].tourism;
-    for (const o of LOTS) { const p = placeAt(o.id); if (p && PLACEABLES[p].transit && lotDist(lot, o) <= PLACEABLES[p].radius) { A.covered++; break; } }
+    const cx = ctx[lot.id];
+    if (cx.transit > 0) A.covered++;
+    if ((c.res || 0) > 0) {
+      resTotal += c.res;
+      for (const role of SERVICE_ROLES) if (cx.svc[role]) A.svc[role] += c.res;
+      if (cx.poll) A.polluted += c.res;
+    }
   }
-  const W = 0.5 * A.Rcap, jobs = A.Ccap + A.Ocap + 0.3 * A.Gcap;
+  for (const role of SERVICE_ROLES) A.svc[role] = resTotal ? A.svc[role] / resTotal : 0;
+  A.pollShare = resTotal ? A.polluted / resTotal : 0;
+  // Utilities: a shortage empties buildings (GDD §6 Utilities).
+  A.powerRatio = A.powerUse ? Math.min(1, A.power / A.powerUse) : 1;
+  A.waterRatio = A.waterUse ? Math.min(1, A.water / A.waterUse) : 1;
+  A.util = Math.min(A.powerRatio, A.waterRatio);
+  // Jobs and workers.
+  const W = 0.5 * A.Rcap, jobs = A.Ccap + A.Ocap + A.Icap + 0.3 * A.Gcap + 0.5 * A.Svc + 0.4 * A.Ecap;
   A.W = W; A.jobs = jobs;
   A.jobRatio = W > 0 ? jobs / W : 1;
   A.shopRatio = A.Rcap > 0 ? A.Ccap / (0.25 * A.Rcap) : 1;
-  A.tourism = Math.min(1, 0.3 + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism);
+  A.tourism = Math.min(1, 0.3 + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
+  // Traffic: commuters vs road and transit capacity (GDD §9).
+  A.commute = 0.9 * Math.min(jobs, W);
+  A.congestion = Math.max(0, A.commute / A.roadCap - 1);
   const unemployment = W > 0 ? Math.max(0, W - jobs) / W : 0;
   const shopShort = A.Rcap > 0 ? Math.max(0, 1 - A.shopRatio) : 0;
   A.unemployment = unemployment;
-  A.happy = clamp(0.62 + Math.min(0.25, 0.05 * A.parks) + Math.min(0.1, 0.05 * A.plazas) + 0.15 * (A.buildings ? A.covered / A.buildings : 0) + (A.landmarks ? 0.1 : 0) - 0.2 * unemployment - 0.1 * shopShort, 0.25, 1);
+  const svcSum = A.svc.health + A.svc.edu + A.svc.safety;
+  A.happy = clamp(0.62 + Math.min(0.25, 0.05 * A.parks) + Math.min(0.1, 0.05 * A.plazas) + 0.15 * (A.buildings ? A.covered / A.buildings : 0) + (A.landmarks ? 0.1 : 0)
+    + 0.06 * svcSum + Math.min(0.08, 0.01 * A.gardens) + Math.min(0.08, 0.04 * A.arenas)
+    - 0.2 * unemployment - 0.1 * shopShort - 0.12 * Math.min(1, A.congestion) - 0.12 * A.pollShare - 0.2 * (1 - A.util), 0.25, 1);
   // Demand bars, -1..1 (GDD §6 Demand)
   A.demand = {
     R: A.Rcap || jobs ? clamp((jobs - W) / Math.max(W, 50), -1, 1) : 1,
     C: clamp((0.25 * A.Rcap - A.Ccap) / Math.max(0.25 * A.Rcap, 30), -1, 1),
     O: clamp((W - jobs) / Math.max(W, 50), -1, 1),
   };
-  // Target occupancy per building
+  // Target occupancy per building.
   const roleT = {
     res: clamp(0.45 + 0.35 * Math.min(1, A.jobRatio) + 0.2 * Math.min(1, A.shopRatio), 0, 1) * (0.8 + 0.4 * A.happy),
     com: 0.3 + 0.7 * Math.min(1, A.Ccap > 0 ? 0.25 * A.Rcap / A.Ccap : 1),
-    off: 0.3 + 0.7 * Math.min(1, A.Ocap > 0 ? W / jobs : 1),
+    off: (0.3 + 0.7 * Math.min(1, A.Ocap > 0 ? W / jobs : 1)) * (0.9 + 0.1 * A.svc.edu),
+    ind: 0.5 + 0.5 * Math.min(1, jobs > 0 ? W / jobs : 1),
     hot: 0.4 + 0.6 * A.tourism,
     landmark: 0.6 + 0.4 * A.tourism,
+    ent: 0.4 + 0.6 * A.tourism,
+    edu: 0.75 + 0.25 * A.happy, health: 0.75 + 0.25 * A.happy, safety: 0.8 + 0.2 * A.happy,
   };
   A.roleT = roleT;
   for (const [lot, b] of list) {
-    const c = capsOf(b), tot = capTotal(c) || 1;
+    const c = capsOf(b), tot = capTotal(c) || 1, cx = ctx[lot.id];
     let t = 0; for (const [r, v] of Object.entries(c)) t += (roleT[r] ?? 0.6) * v / tot;
-    const lvf = clamp(0.9 + 0.25 * (City.lv[lot.id] - 1), 0.9, 1.15);
-    b.occT = clamp(t * lvf, 0.2, 1);                 // target occupancy (b.target is the floor target)
+    if ((c.res || 0) > 0) t *= 0.88 + 0.04 * Object.keys(cx.svc).length;
+    const lvf = clamp(0.9 + 0.25 * (cx.lv - 1), 0.85, 1.15);
+    const reno = b.reno || {};
+    t *= lvf * (reno.amenities ? 1.08 : 1) * (reno.garden ? 1.03 : 1) * (0.5 + 0.5 * A.util);
+    b.occT = clamp(t, 0.2, 1);                 // target occupancy (b.target is the floor target)
     if (b.occ == null) b.occ = b.occT * ECON.newOccShare;
   }
   City.A = A;
   measureCity();
   return A;
 }
-// Current population, jobs and income from occupancy.
+// Current population, jobs, income and materials from occupancy.
 function measureCity() {
   const A = City.A; if (!A) return;
-  let P = 0, rich = 0, jobsHeld = 0, guests = 0, visitors = 0, lvSum = 0, n = 0;
+  let P = 0, rich = 0, jobsHeld = 0, guests = 0, visitors = 0, lvSum = 0, n = 0, indOut = 0;
   for (const [lot, b] of buildingsList()) {
     const c = capsOf(b), o = b.occ ?? 0;
     P += (c.res || 0) * o; if (BLUEPRINTS[b.bp].rich) rich += (c.res || 0) * o;
-    jobsHeld += ((c.com || 0) + (c.off || 0)) * o;
-    guests += (c.hot || 0) * o; visitors += (c.landmark || 0) * o;
+    jobsHeld += ((c.com || 0) + (c.off || 0) + (c.ind || 0) + 0.5 * ((c.edu || 0) + (c.health || 0) + (c.safety || 0))) * o;
+    guests += (c.hot || 0) * o; visitors += ((c.landmark || 0) + (c.ent || 0)) * o;
+    indOut += (c.ind || 0) * o;
     lvSum += City.lv[lot.id]; n++;
   }
   const filled = Math.min(jobsHeld, 0.5 * P + 0.3 * guests);
   A.pop = P; A.filled = filled; A.guests = guests; A.visitors = visitors;
   A.meanLV = n ? lvSum / n : 1;
-  City.rate = (0.25 * P + 0.125 * rich + 0.3 * filled + 0.8 * guests + 0.5 * visitors) * (0.7 + 0.5 * A.happy) * A.meanLV;
+  A.matRate = indOut / ECON.materialsPerCap;
+  City.rate = (0.25 * P + 0.125 * rich + 0.3 * filled + 0.8 * guests + 0.5 * visitors) * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion));
 }
 const population = () => (City.A ? Math.round(City.A.pop) : 0);
 const incomeCap = () => Math.max(50, City.rate * ECON.incomeCapHours);
+const materialCap = () => ECON.materialCap * (1 + (City.A ? City.A.industry : 0));
 
-// Advance occupancy and income by real time (also used for time away).
+// Advance occupancy, income and materials by real time (also used for time away).
 function tickCity(dtSec) {
   if (!City.A) recomputeCity();
   const k = 1 - Math.exp(-dtSec / (ECON.occTauMin * 60));
   for (const [, b] of buildingsList()) if (b.occT != null) b.occ += (b.occT - b.occ) * k;
   measureCity();
   if (save.bank < incomeCap()) save.bank = Math.min(incomeCap(), save.bank + City.rate * dtSec / 3600);   // never shrinks if the rate drops
+  if (save.materials < materialCap()) save.materials = Math.min(materialCap(), save.materials + City.A.matRate * dtSec / 3600);
 }
 function catchUpOffline() {
   const away = Math.max(0, (Date.now() - (save.seen || Date.now())) / 1000);
@@ -178,7 +240,7 @@ function nearbyHas(lot, test) {
   return false;
 }
 function permitCost(key) { return key === 'flats' && save.freeFlats ? 0 : BLUEPRINTS[key].cost; }
-const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office' };
+const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office', edu: 'a school or university' };
 function needsMet(key, lot) {
   const bp = BLUEPRINTS[key], missing = [];
   for (const need of bp.needs || []) {
@@ -187,10 +249,11 @@ function needsMet(key, lot) {
   }
   return missing;
 }
+const matCost = (key, cont) => Math.ceil((BLUEPRINTS[key].mat || 0) * (cont ? ECON.continueFee : 1));
 function canBuild(key, lot, opts = {}) {
   const bp = BLUEPRINTS[key], d = DISTRICT_BY_ID[lot.d];
-  const cost = opts.cont ? Math.round(bp.cost * ECON.continueFee) : permitCost(key);
-  if (opts.cont) { const b = buildingAt(lot.id); if (!b || b.bp !== key || b.done) return { ok: false, reason: 'Nothing to continue here', cost }; }
+  const cost = opts.cont ? Math.round(bp.cost * ECON.continueFee) : permitCost(key), mat = matCost(key, opts.cont);
+  if (opts.cont) { const b = buildingAt(lot.id); if (!b || b.bp !== key || b.done) return { ok: false, reason: 'Nothing to continue here', cost, mat }; }
   if (!save.districts[lot.d]) return { ok: false, reason: `Buy ${d.name} first`, cost };
   if (bp.level > save.level) return { ok: false, reason: `City level ${bp.level}`, cost, locked: true };
   if (d.maxFloors && bp.floors > d.maxFloors) return { ok: false, reason: `Max ${d.maxFloors} floors here`, cost };
@@ -201,22 +264,32 @@ function canBuild(key, lot, opts = {}) {
     const missing = needsMet(key, lot);
     if (missing.length) return { ok: false, reason: `Needs ${missing.join(' + ')} nearby`.replace('Needs a park nearby or a waterfront lot nearby', 'Needs a park nearby or waterfront'), cost };
   }
-  if (save.coins < cost) return { ok: false, reason: `${fmt(cost - save.coins)} more coins`, cost, short: true };
-  return { ok: true, cost };
+  if (save.coins < cost) return { ok: false, reason: `${fmt(cost - save.coins)} more coins`, cost, mat, short: true };
+  const matShort = Math.max(0, mat - Math.floor(save.materials));
+  if (matShort) return { ok: false, reason: `${fmt(matShort)} more materials`, cost, mat, matShort };
+  return { ok: true, cost, mat };
+}
+// Materials can always be bought, at a price, so a shortage never walls the player off.
+const matPrice = n => n * ECON.materialPrice;
+function buyMaterials(n) {
+  const c = matPrice(n);
+  if (n <= 0 || save.coins < c) return false;
+  addCoins(-c); save.materials += n; persist(); bus.emit('materials', save.materials);
+  return true;
 }
 // Pay for the permit up front; it's refunded if the app closes before the build ends.
 function payPermit(key, lot, cont) {
   const r = canBuild(key, lot, { cont });
   if (!r.ok) return false;
-  addCoins(-r.cost);
+  addCoins(-r.cost); save.materials -= r.mat;
   if (key === 'flats' && !cont) save.freeFlats = false;
-  save.pending = { lot: lot.id, bp: key, cost: r.cost };
+  save.pending = { lot: lot.id, bp: key, cost: r.cost, mat: r.mat };
   persistNow();
   return true;
 }
 function refundPending() {
   if (!save.pending) return 0;
-  const c = save.pending.cost || 0; addCoins(c); save.pending = null; persist(); return c;
+  const c = save.pending.cost || 0; addCoins(c); save.materials += save.pending.mat || 0; save.pending = null; persist(); return c;
 }
 
 /* ---------------- Finishing a city build ---------------- */
@@ -252,11 +325,13 @@ function completeBuild(r) {
   const firstTop = topped && !(save.mastery[r.bp] && save.mastery[r.bp].built);
   if (topped) { coins += Math.round(bp.cost * E.completion + stars * bp.floors * E.perStarFloor); prestige += Math.round(stars * bp.floors / 4); }
   addCoins(coins); addPrestige(prestige);
+  const salvage = Math.min(materialCap() - save.materials, r.perfects * ECON.matPerPerfect);   // Perfect floors waste nothing
+  if (salvage > 0) save.materials += salvage;
   const m = save.mastery[r.bp] || (save.mastery[r.bp] = { built: 0, stars: 0 });
   if (topped) { m.built++; m.stars = Math.max(m.stars, stars); save.stats.toppedOut++; if (stars === 3) save.stats.threeStars++; }
   save.stats.builds++;
   recomputeCity();
-  const out = { coins, prestige, stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
+  const out = { coins, prestige, materials: Math.max(0, Math.floor(salvage)), stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
   bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects });
   persistNow();
   return out;
@@ -268,6 +343,7 @@ function canPlace(key, lot) {
   if (!save.districts[lot.d]) return { ok: false, reason: 'Buy this district first' };
   if (P.level > save.level) return { ok: false, reason: `City level ${P.level}`, locked: true };
   if (save.lots[lot.id]) return { ok: false, reason: 'Lot in use' };
+  if (P.waterfront && !lot.water) return { ok: false, reason: 'Waterfront lots only' };
   if (save.coins < P.cost) return { ok: false, reason: `${fmt(P.cost - save.coins)} more coins`, short: true };
   return { ok: true, cost: P.cost };
 }
@@ -287,6 +363,29 @@ function clearLot(lot) {
   addCoins(refund); recomputeCity(); persistNow();
   return refund;
 }
+/* ---------------- Renovations (GDD §5): upgrade a topped-out building ---------------- */
+function renoCost(b, R) { return Math.round(BLUEPRINTS[b.bp].cost * R.cost / 10) * 10; }
+function canRenovate(lot, id) {
+  const b = buildingAt(lot.id), R = RENOVATIONS.find(x => x.id === id);
+  if (!b || !R) return { ok: false, reason: 'Nothing to renovate' };
+  if (save.level < ECON.renoLevel) return { ok: false, reason: `City level ${ECON.renoLevel}`, locked: true };
+  if (!b.done) return { ok: false, reason: 'Top it out first' };
+  if (b.reno && b.reno[id]) return { ok: false, reason: 'Done', done: true };
+  const cost = renoCost(b, R);
+  if (save.coins < cost) return { ok: false, reason: `${fmt(cost - save.coins)} more coins`, cost, short: true };
+  if (save.materials < R.mat) return { ok: false, reason: `${fmt(Math.ceil(R.mat - save.materials))} more materials`, cost };
+  return { ok: true, cost };
+}
+function renovate(lot, id) {
+  const r = canRenovate(lot, id); if (!r.ok) return false;
+  const b = buildingAt(lot.id), R = RENOVATIONS.find(x => x.id === id);
+  addCoins(-r.cost); save.materials -= R.mat;
+  (b.reno || (b.reno = {}))[id] = Date.now();
+  recomputeCity(); persistNow();
+  bus.emit('renovate', { id, bp: b.bp });
+  return true;
+}
+
 function canBuyDistrict(d) {
   if (save.districts[d.id]) return { ok: false, reason: 'Owned' };
   if (d.level > save.level) return { ok: false, reason: `City level ${d.level}`, locked: true };

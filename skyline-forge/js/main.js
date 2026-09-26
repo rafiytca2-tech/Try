@@ -16,7 +16,7 @@ function show(id) { for (const s of ['title', 'pause', 'result']) $(s).hidden = 
 const cam = { pos: new T.Vector3(), look: new T.Vector3() };
 const goalPose = { pos: new T.Vector3(), look: new T.Vector3() };
 const hubCam = { tx: 0, tz: 12, d: 190 };
-const HUB_BOUNDS = { x0: -290, x1: 370, z0: -90, z1: 130, d0: 45, d1: 520 };
+const HUB_BOUNDS = { x0: -330, x1: 410, z0: -90, z1: 130, d0: 45, d1: 560 };
 const hubPitch = d => lerp(0.5, 1.05, clamp((d - 45) / 420, 0, 1));
 function hubPose(out) {
   const p = hubPitch(hubCam.d);
@@ -78,7 +78,7 @@ function goToHub() {
 function enterHub(openNear) {
   state = 'hub';
   $('hub').hidden = false; $('hud').hidden = true;
-  recomputeCity(); updateHubHud(); flushToasts();
+  recomputeCity(); updateHubHud(); setOverlayUI(); flushToasts();
   if (moveIn) {
     const m = moveIn; moveIn = null;
     popupAt(m.text, m.lot.x, m.h + 6, m.lot.z, 'bonus');
@@ -358,6 +358,8 @@ click('btnContracts', showContracts);
 click('btnDaily', showDaily);
 click('btnRace', startRace);
 click('btnTrophies', () => showTrophies());
+click('btnMap', cycleOverlay);
+$('gridBox').parentElement.addEventListener('click', () => { Sound.click(); showCityInfo(); });
 click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
   bind(p, '#mInfo', showCityInfo); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());
   bind(p, '#mTitle', () => { $('modal').hidden = true; modalClose = null; persistNow(); toTitle(); });
@@ -409,7 +411,8 @@ function frame(now) {
     floodlight.position.set(game.site.x - 14, top + 30, game.site.z + 30); floodlight.target.position.set(game.site.x, top * 0.6, game.site.z);
   } else { aimSun(cam.look.x, 0, cam.look.z, Math.min(260, 60 + hubCam.d * 0.55)); floodlight.intensity = 0; }
   Sound.setWind(state === 'play' ? Math.min(1, alt / 200) : state === 'pause' ? 0 : 0.12);
-  updateCars(dt); updateBursts(dt); updateDemolition(dt);
+  updateCars(dt); updateBursts(dt); updateDemolition(dt); updateProps(dt, now / 1000);
+  overlayMesh.visible = state === 'hub' && !!OVERLAYS[save.overlay];
   updateWater(now / 1000);
   updateLife(dt, now / 1000, game && state !== 'hub' && game.kind !== 'attract' ? game.site : null);
 

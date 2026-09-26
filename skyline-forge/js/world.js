@@ -249,7 +249,7 @@ const carQ = new T.Quaternion().setFromAxisAngle(UP, Math.PI / 2);
 function updateCars(dt) {
   for (let k = 0; k < carMesh.count; k++) {
     const c = cars[k];
-    c.pos += c.v * dt;
+    c.pos += c.v * dt * trafficSlow;
     if (c.alongX) { if (c.pos > 700) c.pos -= 1400; else if (c.pos < -700) c.pos += 1400; mtx.compose(vPos.set(c.pos, -0.4, c.line), q0, vScale.set(1, 1, 1)); }
     else { if (c.pos > 40) c.pos -= 740; else if (c.pos < -700) c.pos += 740; mtx.compose(vPos.set(c.line, -0.4, c.pos), carQ, vScale.set(1, 1, 1)); }
     carMesh.setMatrixAt(k, mtx);
@@ -346,6 +346,87 @@ function buildPlaceable(key) {
     const sign = new T.Mesh(new T.PlaneGeometry(2.2, 2.2), new T.MeshBasicMaterial({ map: (() => { const c = canvasOf(64, 64), g2 = c.getContext('2d'); rect(g2, '#d83a2f', 0, 0, 64, 64); g2.fillStyle = '#fff'; g2.font = 'bold 48px sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('M', 32, 35); return tex(c); })() }));
     sign.position.set(0, 4.8, 3.3); g.add(sign); box(0.2, 1.4, 0.2, '#2a2d33', 0, 3.4, 3.2);
     box(3, 2.2, 0.2, '#101418', 0, 0, 3.05);
+  } else if (key === 'tram') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    for (const z of [2.8, 4.2]) box(17, 0.12, 0.22, '#6b6f75', 0, 0.15, z);
+    box(12, 0.5, 2.4, '#d9d2c2', 0, 0, -0.4);
+    box(7, 0.2, 2.6, '#3a7d5c', 0, 3, -0.6); for (const x of [-3.2, 3.2]) box(0.18, 3, 0.18, '#2a2d33', x, 0, -1.6);
+    box(6.6, 2.2, 0.08, '#a7d3ef', 0, 0.6, -1.75);
+    box(13.5, 2.5, 2.4, '#c8342c', -0.5, 0.35, 3.5); box(13.7, 0.9, 2.46, '#1d2a38', -0.5, 1.5, 3.5); box(12.8, 0.3, 2, '#e8e2d4', -0.5, 2.85, 3.5);
+    box(0.1, 1.4, 0.1, '#2a2d33', 0, 3.15, 3.5); box(2, 0.08, 0.1, '#2a2d33', 0, 4.5, 3.5);
+    for (const x of [-7.6, 7.6]) { box(0.2, 5.4, 0.2, '#3a3f46', x, 0, 6.2); box(0.12, 0.12, 3, '#3a3f46', x, 5.2, 4.8); }
+    box(17, 0.05, 0.05, '#1a1c20', 0, 4.55, 3.5);
+  } else if (key === 'ferry') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    box(11, 3.8, 7, '#ece6d8', 0, 0, -2.5); box(9, 2.6, 0.1, '#a7d3ef', 0, 0.5, 1.05);
+    const roof = new T.Mesh(new T.CylinderGeometry(4.4, 4.4, 12, 3, 1).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2), propMat('#2f5d8a'));
+    roof.scale.set(1, 0.42, 1); roof.position.set(0, 4.7, -2.5); roof.castShadow = true; g.add(roof);
+    box(2.4, 0.3, 24, '#8a8f96', 4, 0.1, 18); for (let z = 8; z < 30; z += 4) { box(0.08, 1.1, 0.08, '#3a3f46', 2.9, 0.4, z); box(0.08, 1.1, 0.08, '#3a3f46', 5.1, 0.4, z); }
+    const boat = new T.Group(); boat.position.set(-1, WATER_Y + 0.3, 33.5); g.add(boat);
+    const hull = new T.Mesh(new T.BoxGeometry(20, 1.8, 6.4).translate(0, 0.3, 0), propMat('#2f5d8a'));
+    const deck = new T.Mesh(new T.BoxGeometry(14, 2.4, 5.6).translate(-1, 2.3, 0), propMat('#f2f2ee'));
+    const win = new T.Mesh(new T.BoxGeometry(13.2, 0.8, 5.7).translate(-1, 2.6, 0), propMat('#26394f'));
+    const bridge = new T.Mesh(new T.BoxGeometry(3.4, 1.4, 4.4).translate(3.6, 4.2, 0), propMat('#f2f2ee'));
+    const funnel = new T.Mesh(new T.CylinderGeometry(0.6, 0.7, 2, 10).translate(-4, 4.4, 0), propMat('#d8b53c'));
+    for (const m of [hull, deck, win, bridge, funnel]) { m.castShadow = true; boat.add(m); }
+    boat.userData.bob = 1;
+  } else if (key === 'rail') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    for (const z of [4.6, 5.8, 7.2, 8.4]) box(17, 0.12, 0.2, '#6b6f75', 0, 0.15, z);
+    box(17, 0.6, 1.8, '#d9d2c2', 0, 0, 2.6);
+    box(17, 0.25, 4.2, '#5a6470', 0, 4.4, 4.6); for (const x of [-7, -2.4, 2.4, 7]) box(0.22, 4.4, 0.22, '#2a2d33', x, 0, 2.8);
+    box(12.5, 5.2, 6, '#b88a5a', 0, 0, -4.8); box(13, 0.4, 6.5, '#7a5a3a', 0, 5.2, -4.8);
+    const arch = new T.Mesh(new T.CylinderGeometry(3.25, 3.25, 12.6, 16, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#8fb0c4'), roughness: 0.25, metalness: 0.4, side: T.DoubleSide }));
+    arch.scale.set(1, 0.6, 1); arch.position.set(0, 5.4, -4.8); arch.castShadow = true; g.add(arch);
+    box(4, 3, 0.2, '#101418', 0, 0, -1.72);
+    const clock = new T.Mesh(new T.CylinderGeometry(0.8, 0.8, 0.12, 20).rotateX(Math.PI / 2), propMat('#f6f1e4')); clock.position.set(0, 3.9, -1.7); g.add(clock);
+    const train = box(16.4, 3, 2.6, '#e8e2d4', 0, 0.3, 5.2); train.castShadow = true;
+    box(16.5, 0.5, 2.66, '#d8412f', 0, 1.1, 5.2); box(16.5, 0.8, 2.66, '#1d2a38', 0, 2, 5.2);
+  } else if (key === 'power') {
+    box(17, 0.15, 17, '#9a948a', 0, 0, 0);
+    box(10, 5, 7, '#8f7f6d', -2.5, 0, -1.5); box(10.4, 0.5, 7.4, '#5e544a', -2.5, 5, -1.5);
+    for (let x = -6.5; x < 2; x += 2) box(1.2, 1.6, 0.1, '#e8c56a', x, 2.6, 2.02);
+    for (const [x, z] of [[5.2, -4.8], [5.2, 1.2]]) {
+      const ch = new T.Mesh(new T.CylinderGeometry(0.85, 1.3, 22, 14).translate(0, 11, 0), propMat('#d8d2c8')); ch.position.set(x, 0, z); ch.castShadow = true; g.add(ch);
+      for (const y of [16.5, 19.5]) { const band = new T.Mesh(new T.CylinderGeometry(0.98, 1.02, 1.3, 14), propMat('#c8342c')); band.position.set(x, y, z); g.add(band); }
+      const smoke = new T.Object3D(); smoke.position.set(x, 22.4, z); smoke.userData.smoke = 1; g.add(smoke);
+    }
+    box(3, 2.2, 2.4, '#5a6470', 2.5, 0, 5.2); box(3, 2.2, 2.4, '#5a6470', -2, 0, 5.2);
+    for (const x of [-7, 7]) { box(0.3, 7, 0.3, '#6b7178', x, 0, 6.5); box(3, 0.2, 0.2, '#6b7178', x, 6.4, 6.5); }
+  } else if (key === 'tower') {
+    const lawn = new T.Mesh(new T.BoxGeometry(17, 0.35, 17).translate(0, -0.1, 0), new T.MeshStandardMaterial({ map: grassTex, roughness: 1 })); lawn.receiveShadow = true; g.add(lawn);
+    for (const [x, z] of [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]]) box(0.35, 9.5, 0.35, '#7c8791', x, 0, z);
+    for (const y of [3, 6.2]) { box(4.8, 0.18, 0.18, '#7c8791', 0, y, 2.2); box(4.8, 0.18, 0.18, '#7c8791', 0, y, -2.2); box(0.18, 0.18, 4.8, '#7c8791', 2.2, y, 0); box(0.18, 0.18, 4.8, '#7c8791', -2.2, y, 0); }
+    const tank = new T.Mesh(new T.CylinderGeometry(3.6, 3.6, 4.4, 20).translate(0, 11.7, 0), propMat('#6fa8c8')); tank.castShadow = true; g.add(tank);
+    const band = new T.Mesh(new T.CylinderGeometry(3.66, 3.66, 0.8, 20).translate(0, 12, 0), propMat('#f2f2ee')); g.add(band);
+    const cap = new T.Mesh(new T.ConeGeometry(3.9, 2.2, 20).translate(0, 15, 0), propMat('#56809a')); cap.castShadow = true; g.add(cap);
+    box(3, 2.4, 3, '#c9c2b4', 5.5, 0, 4.5);
+  } else if (key === 'solar') {
+    const ground = new T.Mesh(new T.BoxGeometry(17, 0.3, 17).translate(0, -0.1, 0), new T.MeshStandardMaterial({ map: grassTex, roughness: 1, color: lin('#d9d6b0') })); ground.receiveShadow = true; g.add(ground);
+    const panel = new T.MeshStandardMaterial({ color: lin('#1f3b66'), roughness: 0.18, metalness: 0.6 });
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+      const p = new T.Mesh(new T.BoxGeometry(4.6, 0.12, 2.6), panel); p.position.set(-5.4 + c * 5.4, 1.2, -5.4 + r * 3.8); p.rotation.x = -0.5; p.castShadow = true; g.add(p);
+      box(0.12, 1, 0.12, '#8a8f96', -5.4 + c * 5.4, 0, -5.4 + r * 3.8 + 0.6);
+    }
+  } else if (key === 'wind') {
+    const lawn = new T.Mesh(new T.BoxGeometry(17, 0.35, 17).translate(0, -0.1, 0), new T.MeshStandardMaterial({ map: grassTex, roughness: 1 })); lawn.receiveShadow = true; g.add(lawn);
+    [[-4, -3, 0], [4.2, 3.5, 1.7]].forEach(([x, z, ph]) => {
+      const t = new T.Mesh(new T.CylinderGeometry(0.32, 0.7, 26, 10).translate(0, 13, 0), propMat('#f2f4f6')); t.position.set(x, 0, z); t.castShadow = true; g.add(t);
+      box(1.2, 1.1, 2.6, '#e8ebee', x, 25.6, z - 0.2);
+      const hub = new T.Group(); hub.position.set(x, 26.15, z + 1.25); hub.rotation.z = ph; hub.userData.spin = 1.1; g.add(hub);
+      const cone = new T.Mesh(new T.ConeGeometry(0.5, 1, 10).rotateX(Math.PI / 2), propMat('#f2f4f6')); cone.position.z = 0.3; hub.add(cone);
+      for (let k = 0; k < 3; k++) { const b = new T.Mesh(new T.BoxGeometry(0.55, 11, 0.14).translate(0, 5.6, 0), propMat('#f7f8f9')); b.rotation.z = k * Math.PI * 2 / 3; b.castShadow = true; hub.add(b); }
+    });
+  } else if (key === 'waterworks') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    [[-3.8, -3.4], [3.6, 3.2]].forEach(([x, z], k) => {
+      const t = new T.Mesh(new T.CylinderGeometry(3.4, 3.4, 1.8, 24).translate(0, 0.9, 0), propMat('#c9c4b8')); t.position.set(x, 0, z); t.castShadow = t.receiveShadow = true; g.add(t);
+      const w = new T.Mesh(new T.CylinderGeometry(3.05, 3.05, 0.1, 24), new T.MeshStandardMaterial({ color: lin('#4a8fb0'), roughness: 0.08, metalness: 0.3 })); w.position.set(x, 1.72, z); g.add(w);
+      const arm = new T.Group(); arm.position.set(x, 1.9, z); arm.userData.spin = k ? -0.25 : 0.3; arm.userData.axis = 'y'; g.add(arm);
+      const bar = new T.Mesh(new T.BoxGeometry(6.6, 0.25, 0.5), propMat('#e8c56a')); arm.add(bar);
+    });
+    box(5.6, 4, 4, '#dcd5c6', 4.4, 0, -5); box(5.9, 0.35, 4.3, '#2f5d8a', 4.4, 4, -5);
+    box(0.5, 0.5, 6, '#2f7fd8', 2.2, 0.6, -1.2); box(5, 0.5, 0.5, '#2f7fd8', -1.5, 0.6, 0.2);
   }
   return g;
 }
@@ -373,14 +454,14 @@ const TowerField = {
   // Towers as { id, x, z, bp, xs, done, style? }.
   towers() {
     const out = [];
-    for (const lot of LOTS) { const b = save.lots[lot.id]; if (b && b.bp && b.xs && b.xs.length) out.push({ id: lot.id, x: lot.x, z: lot.z, bp: BLUEPRINTS[b.bp], xs: b.xs, done: b.done }); }
+    for (const lot of LOTS) { const b = save.lots[lot.id]; if (b && b.bp && b.xs && b.xs.length) out.push({ id: lot.id, x: lot.x, z: lot.z, bp: BLUEPRINTS[b.bp], xs: b.xs, done: b.done, reno: b.reno }); }
     if (save.race.xs && save.race.xs.length) out.push({ id: 'record', x: RECORD_PIER.x, z: RECORD_PIER.z, bp: { style: save.race.style }, xs: save.race.xs, done: true });
     return out;
   },
   rebuild() {
     const buckets = {};
     for (const r of this.roofs) scene.remove(r);
-    this.roofs.length = 0;
+    this.roofs.length = 0; lightStrips.length = 0;
     for (const t of this.towers()) {
       if (this.hidden.has(t.id)) continue;
       const n = t.xs.length;
@@ -388,8 +469,15 @@ const TowerField = {
         const kind = floorKind(t.bp, i, n, t.done), style = styleAt(t.bp, i);
         const key = style + '|' + (kind === 'roof' ? 'floor' : kind);
         (buckets[key] || (buckets[key] = [])).push(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z);
-        if (kind === 'roof') { const r = roofProps(style); r.position.set(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z); r.traverse(o => { o.castShadow = true; }); scene.add(r); this.roofs.push(r); }
+        if (kind === 'roof') {
+          const r = roofProps(style); r.position.set(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z);
+          if (t.reno && t.reno.garden) r.add(renoProps('garden'));
+          if (t.reno && t.reno.solar) r.add(renoProps('solar'));
+          r.traverse(o => { o.castShadow = true; }); scene.add(r); this.roofs.push(r);
+        }
       }
+      // Feature lighting: LED strips up the corners, lit after dark.
+      if (t.reno && t.reno.lights && t.done) for (const dx of [-1, 1]) for (const dz of [-1, 1]) lightStrips.push({ x: t.x + t.xs[0] * S + dx * (W * S / 2 + 0.06), z: t.z + dz * (DEPTH / 2 + 0.06), h: n * H * S, c: STYLES[t.bp.style].light });
     }
     // Unfinished towers wear scaffolding and keep a small crane beside them (GDD §13 site evolution).
     const scaf = [], cranes = [];
@@ -408,8 +496,83 @@ const TowerField = {
       p.mesh.instanceMatrix.needsUpdate = true;
     }
     if (typeof refreshAviation === 'function') refreshAviation();
+    setLightStrips();
+    collectAnimated();
   },
 };
+const lightStrips = [];
+const stripMat = new T.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, transparent: true, opacity: 0 });
+const stripMesh = new T.InstancedMesh(new T.BoxGeometry(0.16, 1, 0.16).translate(0, 0.5, 0), stripMat, 160);
+stripMesh.count = 0; stripMesh.frustumCulled = false; scene.add(stripMesh);
+function setLightStrips() {
+  stripMesh.count = Math.min(160, lightStrips.length);
+  lightStrips.slice(0, 160).forEach((l, i) => { stripMesh.setMatrixAt(i, mtx.compose(vPos.set(l.x, 0, l.z), q0, vScale.set(1, l.h, 1))); stripMesh.setColorAt(i, col3.set(l.c)); });
+  stripMesh.instanceMatrix.needsUpdate = true; if (stripMesh.instanceColor) stripMesh.instanceColor.needsUpdate = true;
+}
+todHooks.push(P => { stripMat.opacity = clamp(P.win * 0.8, 0, 1); stripMesh.visible = P.win > 0.2; });
+
+/* ---------------- Moving parts: wind turbines, clarifier arms, moored boats and chimney smoke ---------------- */
+const spinning = [], bobbing = [], smokeSrc = [];
+function collectAnimated() {
+  spinning.length = bobbing.length = smokeSrc.length = 0;
+  const visit = o => { if (o.userData.spin) spinning.push(o); if (o.userData.bob) bobbing.push(o); if (o.userData.smoke) smokeSrc.push(o); };
+  for (const m of Object.values(placeMeshes)) if (m.visible) m.traverse(visit);
+  for (const r of TowerField.roofs) r.traverse(visit);
+}
+const SMOKE_PER = 6, smokeSprites = [];
+const smokeTex = puffTex, vSmoke = new T.Vector3();
+function updateProps(dt, t) {
+  for (const o of spinning) o.rotation[o.userData.axis || 'z'] -= o.userData.spin * dt;
+  for (const o of bobbing) { o.position.y = WATER_Y + 0.3 + Math.sin(t * 1.2) * 0.22; o.rotation.x = Math.sin(t * 0.9) * 0.02; }
+  const need = Math.min(20, smokeSrc.length) * SMOKE_PER;
+  while (smokeSprites.length < need) {
+    const sp = new T.Sprite(new T.SpriteMaterial({ map: smokeTex, color: '#d9d5cc', transparent: true, opacity: 0, depthWrite: false, fog: true }));
+    scene.add(sp); smokeSprites.push(sp);
+  }
+  smokeSprites.forEach((sp, i) => {
+    const src = smokeSrc[Math.floor(i / SMOKE_PER)];
+    if (!src || i >= need) { sp.visible = false; return; }
+    const k = ((t * 0.18 + (i % SMOKE_PER) / SMOKE_PER + Math.floor(i / SMOKE_PER) * 0.37) % 1);
+    src.getWorldPosition(vSmoke);
+    sp.visible = true;
+    sp.position.set(vSmoke.x + k * 7 + Math.sin(t + i) * 0.4, vSmoke.y + k * 11, vSmoke.z - k * 2);
+    const sc = 1.6 + k * 6.5; sp.scale.set(sc, sc, 1);
+    sp.material.opacity = 0.55 * Math.sin(Math.PI * Math.min(1, k * 1.15)) * (todName === 'night' ? 0.5 : 1);
+  });
+}
+
+/* ---------------- Map overlays (land value, services, pollution, transit) ---------------- */
+const OVERLAYS = {
+  value:     { name: 'Land value',  lo: 'Low',   hi: 'High',     cols: ['#d8412f', '#f2b90f', '#39d98a'] },
+  services:  { name: 'Services',    lo: 'None',  hi: 'All three', cols: ['#6b7178', '#7fb8ff', '#39d98a'] },
+  pollution: { name: 'Pollution',   lo: 'Clean', hi: 'Heavy',    cols: ['#39d98a', '#c9a13a', '#8a3a2a'] },
+  transit:   { name: 'Transit',     lo: 'None',  hi: 'Metro',    cols: ['#6b7178', '#58a6e8', '#b98aff'] },
+};
+const OVERLAY_ORDER = ['', 'value', 'services', 'pollution', 'transit'];
+const overlayMesh = new T.InstancedMesh(new T.PlaneGeometry(16.4, 16.4).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ transparent: true, opacity: 0.62, depthWrite: false, toneMapped: false }), LOTS.length);
+overlayMesh.visible = false; overlayMesh.renderOrder = 3; overlayMesh.frustumCulled = false; scene.add(overlayMesh);
+const ovA = new T.Color(), ovB = new T.Color();
+function ramp(cols, k) { k = clamp(k, 0, 1); const i = k < 0.5 ? 0 : 1, f = k < 0.5 ? k * 2 : (k - 0.5) * 2; return ovA.set(cols[i]).lerp(ovB.set(cols[i + 1]), f); }
+function refreshOverlay() {
+  const mode = save.overlay, O = OVERLAYS[mode];
+  overlayMesh.visible = !!O && state === 'hub';
+  if (!O || !City.ctx) return;
+  LOTS.forEach((lot, i) => {
+    const c = City.ctx[lot.id], owned = !!save.districts[lot.d];
+    const k = mode === 'value' ? (c.lv - 0.8) / 0.8 : mode === 'services' ? Object.keys(c.svc).length / 3 : mode === 'pollution' ? c.poll / 2 : c.transit / 0.25;
+    overlayMesh.setMatrixAt(i, mtx.compose(vPos.set(lot.x, 0.12, lot.z), q0, vScale.setScalar(owned ? 1 : 0.0001)));
+    overlayMesh.setColorAt(i, ramp(O.cols, k));
+  });
+  overlayMesh.instanceMatrix.needsUpdate = true; overlayMesh.instanceColor.needsUpdate = true;
+}
+
+/* ---------------- Traffic follows the simulation ---------------- */
+let trafficK = 0.5, trafficSlow = 1;
+function setTraffic(A) {
+  trafficK = A ? clamp(0.3 + 0.7 * A.commute / Math.max(1, A.roadCap), 0.3, 1) : 0.5;
+  trafficSlow = A ? 1 / (1 + 1.5 * Math.min(1, A.congestion)) : 1;
+  carMesh.count = Math.round(carBase * trafficK);
+}
 
 // Pads, placeables and towers from the save.
 function rebuildLots() {
@@ -565,9 +728,10 @@ function applyQuality() {
     sun.castShadow = true;
     if (sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   } else sun.castShadow = false;
-  carMesh.count = q.cars;
+  carBase = q.cars; carMesh.count = Math.round(q.cars * trafficK);
   clouds.forEach((c, i) => { c.visible = i < q.clouds; });
 }
+let carBase = 190;
 const perf = { ema: 1 / 60, slow: 0, fast: 0 };
 function adapt(dt) {
   if (save.settings.quality !== 'auto' || document.hidden) return;

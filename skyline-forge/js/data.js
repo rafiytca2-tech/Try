@@ -80,6 +80,13 @@ const STYLES = {
   teal:     { body: '#27a7a4', light: '#7fd9d6', dark: '#177472', outline: '#07302f', win: 'ribbon' },
   silver:   { body: '#c8d2dc', light: '#eef3f8', dark: '#8d99a6', outline: '#2b333c', win: 'ribbon' },
   obsidian: { body: '#343946', light: '#6a7386', dark: '#1d2029', outline: '#07080b', win: 'ribbon' },
+  brick:    { body: '#a4553a', light: '#cf8a6a', dark: '#6e3322', outline: '#2a120a', win: 'ribbon' },
+  mint:     { body: '#5fc39a', light: '#a6e8cb', dark: '#358a67', outline: '#0e3526', win: 'twin' },
+  white:    { body: '#eef1f4', light: '#ffffff', dark: '#b8c1ca', outline: '#46505a', win: 'ribbon' },
+  navy:     { body: '#2f4a7a', light: '#6f8fc4', dark: '#1d2f52', outline: '#0a1428', win: 'twin' },
+  orange:   { body: '#ef8a3c', light: '#f8bd8a', dark: '#b35a1c', outline: '#3d1a05', win: 'ribbon' },
+  sand:     { body: '#d8c29a', light: '#f2e6cc', dark: '#a68f63', outline: '#473a22', win: 'balcony' },
+  sky:      { body: '#4fb4d8', light: '#a6dcf0', dark: '#2a7a99', outline: '#0a2a38', win: 'ribbon' },
 };
 const STYLE_KEYS = Object.keys(STYLES);
 
@@ -93,17 +100,33 @@ const BLUEPRINTS = {
                blurb: 'The flagship residential tower. Land its Sky Garden Perfect.' },
   office:    { name: 'Office Tower',      role: 'off', floors: 16,  level: 4,  cost: 900,   mult: 2.0, style: 'green', needs: ['res', 'com'],
                blurb: 'Jobs for your residents. Needs homes and shops nearby.' },
-  hotel:     { name: 'Grand Hotel',       role: 'hot', floors: 22,  level: 8,  cost: 2200,  mult: 2.4, style: 'violet', needs: ['parkOrWater'],
+  hotel:     { name: 'Grand Hotel',       role: 'hot', floors: 22,  level: 8,  cost: 2200,  mult: 2.4, style: 'violet', needs: ['parkOrWater'], mat: 20,
                blurb: 'Guests pay well. Needs a park nearby or a waterfront lot.' },
-  luxury:    { name: 'Luxury Tower',      role: 'res', floors: 30,  level: 10, cost: 3500,  mult: 3.0, style: 'gold', needs: ['res', 'com', 'off'], rich: true,
+  luxury:    { name: 'Luxury Tower',      role: 'res', floors: 30,  level: 10, cost: 3500,  mult: 3.0, style: 'gold', needs: ['res', 'com', 'off'], rich: true, mat: 40,
                blurb: 'High-income residents. Needs homes, shops and offices nearby.' },
-  hq:        { name: 'Corporate HQ',      role: 'off', floors: 40,  level: 13, cost: 7000,  mult: 2.6, style: 'teal', needs: ['com', 'off'], special: { every: 10, name: 'Sky Lobby' },
+  hq:        { name: 'Corporate HQ',      role: 'off', floors: 40,  level: 13, cost: 7000,  mult: 2.6, style: 'teal', needs: ['com', 'off'], special: { every: 10, name: 'Sky Lobby' }, mat: 80,
                blurb: 'A headquarters tower with a Sky Lobby every ten floors.' },
-  spire:     { name: 'Skyline Spire',     role: 'landmark', floors: 60, level: 16, cost: 15000, mult: 4.0, style: 'silver', unique: true, special: { every: 15, name: 'Observation Deck' },
+  spire:     { name: 'Skyline Spire',     role: 'landmark', floors: 60, level: 16, cost: 15000, mult: 4.0, style: 'silver', unique: true, special: { every: 15, name: 'Observation Deck' }, mat: 150,
                blurb: 'A landmark. Raises land value and draws visitors across the city.' },
-  mega:      { name: 'Forge Megatower',   role: 'mixed', floors: 100, level: 20, cost: 40000, mult: 5.0, style: 'obsidian', unique: true, special: { every: 10, name: 'Sky Garden' },
+  mega:      { name: 'Forge Megatower',   role: 'mixed', floors: 100, level: 20, cost: 40000, mult: 5.0, style: 'obsidian', unique: true, special: { every: 10, name: 'Sky Garden' }, mat: 400,
                sections: [[10, 'red', 'com'], [50, 'green', 'off'], [90, 'blue', 'res'], [100, 'gold', 'res']],
                blurb: 'A vertical city: shops, offices and homes, with a gold crown.' },
+  works:     { name: 'Harbor Works',      role: 'ind', floors: 8,   level: 3,  cost: 400,   mult: 1.4, style: 'brick', pollution: 60,
+               blurb: 'Factory jobs and building materials. It pollutes, so keep it away from homes.' },
+  school:    { name: 'Harbor School',     role: 'edu', floors: 6,   level: 4,  cost: 500,   mult: 1.2, style: 'mint', radius: 90, needs: ['res'],
+               blurb: 'Education within 90 m: happier families and a skilled workforce for offices.' },
+  clinic:    { name: 'Neighbourhood Clinic', role: 'health', floors: 6, level: 5, cost: 650, mult: 1.2, style: 'white', radius: 90, needs: ['res'],
+               blurb: 'Healthcare within 90 m: residents stay, and land value rises.' },
+  station:   { name: 'Fire & Police',     role: 'safety', floors: 5, level: 6, cost: 700,   mult: 1.2, style: 'navy', radius: 100,
+               blurb: 'Safety within 100 m: land value and happiness go up.' },
+  arena:     { name: 'Harbor Arena',      role: 'ent', floors: 12,  level: 9,  cost: 3000,  mult: 2.2, style: 'orange', needs: ['res', 'com'], mat: 30,
+               blurb: 'Concerts and games: tourists, jobs and a happier city.' },
+  university: { name: 'University',       role: 'edu', floors: 18,  level: 11, cost: 6000,  mult: 2.0, style: 'sand', radius: 170, mat: 40,
+               blurb: 'Education across a wide area, and Tech Campus unlocks nearby.' },
+  hospital:  { name: 'General Hospital',  role: 'health', floors: 20, level: 12, cost: 6500, mult: 2.0, style: 'white', radius: 170, mat: 40,
+               blurb: 'Healthcare across a wide area.' },
+  tech:      { name: 'Tech Campus',       role: 'off', floors: 24,  level: 14, cost: 9000,  mult: 2.9, style: 'sky', needs: ['edu'], mat: 60, rich: true,
+               blurb: 'High-paying jobs. Needs a school or university nearby.' },
 };
 const BP_KEYS = Object.keys(BLUEPRINTS);
 function styleAt(bp, i) {
@@ -117,16 +140,28 @@ function roleAt(bp, i) {
   return 'res';
 }
 const isSpecial = (bp, i) => !!(bp && bp.special && i > 0 && i < bp.floors - 1 && i % bp.special.every === 0);
-const ROLE_NAMES = { res: 'residents', com: 'shop jobs', off: 'office jobs', hot: 'guests', landmark: 'visitors', mixed: 'residents & jobs' };
-const ROLE_LABEL = { res: 'Residential', com: 'Commercial', off: 'Office', hot: 'Hospitality', landmark: 'Landmark', mixed: 'Mixed use' };
+const ROLE_NAMES = { res: 'residents', com: 'shop jobs', off: 'office jobs', hot: 'guests', landmark: 'visitors', mixed: 'residents & jobs', ind: 'factory jobs', edu: 'students & staff', health: 'patients & staff', safety: 'officers', ent: 'visitors' };
+const ROLE_LABEL = { res: 'Residential', com: 'Commercial', off: 'Office', hot: 'Hospitality', landmark: 'Landmark', mixed: 'Mixed use', ind: 'Industrial', edu: 'Education', health: 'Healthcare', safety: 'Safety', ent: 'Entertainment' };
+const SERVICE_ROLES = ['health', 'edu', 'safety'];
+const SERVICE_NAMES = { health: 'Healthcare', edu: 'Education', safety: 'Safety' };
 
 /* ---- Placeables: no crane, placed instantly on a lot. ---- */
 const PLACEABLES = {
   park:  { name: 'Park',          level: 3,  cost: 150,  radius: 36,  lv: 0.15, happy: 0.05, blurb: 'Trees and lawns. Nearby land value +15%, happier residents.' },
   plaza: { name: 'Plaza',         level: 6,  cost: 600,  radius: 36,  lv: 0.10, happy: 0.05, tourism: 0.1, blurb: 'A fountain square. Land value +10% nearby and more tourists.' },
-  bus:   { name: 'Bus Stop',      level: 7,  cost: 900,  radius: 60,  lv: 0.10, transit: 1, blurb: 'Transit within 60 m: land value +10%.' },
-  metro: { name: 'Metro Station', level: 12, cost: 5000, radius: 110, lv: 0.25, transit: 2, blurb: 'Transit within 110 m: land value +25%.' },
+  bus:   { name: 'Bus Stop',      level: 5,  cost: 900,  radius: 60,  lv: 0.10, transit: 1, cap: 250, blurb: 'Transit within 60 m: land value +10%, eases traffic.' },
+  tram:  { name: 'Tram Stop',     level: 8,  cost: 1800, radius: 80,  lv: 0.15, transit: 1, cap: 450, blurb: 'Transit within 80 m: land value +15%, eases traffic.' },
+  ferry: { name: 'Ferry Terminal', level: 9, cost: 2500, radius: 90,  lv: 0.15, transit: 1, cap: 400, tourism: 0.1, waterfront: true, blurb: 'Waterfront lots only. Transit and tourists from across the harbour.' },
+  metro: { name: 'Metro Station', level: 12, cost: 5000, radius: 110, lv: 0.25, transit: 2, cap: 900, blurb: 'Transit within 110 m: land value +25%, big traffic relief.' },
+  rail:  { name: 'Rail Station',  level: 15, cost: 9000, radius: 140, lv: 0.25, transit: 2, cap: 1500, tourism: 0.1, blurb: 'Intercity rail: land value +25% within 140 m, tourists, huge traffic relief.' },
+  power: { name: 'Power Plant',   level: 4,  cost: 800,  power: 150, pollution: 70, blurb: '+150 power. Pollutes the lots around it.' },
+  tower: { name: 'Water Tower',   level: 4,  cost: 600,  water: 160, blurb: '+160 water.' },
+  solar: { name: 'Solar Farm',    level: 9,  cost: 2600, power: 120, blurb: '+120 clean power.' },
+  wind:  { name: 'Wind Turbines', level: 12, cost: 4200, power: 240, blurb: '+240 clean power.' },
+  waterworks: { name: 'Water Works', level: 10, cost: 3200, water: 420, blurb: '+420 water.' },
 };
+// Utilities (GDD §6): every floor uses power and water; the old grid supplies the first few towers.
+const UTIL = { basePower: 80, baseWater: 80, perFloor: 1, heavyPerFloor: 2 };
 
 /* ---- Districts: city blocks along the harbour, bought as the city grows. ---- */
 const DISTRICTS = [
@@ -138,8 +173,21 @@ const DISTRICTS = [
   { id: 'tech',      name: 'Tech Park',          col: -3, level: 11, cost: 25000, lv: 1.15, bonus: { off: 0.15 }, trait: 'Office capacity +15%.' },
   { id: 'financial', name: 'Financial District', col: 3,  level: 13, cost: 40000, lv: 1.40, bonus: { hq: 0.25 }, trait: 'Corporate HQ capacity +25%.' },
   { id: 'uptown',    name: 'Uptown',             col: 4,  level: 15, cost: 60000, lv: 1.35, bonus: { res: 0.2 }, trait: 'Residential capacity +20%.' },
+  { id: 'dockyards', name: 'Dockyards',          col: 5,  level: 4,  cost: 2500,  lv: 0.90, bonus: { ind: 0.3 }, docks: true, trait: 'Industrial harbour: factories +30%, and their pollution stays in the docks.' },
+  { id: 'unihill',   name: 'University Hill',    col: -4, level: 12, cost: 20000, lv: 1.20, bonus: { edu: 0.3 }, trait: 'Schools and universities +30%, covering half again as far.' },
 ];
 const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map(d => [d.id, d]));
+
+/* ---- Renovations (GDD §5): one of each per topped-out building. cost = share of the permit. ---- */
+const RENOVATIONS = [
+  { id: 'facade',    name: 'Facade refresh',  cost: 0.25, mat: 0,  desc: 'Land value +0.1 on this lot.' },
+  { id: 'amenities', name: 'Amenities',       cost: 0.35, mat: 0,  desc: 'Occupancy +8%.' },
+  { id: 'garden',    name: 'Rooftop garden',  cost: 0.2,  mat: 5,  desc: 'A green roof: happiness up, occupancy +3%.' },
+  { id: 'solar',     name: 'Solar roof',      cost: 0.3,  mat: 5,  desc: 'Makes its own power: +1 power per floor.' },
+  { id: 'lights',    name: 'Feature lighting', cost: 0.15, mat: 0, desc: 'Lit up at night: tourism up.' },
+];
+const RANKS = [[1, 'Hamlet'], [3, 'Village'], [5, 'Town'], [8, 'City'], [12, 'Big City'], [16, 'Metropolis'], [21, 'Megacity'], [26, 'Global City']];
+const rankFor = level => { let r = RANKS[0][1]; for (const [l, n] of RANKS) if (level >= l) r = n; return r; };
 
 /* ---- City levels: population needed for each level (index 0 = level 1). ---- */
 const LEVELS = [0, 40, 150, 350, 650, 1000, 1500, 2100, 2800, 3600, 4500, 5600, 6800, 8200, 9800,
@@ -151,6 +199,12 @@ const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', pow
 /* ---- Economy ---- */
 const ECON = {
   startCoins: 500,
+  startMaterials: 50,
+  materialsPerCap: 25,       // industrial capacity per material produced per hour at full occupancy
+  materialCap: 150,          // storage, plus the same again per industrial building
+  materialPrice: 12,         // coins per material bought outright
+  matPerPerfect: 1,          // every Perfect floor in a city build saves one material
+  renoLevel: 3,
   incomeCapHours: 8,
   occTauMin: 20,             // minutes for occupancy to ease most of the way to its target
   newOccShare: 0.8,          // a new building starts at this share of its target occupancy
@@ -219,7 +273,7 @@ const ACHIEVEMENTS = [
   { id: 'level10',   name: 'Rising City',        desc: 'Reach city level 10.', pr: 10 },
   { id: 'level20',   name: 'World City',         desc: 'Reach city level 20.', pr: 25 },
   { id: 'district3', name: 'Expansion',          desc: 'Own 3 districts.', pr: 6 },
-  { id: 'district8', name: 'Harbour Empire',     desc: 'Own all 8 districts.', pr: 30 },
+  { id: 'district8', name: 'Harbour Empire',     desc: 'Own every district on the harbour.', pr: 30 },
   { id: 'spire',     name: 'Landmark',           desc: 'Top out the Skyline Spire.', pr: 20 },
   { id: 'mega',      name: 'Vertical City',      desc: 'Top out the Forge Megatower.', pr: 50 },
   { id: 'daily3',    name: 'Regular',            desc: 'Clear the Daily Challenge 3 days in a row.', pr: 6 },
