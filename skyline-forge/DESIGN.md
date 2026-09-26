@@ -222,7 +222,7 @@ change, `tickCity()` advances time.
   worker balance; industry by workers; hotels, arenas and landmarks by tourism.
 - **Filling up**: new buildings start at 80% of their target, then ease toward it with a
   20-minute time constant, offline time included.
-- **Income per hour** = `(0.25·pop + 0.125·rich + 0.3·filled jobs + 0.8·guests + 0.5·visitors)
+- **Income per hour** = `(0.12·pop + 0.06·rich + 0.15·filled jobs + 0.4·guests + 0.25·visitors)
   · (0.7 + 0.5·H) · mean land value · (1 − 0.1·congestion) · (1 + 5% per other city owned)`,
   with city-event multipliers. It accrues live, and for up to 8 hours while away.
 - **Materials**: Harbor Works produce `industrial capacity / 25` per hour at full occupancy;
@@ -236,8 +236,13 @@ change, `tickCity()` advances time.
 - **Start**: 500 coins, 50 materials. The first Starter Flats permit in each city is free.
 - **Build reward**: `(floors·5·style + Perfects·3 + Power Perfects·10) · (1 + weather bonus) +
   event bonus`; topped out adds `0.8·permit + stars·floors·3`.
-- **City level** comes from population (40, 150, 350, 650, 1,000 … up to level 30). Each level
-  pays `100 · level` coins and unlocks content. **Skills and modes follow your best city**, so a
+- **City level** comes from population: 40, 150, 350, 700, 1,200, 1,900, 2,800, 4,000, 5,500,
+  7,500, 10,000 … 51,000 for level 20 and 220,000 for level 30. Each level pays `100 · level`
+  coins and unlocks content.
+- **Pacing** (checked with a scripted player that builds 12 minutes, four times a day, at
+  ordinary skill): level 5 in the first session, the stadium on day one, the first region around
+  day three, level 16 within a week. After that, growth comes from rebuilding lots with taller
+  towers and Studio designs, and from skill: Perfect combos can triple a floor's capacity. **Skills and modes follow your best city**, so a
   new region never takes Hold, Power Drop or the challenges away.
 
   | Level | Unlocks |

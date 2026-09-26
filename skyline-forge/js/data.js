@@ -254,8 +254,9 @@ const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 const TRADE_BONUS = 0.05;          // income for every other city you own
 
 /* ---- City levels: population needed for each level (index 0 = level 1). ---- */
-const LEVELS = [0, 40, 150, 350, 650, 1000, 1500, 2100, 2800, 3600, 4500, 5600, 6800, 8200, 9800,
-  11600, 13600, 15800, 18200, 21000, 24000, 27500, 31500, 36000, 41000, 47000, 54000, 62000, 71000, 81000];
+// The first levels come fast; from level 8 each one asks for a real step up in the skyline.
+const LEVELS = [0, 40, 150, 350, 700, 1200, 1900, 2800, 4000, 5500, 7500, 10000, 13000, 16500, 20500,
+  25000, 30000, 36000, 43000, 51000, 60000, 70000, 82000, 95000, 110000, 127000, 146000, 167000, 190000, 220000];
 const MAX_LEVEL = LEVELS.length;
 const FEATURES = { hold: 2, contracts: 3, power: 4, recall: 5, daily: 5, weekly: 6, stadium: 8, studio: 14 };
 const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', power: 'Power Drop', recall: 'Recall', daily: 'Daily Challenge', weekly: 'Weekly Challenge', stadium: 'Harbor Stadium project', studio: 'Blueprint Studio' };

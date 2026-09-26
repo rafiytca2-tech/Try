@@ -176,7 +176,7 @@ function measureCity() {
   A.meanLV = n ? lvSum / n : 1;
   const ev = eventNow();
   A.matRate = indOut / ECON.materialsPerCap * ((ev && ev.matRate) || 1);
-  City.rate = (eventInc('res') * (0.25 * P + 0.125 * rich) + eventInc('jobs') * 0.3 * filled + eventInc('guests') * 0.8 * guests + eventInc('visitors') * 0.5 * visitors)
+  City.rate = (eventInc('res') * (0.12 * P + 0.06 * rich) + eventInc('jobs') * 0.15 * filled + eventInc('guests') * 0.4 * guests + eventInc('visitors') * 0.25 * visitors)
     * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion)) * (1 + TRADE_BONUS * (ownedCities() - 1));
 }
 const population = () => (City.A ? Math.round(City.A.pop) : 0);
