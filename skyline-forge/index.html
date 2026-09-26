@@ -168,6 +168,20 @@ button{font:inherit;color:inherit}
 }
 .collect svg{width:20px;height:20px}
 @keyframes bob{50%{transform:translate(-50%,-3px)}}
+.compass{pointer-events:auto;position:absolute;right:16px;top:calc(var(--top) + 62px);width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;padding:0;color:var(--ink)}
+.compass svg{width:24px;height:24px;transition:none}
+.compass:not(.turned){opacity:.7}
+/* Left-handed: mirror the readouts and buttons. */
+body.lefty #pauseBtn{right:auto;left:14px}
+body.lefty .stab{left:auto;right:14px}
+body.lefty .gauge{left:auto;right:14px}
+body.lefty .hud-br{right:auto;left:14px;align-items:flex-start}
+body.lefty .combo{align-items:flex-start}
+body.lefty .rail{right:auto;left:12px}
+body.lefty .compass{right:auto;left:16px}
+body.lefty .hub-bottom{align-items:flex-end}
+body.lefty .goal,body.lefty .status{margin-left:auto}
+body.lefty .ptop{left:auto;right:12px;flex-direction:row-reverse}
 .rail{position:absolute;right:12px;top:calc(var(--top) + 116px);display:flex;flex-direction:column;gap:10px}
 .rail .icon-btn{width:52px;height:52px}
 .rail .icon-btn.on{outline:2px solid var(--accent);color:var(--accent)}
@@ -211,7 +225,7 @@ button{font:inherit;color:inherit}
 .fade.in{opacity:1;pointer-events:auto}
 .fade.out{opacity:0;transition-duration:1.1s}
 @keyframes flash{0%{opacity:.85}100%{opacity:0}}
-@media (max-width:400px){.pbtn{min-width:60px;padding:5px 5px}.pbtn b{font-size:14px}}
+@media (max-width:420px){.pbtn{min-width:0;flex:1;padding:5px 4px}.pbtn b{font-size:13px}.pbtn small{font-size:10px}}
 .ovkey{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:12px;font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .ovkey b{color:var(--ink)}
 .ovkey i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--a),var(--b),var(--c))}
@@ -387,6 +401,7 @@ select option{color:#111}
       <div class="chip glass prestige-chip" title="Prestige"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.6L21.5 9l-5.3 4.5L18 20.5 12 16.8 6 20.5l1.8-7L2.5 9l6.9-.4z" fill="#c9a8ff"/></svg><span id="hubPrestige">0</span></div>
     </div>
     <button class="collect" id="collectBtn" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#fff3c4"/><circle cx="12" cy="12" r="6.3" fill="none" stroke="#8a5f00" stroke-width="1.6"/></svg><span id="collectTxt">Collect 0</span></button>
+    <button class="compass glass" id="compass" type="button" aria-label="Face north"><svg viewBox="0 0 24 24" aria-hidden="true" id="compassNeedle"><path d="M12 3l3.2 9h-6.4z" fill="#ff5a4a"/><path d="M12 21l-3.2-9h6.4z" fill="currentColor"/></svg></button>
     <div class="rail">
       <button class="icon-btn glass" id="btnContracts" type="button" aria-label="Contracts"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="2.5" width="6" height="3.5" rx="1" fill="currentColor"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" stroke="currentColor" stroke-width="1.6"/></svg><span class="badge" id="badgeContracts" hidden>0</span><small>Jobs</small></button>
       <button class="icon-btn glass" id="btnDaily" type="button" aria-label="Daily challenge"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4" stroke="currentColor" stroke-width="1.8"/><path d="M12 11.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="currentColor"/></svg><span class="badge" id="badgeDaily" hidden>!</span><small>Daily</small></button>
@@ -420,6 +435,7 @@ select option{color:#111}
       <button class="pbtn" type="button" data-p="wx"><small>Weather</small><b>Clear</b></button>
       <button class="pbtn" type="button" data-p="lens"><small>Lens</small><b>35mm</b></button>
       <button class="pbtn" type="button" data-p="filter"><small>Filter</small><b>Natural</b></button>
+      <button class="pbtn" type="button" data-p="focus"><small>Focus</small><b>Off</b></button>
     </div>
     <div class="pshoot"><span class="pbtn ghostbtn" aria-hidden="true"></span><button class="shutter" id="pShot" type="button" aria-label="Take a picture"></button><button class="pbtn glass" id="pShare" type="button" hidden><small>Save &amp;</small><b>Share</b></button></div>
   </div>

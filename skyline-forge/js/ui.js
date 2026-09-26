@@ -588,19 +588,20 @@ function showSettings(onDone) {
   openModal(`${head('Settings')}
     ${sw('sClassic', 'Classic controls', S2.classic, 'Drop the moment you touch, like the phone original. Turns off hold, Power Drop and recall.')}
     ${sw('sSfx', 'Sound effects', S2.sfx)}${sw('sMusic', 'Music', S2.music)}${sw('sHaptics', 'Vibration', S2.haptics)}
-    ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}${sw('sHc', 'High contrast', S2.contrast, 'Solid panels, brighter text and outlined labels.')}
+    ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}${sw('sHc', 'High contrast', S2.contrast, 'Solid panels, brighter text and outlined labels.')}${sw('sLefty', 'Left-handed layout', S2.lefty, 'Mirrors the buttons and readouts so your thumb covers less of the view.')}
     <label class="setting">Time of day<select id="sTod"><option value="auto">Match my clock</option><option value="day">Day</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
     <label class="setting">Weather<select id="sWeather"><option value="live">Live weather</option><option value="off">Always clear</option></select></label>
     <label class="setting">Graphics<select id="sQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="battery">Battery saver</option></select></label>
     <div class="btn-row"><button class="btn" type="button" id="sHow">How to play</button><button class="btn" type="button" id="sTipsReset">Replay tips</button></div>
     <button class="btn ghost danger" type="button" id="sReset">Reset all progress</button>
     <button class="btn primary" type="button" data-close>Done</button>`, p => {
-    const map = { sClassic: 'classic', sSfx: 'sfx', sMusic: 'music', sHaptics: 'haptics', sShake: 'shake', sTips: 'tips', sBig: 'bigText', sHc: 'contrast' };
+    const map = { sClassic: 'classic', sSfx: 'sfx', sMusic: 'music', sHaptics: 'haptics', sShake: 'shake', sTips: 'tips', sBig: 'bigText', sHc: 'contrast', sLefty: 'lefty' };
     for (const [id, key] of Object.entries(map)) p.querySelector('#' + id).addEventListener('change', e => {
       save.settings[key] = e.target.checked; persist(); Sound.apply();
       if (key === 'haptics' && e.target.checked) vib(20);
       if (key === 'bigText') document.body.classList.toggle('big', e.target.checked);
       if (key === 'contrast') document.body.classList.toggle('hc', e.target.checked);
+      if (key === 'lefty') document.body.classList.toggle('lefty', e.target.checked);
     });
     p.querySelector('#sTod').value = S2.tod; p.querySelector('#sQuality').value = S2.quality; p.querySelector('#sWeather').value = S2.weather;
     p.querySelector('#sWeather').addEventListener('change', e => { save.settings.weather = e.target.value; persist(); });

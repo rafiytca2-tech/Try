@@ -15,12 +15,13 @@ function show(id) { for (const s of ['title', 'pause', 'result']) $(s).hidden = 
 /* ---------------- Cameras ---------------- */
 const cam = { pos: new T.Vector3(), look: new T.Vector3() };
 const goalPose = { pos: new T.Vector3(), look: new T.Vector3() };
-const hubCam = { tx: 0, tz: 12, d: 190 };
+const hubCam = { tx: 0, tz: 12, d: 190, yaw: 0 };
 const HUB_BOUNDS = { x0: -330, x1: 410, z0: -90, z1: 130, d0: 45, d1: 560 };
 const hubPitch = d => lerp(0.5, 1.05, clamp((d - 45) / 420, 0, 1));
 function hubPose(out) {
   const p = hubPitch(hubCam.d);
-  out.pos.set(hubCam.tx, hubCam.d * Math.sin(p), hubCam.tz + hubCam.d * Math.cos(p));
+  const r = hubCam.d * Math.cos(p);
+  out.pos.set(hubCam.tx + r * Math.sin(hubCam.yaw), hubCam.d * Math.sin(p), hubCam.tz + r * Math.cos(hubCam.yaw));
   out.look.set(hubCam.tx, 0, hubCam.tz);
   return out;
 }
@@ -113,7 +114,7 @@ function beginSession(kind, opts) {
   if (game) disposeGame(game);
   game = newGame(kind, Object.assign({}, opts, { swingPhase: phase, hookE }));
   setCraneSite(game.site); setSite(game.site);
-  hideOccluders(game.site, game.site.z + view.h * S / (2 * TAN_HALF), camera.aspect);
+  hideOccluders(game.site, game.site.z + buildCamDist(game) * 1.4, camera.aspect); occN = 0;
   lastSession = { kind, opts };
   show(null); $('hub').hidden = true; updateLabels(false);
   Music.setChain(0); input.down = false; input.pending = false;
@@ -278,22 +279,28 @@ function tapCity(cx, cy) {
 }
 function hubDown(e) {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 1) gesture = { mode: 'tap', x0: e.clientX, y0: e.clientY, t0: e.timeStamp, tx: hubCam.tx, tz: hubCam.tz };
-  else if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture = { mode: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), d: hubCam.d }; }
+  if (pointers.size === 1) gesture = { mode: e.button === 2 ? 'rotate' : 'tap', x0: e.clientX, y0: e.clientY, t0: e.timeStamp, tx: hubCam.tx, tz: hubCam.tz, yaw: hubCam.yaw };
+  else if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture = { mode: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), d: hubCam.d, ang: Math.atan2(b.y - a.y, b.x - a.x), yaw: hubCam.yaw }; }
 }
 function hubMove(e) {
   if (!pointers.has(e.pointerId) || !gesture) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (gesture.mode === 'pinch' && pointers.size >= 2) {
     const [a, b] = [...pointers.values()], dist = Math.hypot(a.x - b.x, a.y - b.y);
-    hubCam.d = gesture.d * gesture.dist / Math.max(20, dist); clampHub();
+    hubCam.d = gesture.d * gesture.dist / Math.max(20, dist);
+    // Twisting two fingers turns the city.
+    let da = Math.atan2(b.y - a.y, b.x - a.x) - gesture.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+    hubCam.yaw = gesture.yaw - da; clampHub();
+  } else if (gesture.mode === 'rotate') {
+    hubCam.yaw = gesture.yaw - (e.clientX - gesture.x0) * 0.008;
   } else if (gesture.mode !== 'pinch') {
     const dx = e.clientX - gesture.x0, dy = e.clientY - gesture.y0;
     if (gesture.mode === 'tap' && Math.hypot(dx, dy) > 8) gesture.mode = 'pan';
     if (gesture.mode === 'pan') {
-      const k = worldPerPx();
-      hubCam.tx = gesture.tx - dx * k;
-      hubCam.tz = gesture.tz - dy * k / Math.max(0.5, Math.sin(hubPitch(hubCam.d)));
+      // Screen drags map onto the ground in the camera's current heading.
+      const k = worldPerPx(), ky = k / Math.max(0.5, Math.sin(hubPitch(hubCam.d))), c = Math.cos(hubCam.yaw), s = Math.sin(hubCam.yaw);
+      hubCam.tx = gesture.tx - dx * k * c - dy * ky * s;
+      hubCam.tz = gesture.tz + dx * k * s - dy * ky * c;
       clampHub();
     }
   }
@@ -302,13 +309,13 @@ function hubUp(e) {
   if (gesture && gesture.mode === 'tap' && pointers.size === 1 && e.timeStamp - gesture.t0 < 500) tapCity(e.clientX, e.clientY);
   pointers.delete(e.pointerId);
   if (pointers.size === 0) gesture = null;
-  else if (gesture && gesture.mode === 'pinch') { const p = [...pointers.values()][0]; gesture = { mode: 'pan', x0: p.x, y0: p.y, tx: hubCam.tx, tz: hubCam.tz }; }
+  else if (gesture && gesture.mode === 'pinch') { const p = [...pointers.values()][0]; gesture = { mode: 'pan', x0: p.x, y0: p.y, tx: hubCam.tx, tz: hubCam.tz, yaw: hubCam.yaw }; }
 }
 
 const stage = $('stage');
 stage.addEventListener('pointerdown', e => {
   if (e.target.closest('button, .screen, .sheet, .modal, .scrim, .hub-top, .rail, .hub-bottom, .collect, label, select')) return;
-  if (e.button > 0) return;
+  if (e.button > 0 && !(state === 'hub' && e.button === 2)) return;
   e.preventDefault();
   try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   if (state === 'hub') { hubDown(e); return; }
@@ -326,6 +333,7 @@ stage.addEventListener('wheel', e => {
   e.preventDefault(); hubCam.d *= Math.exp(e.deltaY * 0.0012); clampHub();
 }, { passive: false });
 $('scrim').addEventListener('click', closeSheet);
+stage.addEventListener('contextmenu', e => { if (state === 'hub') e.preventDefault(); });
 $('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
 
 window.addEventListener('keydown', e => {
@@ -347,10 +355,11 @@ window.addEventListener('keydown', e => {
   } else if (state === 'pause' && (k === 'Escape' || k === 'p' || k === 'P')) {
     e.preventDefault(); resume();
   } else if (state === 'hub') {
-    const step = hubCam.d * 0.15;
-    if (k === 'ArrowLeft') hubCam.tx -= step; else if (k === 'ArrowRight') hubCam.tx += step;
-    else if (k === 'ArrowUp') hubCam.tz -= step; else if (k === 'ArrowDown') hubCam.tz += step;
+    const step = hubCam.d * 0.15, c = Math.cos(hubCam.yaw) * step, s = Math.sin(hubCam.yaw) * step;
+    if (k === 'ArrowLeft') { hubCam.tx -= c; hubCam.tz += s; } else if (k === 'ArrowRight') { hubCam.tx += c; hubCam.tz -= s; }
+    else if (k === 'ArrowUp') { hubCam.tx -= s; hubCam.tz -= c; } else if (k === 'ArrowDown') { hubCam.tx += s; hubCam.tz += c; }
     else if (k === '+' || k === '=') hubCam.d *= 0.85; else if (k === '-') hubCam.d *= 1.18;
+    else if (k === 'q' || k === 'Q') hubCam.yaw += 0.2; else if (k === 'e' || k === 'E') hubCam.yaw -= 0.2;
     else return;
     e.preventDefault(); clampHub();
   }
@@ -386,6 +395,7 @@ click('btnDaily', showDaily);
 click('btnRace', startRace);
 click('btnTrophies', () => showTrophies());
 click('btnMap', cycleOverlay);
+click('compass', () => { yawTo = 0; });
 click('evPill', showToday); click('wxPill', showToday);
 $('gridBox').parentElement.addEventListener('click', () => { Sound.click(); showCityInfo(); });
 click('pExit', exitPhoto);
@@ -420,7 +430,7 @@ window.skylineBack = () => {
 
 /* ---------------- Main loop (fixed 120 Hz steps, like the classic) ---------------- */
 const STEP = 1 / 120;
-let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0, ambTimer = 8, lastEventId, lastWeather = null;
+let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0, ambTimer = 8, lastEventId, lastWeather = null, yawTo = null, occN = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -483,7 +493,14 @@ function frame(now) {
   }
   if (todTimer >= 60) { todTimer = 0; if (save.settings.tod === 'auto' && currentTod() !== todName) applyTimeOfDay(); }
   updateLabels(state === 'hub');
-  if (state === 'hub') animateHubNumbers(dt);
+  if (state === 'hub') {
+    animateHubNumbers(dt);
+    if (yawTo != null) { let d = yawTo - hubCam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); hubCam.yaw += d * Math.min(1, dt * 6); if (Math.abs(d) < 0.002) { hubCam.yaw = yawTo; yawTo = null; } }
+    $('compassNeedle').style.transform = `rotate(${(hubCam.yaw * 180 / Math.PI).toFixed(1)}deg)`;
+    $('compass').classList.toggle('turned', Math.abs(Math.atan2(Math.sin(hubCam.yaw), Math.cos(hubCam.yaw))) > 0.05);
+  }
+  // As the build camera pulls back, keep whatever stands in front of it out of the way.
+  if (game && state === 'play' && game.tower.length !== occN) { occN = game.tower.length; hideOccluders(game.site, game.site.z + buildCamDist(game) * 1.4, camera.aspect); }
   if (state === 'hub' && $('sheet').hidden && !buildingsList().length) { selectRing(LOT_BY_ID['harbor-C2']); ring.material.opacity = 0.55 + 0.45 * Math.sin(now / 180); }
   else ring.material.opacity = 0.9;
 
@@ -496,7 +513,7 @@ function frame(now) {
     else if (n >= 9 && save.tips.power && !save.tips.recall) showTip('recall');
   }
   updatePops(state === 'pause' ? 0 : dt);
-  renderer.render(scene, camera);
+  if (state === 'photo' && photo.dof) renderDof(); else renderer.render(scene, camera);
 }
 
 /* ---------------- Boot ---------------- */
@@ -505,6 +522,7 @@ registerCustoms();
 if (save.region !== 'harbor') applyRegionLook(regionNow().look);
 document.body.classList.toggle('big', !!save.settings.bigText);
 document.body.classList.toggle('hc', !!save.settings.contrast);
+document.body.classList.toggle('lefty', !!save.settings.lefty);
 applyQuality();
 applyTimeOfDay();
 setCranePaint(save.cosmetics.crane);

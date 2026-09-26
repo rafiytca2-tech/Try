@@ -75,7 +75,7 @@ function defaultSave() {
     ach: {},                     // achievement id -> unlock time
     mastery: {},                 // blueprint -> { built, stars }
     cosmetics: { crane: 'yellow' },
-    settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto', tod: 'auto', bigText: false, weather: 'live', contrast: false },
+    settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto', tod: 'auto', bigText: false, weather: 'live', contrast: false, lefty: false },
     tips: {},
     ftue: 0,                     // onboarding step: 0 new, 1 first build started, 2 done
     pending: null,               // a paid permit whose build hasn't finished (refunded on next start)

@@ -9,9 +9,58 @@ const PHOTO = {
   lenses: [['18mm', 62], ['35mm', 40], ['60mm', 24], ['100mm', 14]],
   filters: [['Natural', ''], ['Warm', 'sepia(.25) saturate(1.25) contrast(1.05)'], ['Cool', 'hue-rotate(-12deg) saturate(1.1) brightness(1.03)'], ['Vivid', 'saturate(1.5) contrast(1.1)'], ['Mono', 'grayscale(1) contrast(1.15)'], ['Vintage', 'sepia(.55) contrast(.92) brightness(1.05) saturate(.8)']],
   tods: ['day', 'sunset', 'night'],
+  focus: [['Off', 0], ['Soft', 14], ['Strong', 30]],     // depth of field: blur radius in px at full defocus
   weather: ['clear', 'cloudy', 'wind', 'rain', 'fog', 'storm', 'snow'],
 };
-const photo = { yaw: 0, pitch: 0.6, dist: 200, target: new T.Vector3(), lens: 1, filter: 0, tod: 0, wx: 0, ui: true, drag: null };
+const photo = { yaw: 0, pitch: 0.6, dist: 200, target: new T.Vector3(), lens: 1, filter: 0, tod: 0, wx: 0, focus: 0, dof: 0, ui: true, drag: null };
+
+/* ---------------- Depth of field: the scene into a texture with depth, then a disc blur that
+   grows with each pixel's distance from the focus (what the camera orbits). ---------------- */
+let dofRT = null, dofQuad = null, dofScene = null, dofCam = null;
+function dofSetup(w, h) {
+  if (!dofRT) {
+    dofRT = new T.WebGLRenderTarget(w, h, { depthBuffer: true });
+    dofRT.texture.encoding = T.sRGBEncoding;            // materials write display-ready colour, like the canvas
+    dofRT.depthTexture = new T.DepthTexture(w, h); dofRT.depthTexture.type = T.UnsignedIntType;
+    const taps = [];
+    for (let i = 0; i < 32; i++) { const r = Math.sqrt((i + 0.5) / 32), a = i * 2.39996; taps.push(`vec2(${(r * Math.cos(a)).toFixed(4)}, ${(r * Math.sin(a)).toFixed(4)})`); }
+    dofQuad = new T.Mesh(new T.PlaneGeometry(2, 2), new T.ShaderMaterial({
+      uniforms: { tColor: { value: dofRT.texture }, tDepth: { value: dofRT.depthTexture }, uRes: { value: new T.Vector2(w, h) }, uFocus: { value: 100 }, uMax: { value: 20 }, uNear: { value: 1 }, uFar: { value: 9000 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: [
+        'uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 uRes; uniform float uFocus; uniform float uMax; uniform float uNear; uniform float uFar; varying vec2 vUv;',
+        'float lin(float d){ float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }',
+        // Autofocus on whatever sits in the middle of the frame.
+        'float coc(vec2 uv, float f){ float z = lin(texture2D(tDepth, uv).x); return clamp(abs(z - f) / max(z, 1.0) * 0.9, 0.0, 1.0) * uMax; }',
+        'void main(){',
+        '  float f = lin(texture2D(tDepth, vec2(0.5)).x);',
+        '  float c0 = coc(vUv, f); vec3 acc = texture2D(tColor, vUv).rgb; float wsum = 1.0;',
+        '  if (c0 > 0.5) {',
+        `    vec2 T[32]; ${taps.map((t, i) => `T[${i}] = ${t};`).join(' ')}`,
+        '    for (int i = 0; i < 32; i++) {',
+        '      vec2 o = T[i] * c0 / uRes; vec2 uv = vUv + o;',
+        '      float cs = coc(uv, f); float w = clamp(cs - length(T[i]) * c0 + 1.0, 0.0, 1.0);',   // a sample only spreads as far as its own blur
+        '      acc += texture2D(tColor, uv).rgb * w; wsum += w;',
+        '    }',
+        '  }',
+        '  gl_FragColor = vec4(acc / wsum, 1.0);',
+        '}'].join('\n'),
+      depthTest: false, depthWrite: false,
+    }));
+    dofQuad.frustumCulled = false;
+    dofScene = new T.Scene(); dofScene.add(dofQuad); dofCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  }
+  if (dofRT.width !== w || dofRT.height !== h) { dofRT.setSize(w, h); dofQuad.material.uniforms.uRes.value.set(w, h); }
+}
+const dofSize = new T.Vector2();
+function renderDof() {
+  renderer.getDrawingBufferSize(dofSize);
+  dofSetup(dofSize.x, dofSize.y);
+  const U = dofQuad.material.uniforms;
+  U.uFocus.value = camera.position.distanceTo(photo.target); U.uMax.value = photo.dof * renderer.getPixelRatio(); U.uNear.value = camera.near; U.uFar.value = camera.far;
+  renderer.setRenderTarget(dofRT); renderer.render(scene, camera);
+  renderer.setRenderTarget(null); renderer.render(dofScene, dofCam);
+}
 const photoPose = { pos: new T.Vector3(), look: new T.Vector3() };
 function photoCamPose(out) {
   const p = photo, cp = Math.cos(p.pitch);
@@ -49,6 +98,8 @@ function renderPhotoBar() {
   set('wx', WEATHER[PHOTO.weather[photo.wx]].name);
   set('lens', PHOTO.lenses[photo.lens][0]);
   set('filter', PHOTO.filters[photo.filter][0]);
+  set('focus', PHOTO.focus[photo.focus][0]);
+  photo.dof = PHOTO.focus[photo.focus][1];
   todForce = PHOTO.tods[photo.tod]; applyTimeOfDay();
   wxForce = PHOTO.weather[photo.wx];
   camera.fov = PHOTO.lenses[photo.lens][1]; camera.updateProjectionMatrix();
@@ -59,6 +110,7 @@ function photoCycle(k) {
   else if (k === 'wx') photo.wx = (photo.wx + 1) % PHOTO.weather.length;
   else if (k === 'lens') photo.lens = (photo.lens + 1) % PHOTO.lenses.length;
   else if (k === 'filter') photo.filter = (photo.filter + 1) % PHOTO.filters.length;
+  else if (k === 'focus') photo.focus = (photo.focus + 1) % PHOTO.focus.length;
   renderPhotoBar();
 }
 // Render one frame at up to 4K, apply the filter and a small caption, and hand it to the platform.
@@ -69,7 +121,7 @@ function capturePhoto(share) {
   try {
     renderer.setPixelRatio(scale);
     renderer.setSize(w, h, false);
-    renderer.render(scene, camera);
+    if (photo.dof) renderDof(); else renderer.render(scene, camera);
     const src = renderer.domElement, out = canvasOf(src.width, src.height), g = out.getContext('2d');
     g.filter = PHOTO.filters[photo.filter][1] || 'none';
     g.drawImage(src, 0, 0);

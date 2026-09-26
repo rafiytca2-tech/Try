@@ -68,6 +68,7 @@ function newGame(kind, o = {}) {
     // the title screen it is already swinging, so it settles first.
     swingOn: kind === 'attract', swingEnv: kind === 'attract' || o.hookE !== undefined ? 1 : 0,
     struct: { strain: 0, level: 0, creak: 0, k: -2, m: 1, lat: 0 }, collapses: 0, floorsLost: 0,
+    pullK: 1,                // the camera eases back as the tower grows (GDD §13)
   };
   siteRoot.position.set(g.site.x, 0, g.site.z); siteRoot.visible = true;
   siteRoot.add(g.group); g.group.add(jointGlow); jointGlow.visible = false;
@@ -532,6 +533,7 @@ function update(dt) {
     g.camY += (cameraTarget(g) - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
   }
   if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 9);
+  g.pullK += (cameraPull(g) - g.pullK) * Math.min(1, dt * 1.2);
 
   if (g.ending && !g.ending.started) {
     g.ending.t -= dt;
@@ -614,12 +616,15 @@ function syncScene(g) {
     d.mesh.visible = !(d.state === 'wreck' && Math.floor(d.t * 10) % 2);
   }
 }
-// The construction camera: level and straight-on, framing exactly the classic screen.
+// The construction camera: level and straight-on, framing the classic screen for the first floors,
+// then easing back as the tower climbs so a tall tower shows more of the city around it.
+const cameraPull = g => (g.kind === 'attract' ? 1 : 1 + 0.4 * smooth(clamp((g.tower.length - 4) / 36, 0, 1)));
+const buildCamDist = g => view.h * S / (2 * TAN_HALF) * g.pullK;
 function buildCamera(g, out) {
   let camY = g.camY;
   if (g.shake > 0) camY += (Math.floor(sceneTime * 60) % 2 ? 1 : -1) * g.shake;
-  const hv = view.h * S, yc = -(camY + view.h / 2) * S;
-  out.pos.set(g.site.x, yc, g.site.z + hv / (2 * TAN_HALF));
+  const yc = -(camY + view.h / 2) * S;
+  out.pos.set(g.site.x, yc, g.site.z + buildCamDist(g));
   out.look.set(g.site.x, yc, g.site.z);
   return out;
 }
