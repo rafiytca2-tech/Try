@@ -11,7 +11,7 @@ const PHOTO = {
   tods: ['day', 'sunset', 'night'],
   weather: ['clear', 'cloudy', 'wind', 'rain', 'fog', 'storm', 'snow'],
 };
-const photo = { yaw: 0, pitch: 0.6, dist: 200, target: new T.Vector3(), lens: 1, filter: 0, tod: 0, wx: 0, prevTod: null, ui: true, drag: null };
+const photo = { yaw: 0, pitch: 0.6, dist: 200, target: new T.Vector3(), lens: 1, filter: 0, tod: 0, wx: 0, ui: true, drag: null };
 const photoPose = { pos: new T.Vector3(), look: new T.Vector3() };
 function photoCamPose(out) {
   const p = photo, cp = Math.cos(p.pitch);
@@ -24,7 +24,6 @@ function enterPhoto() {
   photo.target.copy(cam.look); photo.dist = cam.pos.distanceTo(cam.look);
   const d = tmpD.subVectors(cam.pos, cam.look);
   photo.yaw = Math.atan2(d.x, d.z); photo.pitch = Math.asin(clamp(d.y / Math.max(1, d.length()), -1, 1));
-  photo.prevTod = save.settings.tod;
   photo.tod = Math.max(0, PHOTO.tods.indexOf(todName));
   photo.wx = Math.max(0, PHOTO.weather.indexOf(wxShown));
   photo.ui = true;
@@ -34,7 +33,7 @@ function enterPhoto() {
 }
 function exitPhoto() {
   if (state !== 'photo') return;
-  save.settings.tod = photo.prevTod; applyTimeOfDay();
+  todForce = null; applyTimeOfDay();
   wxForce = null;
   camera.fov = FOV; camera.updateProjectionMatrix();
   $('fx').style.filter = ''; canvas.style.filter = '';
@@ -50,7 +49,7 @@ function renderPhotoBar() {
   set('wx', WEATHER[PHOTO.weather[photo.wx]].name);
   set('lens', PHOTO.lenses[photo.lens][0]);
   set('filter', PHOTO.filters[photo.filter][0]);
-  save.settings.tod = PHOTO.tods[photo.tod]; applyTimeOfDay();
+  todForce = PHOTO.tods[photo.tod]; applyTimeOfDay();
   wxForce = PHOTO.weather[photo.wx];
   camera.fov = PHOTO.lenses[photo.lens][1]; camera.updateProjectionMatrix();
   canvas.style.filter = PHOTO.filters[photo.filter][1];

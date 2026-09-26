@@ -49,8 +49,7 @@ let wxForce = null;                   // photo mode can pick the weather
 let wxShown = 'clear';
 function visibleWeather() {
   if (wxForce) return wxForce;
-  if (game && game.kind === 'city') return game.mods.weather || 'clear';
-  if (game && (game.kind === 'race' || game.kind === 'daily')) return game.mods.fog ? 'fog' : 'clear';
+  if (game && game.kind !== 'attract') return game.mods.weather || (game.mods.fog ? 'fog' : 'clear');   // a build shows the weather it plays in
   return weatherNow();
 }
 // Rain streaks and snowflakes live in a box around whatever the camera is looking at.

@@ -30,11 +30,12 @@ const TOD = {
 };
 const SPACE = { top: '#04060f', mid: '#0a1030', hor: '#141d44' };
 const ALT_MIX = [[0, 0], [210, 0.1], [390, 0.45], [540, 0.78], [720, 1]];   // the classic's sky darkening, metres
-let todName = 'day', fogBoost = 0;
+let todName = 'day', fogBoost = 0, todForce = null;   // todForce: Photo mode's pick, never saved
 // Weather's effect on light and sky (events.js eases these toward the current weather).
 const wxVis = { grey: 0, sun: 1, fog: 1, rain: 0, snow: 0, wind: 1, flash: 0 };
 const regionSky = { hor: null };   // a region can warm or cool the horizon (world.js applyRegionLook)
 function currentTod() {
+  if (todForce) return todForce;
   const pref = save.settings.tod;
   if (pref !== 'auto') return TOD[pref] ? pref : 'day';
   const h = new Date().getHours() + new Date().getMinutes() / 60;
@@ -262,6 +263,17 @@ function matsFor(style, kind) {
     m[k] = [side, side, matTop, matBottom, side, side];
   }
   return m[k];
+}
+// Free what a removed model owns; shared geometries, materials and textures are left alone.
+function disposeTree(root, keep) {
+  root.traverse(o => {
+    if (o.geometry && !keep.has(o.geometry)) o.geometry.dispose();
+    for (const m of [].concat(o.material || [])) {
+      if (keep.has(m) || Object.values(propCache).includes(m)) continue;
+      if (m.map && !keep.has(m.map)) m.map.dispose();
+      m.dispose();
+    }
+  });
 }
 const propCache = {};
 function propMat(c) { return propCache[c] || (propCache[c] = new T.MeshStandardMaterial({ color: lin(c), roughness: 0.6 })); }

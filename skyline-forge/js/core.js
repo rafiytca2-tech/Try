@@ -118,6 +118,8 @@ function loadSave() {
         for (const k of Object.keys(s)) if (k in d) s[k] = (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) ? Object.assign(s[k], d[k]) : d[k];
         // Repair: a building's floor target is a whole number of floors.
         for (const b of Object.values(s.lots)) if (b && b.bp && BLUEPRINTS[b.bp] && !(Number.isInteger(b.target) && b.target >= 1)) b.target = BLUEPRINTS[b.bp].floors;
+        // Skills follow your best city: saves from before regions only knew the one level.
+        s.peak = Math.max(s.peak || 1, s.level || 1, ...Object.values(s.regions || {}).map(c => (c && c.level) || 1));
         save = s;
         return 'loaded';
       }

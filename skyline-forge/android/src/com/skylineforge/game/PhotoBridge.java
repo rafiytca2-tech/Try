@@ -26,6 +26,12 @@ public class PhotoBridge {
         this.activity = activity;
     }
 
+    /** Sharing needs a gallery (MediaStore) picture, which this app can write without permissions from Android 10. */
+    @JavascriptInterface
+    public boolean canShare() {
+        return Build.VERSION.SDK_INT >= 29;
+    }
+
     /** Returns where the picture went, or an empty string if it could not be saved. */
     @JavascriptInterface
     public String savePhoto(String dataUrl, boolean share) {
@@ -78,7 +84,7 @@ public class PhotoBridge {
                 });
             }
             return where;
-        } catch (Exception e) {
+        } catch (Throwable e) {   // includes OutOfMemoryError on a very large picture
             return "";
         }
     }

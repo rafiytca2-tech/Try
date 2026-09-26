@@ -322,7 +322,8 @@ change, `tickCity()` advances time.
   thunder, rain, city murmur, gulls and the ferry horn; generative music that adds layers with the
   combo while building and grows with the city's level in the hub.
 - **Photo mode**: free orbit camera, time, weather, lens (18–100 mm) and filters, hidden UI and
-  capture up to 4K. In the Android app pictures go to Pictures/Skyline Forge and can be shared.
+  capture up to 4K. In the Android app pictures go to Pictures/Skyline Forge and can be shared
+  (Android 10+); older phones keep them in the app's own pictures folder.
 - **Accessibility**: reduced motion, camera shake, vibration, larger text, high contrast, and
   stability shown with shape and text as well as colour.
 

@@ -292,7 +292,9 @@ function canBuild(key, lot, opts = {}) {
 }
 // Materials can always be bought, at a price, so a shortage never walls the player off.
 const matPrice = n => Math.ceil(n * ECON.materialPrice * ((eventNow() && eventNow().matPrice) || 1));
-function buyMaterials(n) {
+// Buying for a specific build may go past storage; stocking up may not.
+function buyMaterials(n, forBuild) {
+  if (!forBuild) n = Math.min(n, Math.floor(materialCap() - save.materials));
   const c = matPrice(n);
   if (n <= 0 || save.coins < c) return false;
   addCoins(-c); save.materials += n; persist(); bus.emit('materials', save.materials);

@@ -99,7 +99,7 @@ const STADIUM_PARTS = [
 const stadiumMeshes = [];
 function rebuildStadium(fresh) {
   const n = stadiumStage();
-  if (fresh) while (stadiumMeshes.length) stadiumRoot.remove(stadiumMeshes.pop());
+  if (fresh) while (stadiumMeshes.length) { const m = stadiumMeshes.pop(); stadiumRoot.remove(m); disposeTree(m, new Set([pitchMat, lampMat, pitchTexture])); }
   while (stadiumMeshes.length < n) { const m = STADIUM_PARTS[stadiumMeshes.length](); stadiumRoot.add(m); stadiumMeshes.push(m); }
   while (stadiumMeshes.length > n) stadiumRoot.remove(stadiumMeshes.pop());
 }
@@ -131,8 +131,8 @@ function startStage() {
 }
 function completeStage(r) {
   const i = r.stage, st = STADIUM.stages[i], out = { stage: i, name: st.name, coins: 0, prestige: 0, stars: 0, done: r.done };
-  out.coins = Math.round(r.floors * 6 + r.perfects * 4);
   if (r.done) {
+    out.coins = Math.round(r.floors * 6 + r.perfects * 4);        // a failed attempt is retried for free, so it pays nothing
     out.stars = r.quality >= ECON.stars[1] ? 3 : r.quality >= ECON.stars[0] ? 2 : 1;
     out.coins += Math.round(st.cost * 0.6); out.prestige = 10 * (i + 1) + out.stars * 3;
     save.stadium.parts[i] = { quality: r.quality, stars: out.stars, date: Date.now(), perfects: r.perfects };

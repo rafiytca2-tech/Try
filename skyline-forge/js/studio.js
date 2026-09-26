@@ -9,10 +9,13 @@ const customKey = id => 'custom-' + id;
 const studioOn = () => skillLevel() >= FEATURES.studio;
 function registerCustoms() {
   for (const d of save.custom) BLUEPRINTS[customKey(d.id)] = deriveBlueprint(d);
-  // A building whose blueprint has vanished (a damaged save) is dropped rather than crashing the city.
-  for (const [id, b] of Object.entries(save.lots)) if (b && b.bp && !BLUEPRINTS[b.bp]) delete save.lots[id];
+  // A building whose blueprint has vanished (a damaged save) is dropped rather than crashing a city.
+  for (const lots of [save.lots].concat(Object.values(save.regions || {}).map(c => (c && c.lots) || {})))
+    for (const [id, b] of Object.entries(lots)) if (b && b.bp && !BLUEPRINTS[b.bp]) delete lots[id];
 }
-const customInUse = id => Object.values(save.lots).some(b => b && b.bp === customKey(id)) || (save.pending && save.pending.bp === customKey(id));
+// In use in any of your cities, not just this one: those towers keep the design they were built from.
+const customInUse = id => [save.lots].concat(Object.values(save.regions || {}).map(c => (c && c.lots) || {}))
+  .some(lots => Object.values(lots).some(b => b && b.bp === customKey(id))) || !!(save.pending && save.pending.bp === customKey(id));
 function saveDesign(d) {
   if (!d.id) {
     if (save.custom.length >= STUDIO.max) return false;

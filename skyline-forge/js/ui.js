@@ -388,7 +388,7 @@ function offerMaterials(n, alsoCoins, then) {
   openModal(`${head('Not enough materials', `You have ${fmt(Math.floor(save.materials))}. Harbor Works and Perfect floors make more.`)}
     <p class="lede">Buy <b>${fmt(n)}</b> materials for <b class="coin">${fmt(price)}</b> coins${then ? ' and start building' : ''}?</p>
     <div class="btn-row"><button class="btn" type="button" data-close>Not now</button><button class="btn primary" type="button" id="buyM" ${can ? '' : 'disabled'}>${can ? `Buy ${fmt(price)}` : 'Not enough coins'}</button></div>`, p => {
-    bind(p, '#buyM', () => { if (buyMaterials(n)) { Sound.coin(2); $('modal').hidden = true; modalClose = null; updateHubHud(); if (then) then(); } });
+    bind(p, '#buyM', () => { if (buyMaterials(n, true)) { Sound.coin(2); $('modal').hidden = true; modalClose = null; updateHubHud(); if (then) then(); } });
   });
 }
 function renoCard(lot, b, R) {
@@ -659,7 +659,7 @@ function showCityInfo() {
     <div class="btn-row"><button class="btn" type="button" data-buy="10">Buy 10 · ${fmt(matPrice(10))}</button><button class="btn" type="button" data-buy="50">Buy 50 · ${fmt(matPrice(50))}</button></div>` : ''}
     ${next.length ? `<h3>Coming up</h3><div class="unlocks">${unlockRows(next)}</div>` : ''}
     <button class="btn primary" type="button" data-close>Close</button>`, p => {
-    bind(p, '[data-buy]', el => { if (buyMaterials(+el.dataset.buy)) { Sound.coin(2); showCityInfo(); updateHubHud(); } else { Sound.deny(); toast('Not enough coins'); } });
+    bind(p, '[data-buy]', el => { if (buyMaterials(+el.dataset.buy)) { Sound.coin(2); showCityInfo(); updateHubHud(); } else { Sound.deny(); toast(save.materials >= materialCap() - 1 ? 'Storage is full. Harbor Works add more room.' : 'Not enough coins'); } });
   });
 }
 /* ---------------- Map overlays ---------------- */
@@ -709,7 +709,7 @@ function showResults(r, sum) {
     stars = sum.tier; capLabel = 'points';
     if (sum.coins) rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
     if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
-    note = sum.tier < 3 ? `Next tier at ${fmt(cfg.tiers[sum.tier])} points. Best this week: ${fmt(sum.best)}.` : `Gold this week. Best: ${fmt(sum.best)}.`;
+    note = sum.stale ? 'A new week began during this run, so it was not scored. This week has a new tower.' : sum.tier < 3 ? `Next tier at ${fmt(cfg.tiers[sum.tier])} points. Best this week: ${fmt(sum.best)}.` : `Gold this week. Best: ${fmt(sum.best)}.`;
     primary = ['Try again', () => startWeekly()]; secondary = ['City', () => leaveSession()];
   } else if (r.kind === 'stage') {
     const st = STADIUM.stages[r.stage];

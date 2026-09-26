@@ -158,6 +158,8 @@ function weeklyState() { const w = save.weekly; if (w.key !== weekKey()) { w.key
 const WEEKLY_TIERS = [['Bronze', 400, 4], ['Silver', 900, 8], ['Gold', 1800, 16]];
 function recordWeekly(r) {
   const cfg = weeklyConfig(r.weekly), w = weeklyState();
+  // A run that started last week and ended after midnight on Sunday belongs to a week that is over.
+  if (r.weekly !== w.key) return { best: w.best, newBest: false, tier: 0, newTiers: [], coins: 0, prestige: 0, stale: true };
   const prevBest = w.best; w.best = Math.max(w.best, r.pts);
   const reached = r.done ? cfg.tiers.filter(t => r.pts >= t).length : 0;
   const out = { best: w.best, newBest: r.pts > prevBest, tier: reached, newTiers: [], coins: 0, prestige: 0 };

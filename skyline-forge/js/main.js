@@ -391,7 +391,7 @@ $('gridBox').parentElement.addEventListener('click', () => { Sound.click(); show
 click('pExit', exitPhoto);
 click('pShot', () => capturePhoto(false));
 click('pShare', () => capturePhoto(true));
-$('pShare').hidden = !(window.SkylineNative && window.SkylineNative.savePhoto);
+$('pShare').hidden = !(window.SkylineNative && window.SkylineNative.canShare && window.SkylineNative.canShare());
 for (const b of $('photo').querySelectorAll('[data-p]')) b.addEventListener('click', () => { Sound.click(); photoCycle(b.dataset.p); });
 click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn primary" type="button" id="mPhoto">Photo mode</button><button class="btn" type="button" id="mRegions">Regions${skillLevel() >= REGIONS[1].unlock ? '' : ` · level ${REGIONS[1].unlock}`}</button><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
   bind(p, '#mInfo', showCityInfo); bind(p, '#mPhoto', enterPhoto); bind(p, '#mRegions', showRegions); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());

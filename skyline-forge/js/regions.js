@@ -34,6 +34,7 @@ function foundRegion(id) {
 function travelTo(id) {
   const c = save.regions[id];
   if (!c || id === save.region) return false;
+  save.peak = Math.max(save.peak || 1, save.level);
   save.regions[save.region] = snapshotCity();
   delete save.regions[id];
   for (const k of CITY_FIELDS) save[k] = c[k] ?? freshCity()[k];

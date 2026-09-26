@@ -517,11 +517,12 @@ const TowerField = {
 const lightStrips = [];
 const stripMat = new T.MeshBasicMaterial({ color: '#ffffff', toneMapped: false, transparent: true, opacity: 0 });
 const stripMesh = new T.InstancedMesh(new T.BoxGeometry(0.16, 1, 0.16).translate(0, 0.5, 0), stripMat, 160);
+stripMesh.instanceColor = new T.InstancedBufferAttribute(new Float32Array(160 * 3).fill(1), 3);   // before the first render, so the shader has it
 stripMesh.count = 0; stripMesh.frustumCulled = false; scene.add(stripMesh);
 function setLightStrips() {
   stripMesh.count = Math.min(160, lightStrips.length);
   lightStrips.slice(0, 160).forEach((l, i) => { stripMesh.setMatrixAt(i, mtx.compose(vPos.set(l.x, 0, l.z), q0, vScale.set(1, l.h, 1))); stripMesh.setColorAt(i, col3.set(l.c)); });
-  stripMesh.instanceMatrix.needsUpdate = true; if (stripMesh.instanceColor) stripMesh.instanceColor.needsUpdate = true;
+  stripMesh.instanceMatrix.needsUpdate = true; stripMesh.instanceColor.needsUpdate = true;
 }
 todHooks.push(P => { stripMat.opacity = clamp(P.win * 0.8, 0, 1); stripMesh.visible = P.win > 0.2; });
 
@@ -778,7 +779,11 @@ function applyRegionLook(L) {
   // Trees: swap the shapes, then rebuild the park models so they match.
   treeGeos = TREE_GEOS[L.trees] || TREE_GEOS.round;
   treeTopMesh.geometry = treeGeos.top; trunkMesh.geometry = treeGeos.trunk;
-  for (const k of Object.keys(placeTemplates)) delete placeTemplates[k];
-  for (const [id, m] of Object.entries(placeMeshes)) { scene.remove(m); delete placeMeshes[id]; }
+  // Only the park model has trees; rebuild it (and free the old one) so its trees match.
+  if (placeTemplates.park) {
+    const keep = new Set([leafMat, barkMat, grassTex, ...Object.values(TREE_GEOS).flatMap(t => [t.top, t.trunk])]);
+    disposeTree(placeTemplates.park, keep); delete placeTemplates.park;
+  }
+  for (const [id, m] of Object.entries(placeMeshes)) if (m.userData.key === 'park') { scene.remove(m); delete placeMeshes[id]; }
   applyTimeOfDay();
 }
