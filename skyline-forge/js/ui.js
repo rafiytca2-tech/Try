@@ -111,6 +111,7 @@ const TIPS = {
   forced:  'Let go soon. At <b>3 seconds</b> the crane releases on its own.',
   sway:    'The building is swaying. Drop as the top swings back under the rope.',
   recover: 'The tower is swinging hard. <b>Perfect</b> floors calm it down, and a recovery pays a bonus.',
+  balance: 'The top is <b>overhanging</b> and starting to creak. Drop the next floor on the <b>other side</b> to counterbalance, or it will topple.',
 };
 const coach = { id: null, t: 0 };
 function showTip(id) {
@@ -731,6 +732,7 @@ function showResults(r, sum) {
     primary = ['Try again', () => startDaily()]; secondary = ['City', () => leaveSession()];
   }
   rows.push(['Construction quality', `${q}%`], ['Structural stability', `${Math.round((1 - r.peakSway) * 100)}%`], ['Perfect floors', r.perfects], ['Longest combo', r.maxCombo ? `×${r.maxCombo}` : '–']);
+  if (r.collapses) rows.push(['Collapses', `${r.collapses} (${plural(r.floorsLost, 'floor')} lost)`]);
   if (r.powerPerfects) rows.push(['Power Perfects', r.powerPerfects]);
   if (r.strongest > 1.05) rows.push(['Strongest impact', `${r.strongest.toFixed(1)}×`]);
   if (r.bestRisk > 1.01) rows.push(['Highest risk', `×${r.bestRisk.toFixed(1)}`]);

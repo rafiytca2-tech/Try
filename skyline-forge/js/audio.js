@@ -92,6 +92,13 @@ const Sound = {
   thunder(delay = 0) { this.hiss(2.6, { freq: 180, sweep: 60, vol: 0.5, delay }); this.tone(42, 1.8, { vol: 0.25, delay: delay + 0.05, slide: 30 }); },
   gull() { const f = 1500 + Math.random() * 500; this.tone(f, 0.18, { type: 'triangle', vol: 0.02, slide: f * 0.7 }); this.tone(f * 0.9, 0.22, { type: 'triangle', vol: 0.018, slide: f * 0.6, delay: 0.2 }); },
   horn() { this.tone(98, 1.4, { type: 'sawtooth', vol: 0.03, attack: 0.15 }); this.tone(147, 1.4, { type: 'sawtooth', vol: 0.02, attack: 0.15 }); },
+  // Steel under strain, then the crash of a collapse (bigger for more floors).
+  creak(k = 1) { const f = 70 + Math.random() * 40; this.tone(f, 0.5, { type: 'sawtooth', vol: 0.05 * k, slide: f * 0.8, attack: 0.08 }); this.tone(f * 1.51, 0.4, { type: 'triangle', vol: 0.03 * k, slide: f * 1.3, delay: 0.05 }); this.hiss(0.3, { type: 'bandpass', freq: 500, q: 4, vol: 0.05 * k }); },
+  collapse(n = 1) {
+    const k = Math.min(1, 0.4 + n / 10);
+    this.hiss(1.6 + k, { freq: 300, sweep: 90, vol: 0.5 * k }); this.tone(40, 1.4, { vol: 0.35 * k, slide: 28 });
+    for (let i = 0; i < Math.min(8, 2 + n); i++) { this.tone(60 + Math.random() * 50, 0.35, { vol: 0.2, delay: 0.25 + i * 0.13 + Math.random() * 0.05, slide: 40 }); this.hiss(0.2, { freq: 1400, vol: 0.12, delay: 0.25 + i * 0.13 }); }
+  },
   slowmo() { this.hiss(0.5, { type: 'bandpass', freq: 2400, sweep: 300, q: 2, vol: 0.12 }); this.tone(60, 0.6, { vol: 0.3, type: 'triangle', slide: 38 }); },
 };
 

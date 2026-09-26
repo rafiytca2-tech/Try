@@ -27,6 +27,9 @@ const warnGlow = new T.Mesh(new T.BoxGeometry(W * S + 0.5, H * S + 0.5, DEPTH + 
 warnGlow.visible = false; siteRoot.add(warnGlow);
 const specialGlow = new T.Mesh(new T.BoxGeometry(W * S + 0.4, H * S + 0.4, DEPTH + 0.4), new T.MeshBasicMaterial({ color: '#7dffb0', transparent: true, opacity: 0.18, depthWrite: false, blending: T.AdditiveBlending }));
 specialGlow.visible = false; siteRoot.add(specialGlow);
+// The joint that is about to give way glows red (GDD §3: telegraph a collapse before it happens).
+const jointGlow = new T.Mesh(new T.BoxGeometry(W * S + 0.7, 0.5, DEPTH + 0.7), new T.MeshBasicMaterial({ color: '#ff3b2f', transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
+jointGlow.visible = false;
 
 // Engine px -> world, for particles and floating text.
 const sx = x => siteRoot.position.x + x * S, sy = y => -y * S, sz = () => siteRoot.position.z;
@@ -61,9 +64,13 @@ function newGame(kind, o = {}) {
     charge: null, swingMult: 1, trail: [], ratings: {}, quality: 0, landed: 0, powerPerfects: 0, bestRisk: 1, bestPerfectRisk: 0,
     recoveries: [], recoveryPrestige: 0, danger: null, level: 0, strongest: 1, peakSway: 0, specialPerfects: 0, caps: {}, startFloors: 0,
     group: new T.Group(), hookMesh: null,
+    // The rope hangs still until the first floor is in view, then builds up its swing. Coming from
+    // the title screen it is already swinging, so it settles first.
+    swingOn: kind === 'attract', swingEnv: kind === 'attract' || o.hookE !== undefined ? 1 : 0,
+    struct: { strain: 0, level: 0, creak: 0, k: -2, m: 1, lat: 0 }, collapses: 0, floorsLost: 0,
   };
   siteRoot.position.set(g.site.x, 0, g.site.z); siteRoot.visible = true;
-  siteRoot.add(g.group);
+  siteRoot.add(g.group); g.group.add(jointGlow); jointGlow.visible = false;
   // Continuing an unfinished tower: its floors are already standing.
   if (o.xs && o.xs.length) {
     const p0 = o.xs[0];
@@ -105,7 +112,20 @@ function swingParams(g) {
     w: Math.min(CFG.swingSpeed.max, CFG.swingSpeed.start + n * CFG.swingSpeed.perFloor) * g.mods.swing,
   };
 }
-function ropeAngle(g) { return Math.asin(Math.min(0.9, swingParams(g).reach / RIG.L)) * Math.sin(g.swingPhase); }
+const swingAmp = g => Math.asin(Math.min(0.9, swingParams(g).reach / RIG.L)) * smooth(clamp(g.swingEnv, 0, 1));
+function ropeAngle(g) { return swingAmp(g) * Math.sin(g.swingPhase); }
+// Sideways speed of the hanging floor, classic px per second.
+function swingVelocity(g) {
+  const { w } = swingParams(g), A = swingAmp(g), th = A * Math.sin(g.swingPhase);
+  return RIG.L * Math.cos(th) * A * Math.cos(g.swingPhase) * w * g.swingMult;
+}
+// Where a floor dropped right now would land (used by the test bot; the player has to judge it).
+function landingX(g) {
+  const th = ropeAngle(g), kind = nextKind(g), off = HANG[kind] + extraTop(kind) + H / 2;
+  const x0 = RIG.L * Math.sin(th), y0 = pivotWorldY(g) + RIG.L * Math.cos(th) + off;
+  const d = Math.max(0, towerTop(g).y - H / 2 - y0), G = grav(g);
+  return x0 + swingVelocity(g) * CFG.releaseMomentum * Math.sqrt(2 * d / G);
+}
 function ropeLength(g) {
   const h = g.hook, k = h.has ? smooth(h.e) : h.e;
   return RIG.L - RIG.lowerDist * (1 - k);
@@ -141,10 +161,10 @@ function canCharge() {
 function drop(tier, forced) {
   const g = game;
   if (!g || state !== 'play' || g.kind === 'attract' || g.intro || !g.hook.has || g.hook.e < 1 || g.hook.recall || g.falling || g.ending) return false;
-  const th = ropeAngle(g), { reach, w } = swingParams(g);
+  const th = ropeAngle(g);
   const kind = nextKind(g), off = HANG[kind] + extraTop(kind) + H / 2, L = RIG.L;
   const ex = L * Math.sin(th), ey = pivotWorldY(g) + L * Math.cos(th);
-  const v = reach * w * Math.cos(g.swingPhase) * CFG.releaseMomentum;
+  const v = swingVelocity(g) * CFG.releaseMomentum;          // the floor keeps a little of the swing
   // Forge: hold band and Power Drop ride along with the block.
   const band = g.charge ? holdBand(g.charge.t) : 0, hold = FORGE.hold.mult[band], power = tier ? tier[1] : 1;
   const vy = tier ? (power - 1) * FORGE.power.boost * vRef(g) : 0;
@@ -182,6 +202,8 @@ function stepFalling(g, dt) {
   let dx = b.x - top.x;
   // Forge: a heavy off-centre Power Drop shoves the floor further out.
   if (b.power > 1 && Math.abs(dx) > CFG.perfectTol) { dx *= 1 + FORGE.power.shove * (b.E - 1); b.x = top.x + dx; }
+  // Momentum: a floor landing with sideways speed slides a little further before friction holds it.
+  if (n > 0 && b.vx) { dx += b.vx * FORGE.collapse.slide; b.x = top.x + dx; }
   if (Math.abs(dx) >= W) {                       // clean miss: keeps falling past the tower
     g.falling = null;
     g.debris.push({ state: 'fall', x: b.x, y: b.y, vx: b.vx, vy: b.vy, ang: b.ang, spin: Math.sign(dx) * 1.5, mesh: b.mesh });
@@ -215,7 +237,7 @@ function settle(g, b, dx) {
   if (perfect) { c.streak = active ? c.streak + 1 : 1; c.timer = CFG.comboTime; g.perfects++; g.maxCombo = Math.max(g.maxCombo, c.streak); }
   const risk = b.hold * b.power;                                  // Forge: hold x power multiplier
   const residents = Math.round((raw + bonus) * g.mult * risk);
-  g.tower.push({ x, kind: b.kind, style: b.style, residents, mesh: b.mesh });
+  g.tower.push({ x, kind: b.kind, style: b.style, residents, mesh: b.mesh, q: 0, sp: false });
   const p0 = g.tower[0].x;
   g.group.position.x = p0 * S;
   g.group.add(b.mesh);
@@ -228,12 +250,13 @@ function settle(g, b, dx) {
   // Forge: rating ladder and report stats.
   const rt = rateLanding(dx, perfect, n === 0);
   g.ratings[rt[0]] = (g.ratings[rt[0]] || 0) + 1; g.quality += rt[2]; g.landed++;
+  g.tower[n].q = rt[2];
   g.bestRisk = Math.max(g.bestRisk, risk);
   const E = b.E || 1;
   g.strongest = Math.max(g.strongest, E);
   if (perfect) { g.bestPerfectRisk = Math.max(g.bestPerfectRisk, risk); if (b.power > 1) g.powerPerfects++; }
   const special = b.kind === 'special';
-  if (special && perfect) g.specialPerfects++;
+  if (special && perfect) { g.specialPerfects++; g.tower[n].sp = true; }
 
   // Instability: every sloppy floor makes the whole building swing more, a perfect one calms it.
   // Forge: a heavier impact multiplies the sway it adds; a centred heavy one settles the tower.
@@ -245,6 +268,8 @@ function settle(g, b, dx) {
     if (s.amp < 1.5) s.phase = dx > 0 ? 0 : Math.PI;   // start swinging toward the heavy side
     s.target = Math.min(CFG.sway.max, s.target + Math.abs(dx) * CFG.sway.gain * E);
   }
+  // Momentum: a floor that lands moving sideways pushes the whole tower.
+  if (n > 0 && b.vx) { s.target = Math.min(CFG.sway.max, s.target + Math.abs(b.vx) * FORGE.collapse.kick * E); if (s.amp < 1.5) s.phase = b.vx > 0 ? 0 : Math.PI; }
   s.target = Math.max(s.target, g.mods.wind);
   if (g.danger) { g.danger.placed++; if (perfect && b.power > 1) g.danger.power = true; }
 
@@ -298,10 +323,16 @@ function loseLife(g, x, y, label) {
 
 function stepDebris(g, d, dt) {
   if (d.state === 'tip') {
-    d.av += d.sgn * 18 * dt; d.ang += d.av * dt;
-    const c = Math.cos(d.ang), s = Math.sin(d.ang);
+    // Rotates about the edge it hangs over (a single floor, or a whole toppling section as one piece).
+    d.av += (d.alpha ?? d.sgn * 18) * dt; d.ang += d.av * dt;
+    const r = d.ang - (d.a0 || 0), c = Math.cos(r), s = Math.sin(r);
     d.x = d.px + d.rx * c - d.ry * s; d.y = d.py + d.rx * s + d.ry * c;
-    if (Math.abs(d.ang) > 0.9) { d.state = 'fall'; d.vx = d.sgn * 70; d.vy = 40; d.spin = d.av; }
+    if (Math.abs(r) > (d.breakAt || 0.9)) {
+      d.state = 'fall';
+      if (d.alpha != null) { d.vx = (-d.rx * s - d.ry * c) * d.av + (Math.random() - 0.5) * 30; d.vy = (d.rx * c - d.ry * s) * d.av; }
+      else { d.vx = d.sgn * 70; d.vy = 40; }
+      d.spin = d.av * (0.6 + Math.random() * 0.8);
+    }
   } else if (d.state === 'fall') {
     d.vy += grav(g) * 0.8 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.ang += d.spin * dt;
     if (d.y + H / 2 >= 0) { d.state = 'wreck'; d.y = -H / 2; d.ang = 0; d.t = 0.8; dust(d.x, 0, 12); }
@@ -316,7 +347,85 @@ function stabilityLevel(g) {
   if (n < 2) return 0;
   const shown = Math.min(g.sway.amp, n * H * Math.tan(CFG.sway.maxTilt)) / CFG.sway.max;
   const L = FORGE.stability;
-  return shown < L[0] ? 0 : shown < L[1] ? 1 : shown < L[2] ? 2 : 3;
+  return Math.max(shown < L[0] ? 0 : shown < L[1] ? 1 : shown < L[2] ? 2 : 3, g.struct.level);
+}
+
+/* ---------------- Balance and collapse (GDD §3) ---------------- */
+// For every joint, the floors above it act as one body: their centre of mass, shifted sideways by
+// the tower's current lean, has to stay over the floor below. The whole tower has to stay over its
+// slab. Floors finished in an earlier session are set solid and never give way.
+function checkStructure(g, dt) {
+  const n = g.tower.length, S = g.struct, C = FORGE.collapse;
+  if (n < 2 || g.ending || g.finished || g.kind === 'attract') { S.level = 0; S.k = -2; S.strain = 0; return; }
+  const ta = Math.tan(swayAngle(g)), first = Math.max(0, g.startFloors - 1);
+  let sumX = 0, sumH = 0, cnt = 0, worst = Infinity, wk = -2, wlat = 0;
+  for (let k = n - 2; k >= first; k--) {
+    sumX += g.tower[k + 1].x; sumH += (k + 1.5) * H; cnt++;
+    const lat = sumX / cnt - g.tower[k].x + (sumH / cnt - (k + 1) * H) * ta;
+    const m = (C.grip * W / 2 - Math.abs(lat)) / (C.grip * W / 2);
+    if (m < worst) { worst = m; wk = k; wlat = lat; }
+  }
+  if (g.startFloors === 0) {                              // the whole tower on its slab
+    const lat = (sumX + g.tower[0].x) / n + ((sumH + H / 2) / n) * ta;
+    const m = (CFG.slabHalf - Math.abs(lat)) / CFG.slabHalf;
+    if (m < worst) { worst = m; wk = -1; wlat = lat; }
+  }
+  S.k = wk; S.m = worst; S.lat = wlat;
+  S.level = worst < C.warn[2] ? 3 : worst < C.warn[1] ? 2 : worst < C.warn[0] ? 1 : 0;
+  if (worst < 0) {
+    S.strain += dt * (1 + 6 * -worst);                  // the further past the edge, the faster it goes
+    if (S.strain > C.hold) { collapseAt(g, wk, Math.sign(wlat) || 1); return; }
+  } else S.strain = Math.max(0, S.strain - dt * 0.8);
+  // Telegraph: creaks, dust at the weak joint and a shiver, faster as it gets worse.
+  if (S.level >= 2 && wk >= 0) {
+    S.creak -= dt;
+    if (S.creak <= 0) {
+      S.creak = S.level === 3 ? 0.45 : 0.9;
+      Sound.creak(S.level === 3 ? 1 : 0.6); vib(S.level === 3 ? [10, 30, 10, 30, 10] : [8, 40, 8]);
+      const j = toWorld(g, g.tower[wk].x + Math.sign(wlat) * W / 2, -(wk + 1) * H, swayAngle(g));
+      dust(j.x, j.y, 6, 3);
+      showTip('balance');
+    }
+  }
+}
+function collapseAt(g, k, sgn) {
+  const n = g.tower.length, a = swayAngle(g), first = k + 1;
+  const pivot = k >= 0 ? toWorld(g, g.tower[k].x + sgn * W / 2, -(k + 1) * H, a) : { x: sgn * CFG.slabHalf, y: 0 };
+  const pieces = [];
+  for (let i = first; i < n; i++) pieces.push({ f: g.tower[i], c: toWorld(g, g.tower[i].x, -(i * H + H / 2), a), i });
+  const hCom = pieces.reduce((s, p) => s + (pivot.y - p.c.y), 0) / pieces.length;
+  const alpha = sgn * 16 * clamp(1.5 * H / Math.max(H, hCom), 0.18, 1);   // tall sections topple slowly, like a tree
+  g.tower.length = first;
+  let lostRes = 0;
+  for (const p of pieces) {
+    const f = p.f;
+    g.group.remove(f.mesh); siteRoot.add(f.mesh);
+    g.debris.push({ state: 'tip', x: p.c.x, y: p.c.y, ang: a, a0: a, av: sgn * 0.4, alpha, sgn, px: pivot.x, py: pivot.y,
+      rx: p.c.x - pivot.x, ry: p.c.y - pivot.y, breakAt: 0.45 + Math.random() * 0.35, mesh: f.mesh });
+    lostRes += f.residents;
+    const role = g.bp ? roleAt(g.bp, p.i) : 'res';
+    g.caps[role] = Math.max(0, (g.caps[role] || 0) - f.residents);
+    if (f.q) { g.quality -= f.q; g.landed--; }
+    if (f.sp) g.specialPerfects--;
+  }
+  g.pop = Math.max(0, g.pop - lostRes);
+  g.collapses++; g.floorsLost += pieces.length;
+  g.struct.strain = 0; g.struct.level = 0; g.struct.k = -2;
+  g.sway.amp *= 0.4; g.sway.target *= 0.4;
+  g.danger = null;
+  const full = k < 0;
+  for (let i = 0; i < Math.min(6, pieces.length); i++) setTimeout(() => dust(pivot.x + sgn * i * 6, pivot.y - i * H * 0.6, 14, 6), i * 120);
+  popup(full ? 'Total collapse' : `Collapse · −${plural(pieces.length, 'floor')}`, pivot.x, pivot.y - 30, 'miss');
+  if (pieces.length >= 3 || full) banner(full ? 'Total collapse' : 'Collapse', `${plural(pieces.length, 'floor')} lost`);
+  Sound.collapse(pieces.length); vib([60, 40, 120, 40, 220]);
+  if (!reduceMotion && save.settings.shake) g.shake = 3.5;
+  bus.emit('collapse', { kind: g.kind, floors: pieces.length, full });
+  // A collapse costs a life, like a miss; losing the whole tower ends the build.
+  g.combo.timer = 0; g.combo.streak = 0; Music.setChain(0);
+  g.lives = full ? 0 : g.lives - 1;
+  g.ratings.Collapse = (g.ratings.Collapse || 0) + 1;
+  if (g.lives <= 0) { if (!g.ending) g.ending = { t: 1.8 }; setTimeout(() => Sound.over(), 700); }
+  updateBuildHud();
 }
 // The GDD's recovery ladder: how bad it got, how long you fought it, and how you finished it.
 function recoveryTier(g, d) {
@@ -349,7 +458,12 @@ function update(dt) {
   const targetMult = ch ? FORGE.hold.speed[holdBand(ch.t)] : 1;
   g.swingMult += (targetMult - g.swingMult) * Math.min(1, dt * 10);
   if (!ch && Math.abs(g.swingMult - 1) < 0.002) g.swingMult = 1;
-  g.swingPhase += swingParams(g).w * g.swingMult * dt;
+  // The rope starts still and only builds up its swing once the first floor is in view.
+  if (!g.swingOn && !g.intro && g.hook.has && g.hook.e >= 0.999) g.swingOn = true;
+  const envTarget = g.swingOn ? 1 : 0;
+  if (g.swingEnv !== envTarget) g.swingEnv = envTarget > g.swingEnv ? Math.min(1, g.swingEnv + dt / CFG.swingStart) : Math.max(0, g.swingEnv - dt / 0.7);
+  if (g.swingEnv <= 0) g.swingPhase = 0;               // it starts from the middle, moving out
+  else g.swingPhase += swingParams(g).w * g.swingMult * dt;
   if (ch) {
     ch.t += dt;
     const band = holdBand(ch.t);
@@ -389,6 +503,7 @@ function update(dt) {
     if (d.state === 'wreck' ? d.t <= 0 : d.y - g.camY >= view.h + 120) { siteRoot.remove(d.mesh); g.debris.splice(i, 1); }
   }
 
+  checkStructure(g, dt);
   // Forge: stability readout and the recovery ladder.
   if (g.kind !== 'attract') {
     const lv = stabilityLevel(g);
@@ -442,7 +557,7 @@ function finishRound(g) {
     pts: g.pop, caps: g.caps, quality: g.landed ? g.quality / g.landed : 0, landed: g.landed,
     perfects: g.perfects, maxCombo: g.maxCombo, powerPerfects: g.powerPerfects, bestRisk: g.bestRisk, bestPerfectRisk: g.bestPerfectRisk,
     recoveries: g.recoveries.slice(), recoveryPrestige: g.recoveryPrestige, strongest: g.strongest, peakSway: g.peakSway,
-    specialPerfects: g.specialPerfects, lives: g.lives, ratings: g.ratings,
+    specialPerfects: g.specialPerfects, lives: g.lives, ratings: g.ratings, collapses: g.collapses, floorsLost: g.floorsLost,
     xs: g.tower.map(f => Math.round(f.x * 10) / 10),
   });
 }
@@ -487,6 +602,13 @@ function syncScene(g) {
   }
 
   if (g.falling) { const b = g.falling; b.mesh.position.set(b.x * S, -b.y * S, 0); b.mesh.rotation.set(0, 0, -b.ang); }
+  // The weak joint glows while the tower is close to giving way.
+  const st = g.struct, weak = st.level >= 2 && st.k >= 0 && st.k < g.tower.length;
+  jointGlow.visible = weak;
+  if (weak) {
+    jointGlow.position.set((g.tower[st.k].x - g.tower[0].x) * S, (st.k + 1) * H * S, 0);
+    jointGlow.material.opacity = (st.level === 3 ? 0.35 : 0.18) * (0.6 + 0.4 * Math.sin(g.time * (st.level === 3 ? 22 : 12)));
+  }
   for (const d of g.debris) {
     d.mesh.position.set(d.x * S, -d.y * S, 0); d.mesh.rotation.set(0, 0, -d.ang);
     d.mesh.visible = !(d.state === 'wreck' && Math.floor(d.t * 10) % 2);

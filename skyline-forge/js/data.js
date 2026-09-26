@@ -13,8 +13,9 @@ const CFG = {
   minGap: 60,
   ropeRatio: 0.48,       // rope length; the crane stays above the top edge during play
   dropTime: 0.36,        // seconds to fall the gap (sets gravity per screen size)
-  releaseMomentum: 0,    // 0 = the block drops straight down from where you let go
-  swingReach: { start: 30, perFloor: 0.6, max: 62 },    // px either side of centre
+  releaseMomentum: 0.2,  // share of the swing's sideways speed a dropped block keeps: lead the drop a little
+  swingReach: { start: 40, perFloor: 0.6, max: 72 },    // px either side of centre
+  swingStart: 1.1,       // seconds for the rope to build up its swing once the first floor is in view
   swingSpeed: { start: 2.3, perFloor: 0.03, max: 3.8 },  // phase speed, rad/s
   hookLowerTime: 0.5,
   nextDelay: 0.2,
@@ -59,6 +60,11 @@ const FORGE = {
             ['Dangerous', 0.5,  0.4]],
   stability: [0.25, 0.5, 0.75],      // tower-top sway as a share of CFG.sway.max
   settleKeep: 0.6,                   // a centred heavy Power Drop keeps this share of the sway
+  // Collapse (GDD §3): the floors above a joint topple when their centre of mass, shifted by the
+  // tower's lean, overhangs the edge of the floor below for longer than `hold` seconds of strain.
+  // grip: bolted floors hold a little past the edge (1.25 = the upper centre of mass may overhang the
+  // floor below by a quarter of a half-width); the slab itself gets no such help.
+  collapse: { hold: 0.3, warn: [0.55, 0.3, 0.12], slide: 0.06, kick: 0.12, grip: 1.25 },
   specialBonus: 0.03,                // capacity per special floor landed Perfect
   //          name                  bonus pts  prestige
   recovery: [['Close Call',            50,  1],
