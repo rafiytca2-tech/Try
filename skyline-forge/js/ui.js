@@ -147,6 +147,7 @@ function updateHubHud() {
   $('badgeContracts').hidden = !nc; setText('badgeContracts', String(nc));
   $('btnContracts').style.opacity = contractsOn() ? '' : '0.55';
   $('badgeDaily').hidden = !(dailyOn() && !dailyCleared());
+  $('badgeTrophies').hidden = Object.keys(save.ach).length <= (save.seenAch || 0);
   $('btnDaily').style.opacity = dailyOn() ? '' : '0.55';
   const gh = nextGoal();
   if (hudCache.goalHtml !== gh) { hudCache.goalHtml = gh; $('goal').innerHTML = gh; }
@@ -349,7 +350,7 @@ function openBuildingSheet(lot, b) {
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
     bind(s, '#cont', () => { closeSheet(); startCityBuild(lot, b.bp, true); });
     bind(s, '#rebuild', () => openLotSheet(lot, 'rebuild'));
-    bind(s, '#demo', el => { if (el.dataset.arm) { clearLot(lot); rebuildLots(); closeSheet(); updateHubHud(); Sound.place(); } else { el.dataset.arm = 1; el.textContent = 'Tap again to demolish'; } });
+    bind(s, '#demo', el => { if (el.dataset.arm) { demolishFx(lot, b); Sound.demolish(); clearLot(lot); rebuildLots(); closeSheet(); updateHubHud(); vib([40, 30, 80]); } else { el.dataset.arm = 1; el.textContent = 'Tap again to demolish'; } });
   });
 }
 function openPierSheet(record) {
@@ -468,9 +469,9 @@ function showTrophies(tab = 'ach') {
     bind(p, '[data-tab]', el => showTrophies(el.dataset.tab));
     bind(p, '[data-paint]', el => { if (setPaint(el.dataset.paint)) showTrophies('crane'); else Sound.deny(); });
   });
-  seenTrophies = Object.keys(save.ach).length;
+  save.seenAch = Object.keys(save.ach).length; persist();
+  $('badgeTrophies').hidden = true;
 }
-let seenTrophies = 0;
 function showSettings(onDone) {
   const S2 = save.settings;
   const sw = (id, label, on, small) => `<label class="setting"><span>${label}${small ? `<small>${small}</small>` : ''}</span><span class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span></span></span></label>`;
@@ -543,9 +544,10 @@ function showResults(r, sum) {
     capLabel = roles.length === 1 ? ROLE_NAMES[roles[0]] : 'capacity';
     rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
     if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
-    note = sum.kept ? `Your earlier ${BLUEPRINTS[sum.prev.bp].name} was better, so it stays.` : r.done ? (sum.firstTop ? `First ${bp.name}! Residents are moving in.` : 'Residents are moving in.') : 'The unfinished tower still counts. Tap it in the city to continue.';
+    note = sum.kept ? `Your earlier ${BLUEPRINTS[sum.prev.bp].name} was better, so it stays.` : !r.xs.length ? 'Nothing was built on this lot.' : r.done ? (sum.firstTop ? `First ${bp.name}! Residents are moving in.` : 'Residents are moving in.') : 'The unfinished tower still counts. Tap it in the city to continue.';
     primary = ['Back to city', () => leaveSession()];
-    secondary = r.done ? ['Build another', () => leaveSession(true)] : ['Continue now', () => { const lot = LOT_BY_ID[r.site.id]; const c = canBuild(r.bp, lot, { cont: true }); if (c.ok) startCityBuild(lot, r.bp, true); else { Sound.deny(); toast(c.reason); } }];
+    const canCont = !r.done && sum.saved;
+    secondary = !canCont ? ['Build another', () => leaveSession(true)] : ['Continue now', () => { const lot = LOT_BY_ID[r.site.id]; const c = canBuild(r.bp, lot, { cont: true }); if (c.ok) startCityBuild(lot, r.bp, true); else { Sound.deny(); toast(c.reason); } }];
   } else if (r.kind === 'race') {
     eyebrow = 'Sky Race'; title = sum.record ? 'New record!' : `${r.floors} floors`;
     capLabel = 'points';

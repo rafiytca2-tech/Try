@@ -77,6 +77,8 @@ function defaultSave() {
     settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto', tod: 'auto', bigText: false },
     tips: {},
     ftue: 0,                     // onboarding step: 0 new, 1 first build started, 2 done
+    pending: null,               // a paid permit whose build hasn't finished (refunded on next start)
+    seenAch: 0,                  // achievements already seen in Trophies (drives the badge)
   };
 }
 let save = defaultSave();

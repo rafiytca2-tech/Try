@@ -62,7 +62,7 @@ function newGame(kind, o = {}) {
     recoveries: [], recoveryPrestige: 0, danger: null, level: 0, strongest: 1, peakSway: 0, specialPerfects: 0, caps: {}, startFloors: 0,
     group: new T.Group(), hookMesh: null,
   };
-  siteRoot.position.set(g.site.x, 0, g.site.z);
+  siteRoot.position.set(g.site.x, 0, g.site.z); siteRoot.visible = true;
   siteRoot.add(g.group);
   // Continuing an unfinished tower: its floors are already standing.
   if (o.xs && o.xs.length) {
@@ -85,6 +85,7 @@ function newGame(kind, o = {}) {
 }
 function disposeGame(g) {
   if (!g) return;
+  siteRoot.visible = false; warnGlow.visible = specialGlow.visible = false;
   siteRoot.remove(g.group);
   if (g.hookMesh) siteRoot.remove(g.hookMesh);
   if (g.falling) siteRoot.remove(g.falling.mesh);
@@ -396,7 +397,7 @@ function update(dt) {
       if (!g.danger) g.danger = { worst: lv, placed: 0, peak: 0, power: false };
       g.danger.worst = Math.max(g.danger.worst, lv); g.danger.peak = Math.max(g.danger.peak, s.amp / CFG.sway.max);
       showTip('recover');
-    } else if (lv === 0 && g.danger) { if (g.danger.placed > 0 && !g.ending) awardRecovery(g, g.danger); g.danger = null; }
+    } else if (lv === 0 && g.danger) { if (g.danger.placed > 0 && !g.ending && !g.finished) awardRecovery(g, g.danger); g.danger = null; }
   }
 
   if (g.pan) {

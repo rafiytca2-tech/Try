@@ -162,7 +162,7 @@ function leaveSession(another) {
   flyTo(hubPose, 1.4, () => enterHub(another && site && !site.pier ? site : null));
 }
 function pause() {
-  if (state !== 'play' || !game || game.finished) return;
+  if (state !== 'play' || !game || game.finished || game.ending || game.pan) return;
   if (game.charge) game.charge = null;
   input.down = false; input.pending = false;
   state = 'pause';
@@ -175,6 +175,7 @@ function stopBuilding() {
   if (!game) return;
   state = 'play'; show(null);
   if (game.falling) { siteRoot.remove(game.falling.mesh); game.falling = null; }
+  game.ending = { started: true, t: 0 }; game.danger = null;
   finishRound(game);
 }
 function afterCityChange() {
@@ -328,7 +329,17 @@ window.addEventListener('keydown', e => {
   }
 });
 window.addEventListener('keyup', e => { if ((e.key === ' ' || e.key === 'Enter') && input.down) { e.preventDefault(); release(); } });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { pause(); persistNow(); } });
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pause(); persistNow(); hiddenAt = Date.now(); return; }
+  if (!hiddenAt) return;
+  const away = (Date.now() - hiddenAt) / 1000; hiddenAt = 0;
+  if (away < 2) return;
+  const before = save.bank;
+  tickCity(Math.min(away, 7 * 24 * 3600));                 // income and occupancy kept going while we were away
+  if (away > 600 && state === 'hub' && $('modal').hidden) showWelcome({ away, earned: save.bank - before });
+  persist();
+});
 window.addEventListener('resize', () => { layout(); if (game && state !== 'play' && state !== 'fly') game.camY = game.hold ? endCam() : (game.kind === 'attract' ? introCam(game) : cameraTarget(game)); });
 
 /* ---------------- Buttons ---------------- */
@@ -366,7 +377,7 @@ window.skylineBack = () => {
   if (!$('sheet').hidden) { closeSheet(); return; }
   if (state === 'play') pause();
   else if (state === 'pause') resume();
-  else if (state === 'result') $('resPrimary').click();
+  else if (state === 'result') leaveSession();
   else if (state === 'hub') toTitle();
   else if (state === 'title') { persistNow(); location.href = 'skyline://exit'; }
 };
@@ -398,7 +409,9 @@ function frame(now) {
     floodlight.position.set(game.site.x - 14, top + 30, game.site.z + 30); floodlight.target.position.set(game.site.x, top * 0.6, game.site.z);
   } else { aimSun(cam.look.x, 0, cam.look.z, Math.min(260, 60 + hubCam.d * 0.55)); floodlight.intensity = 0; }
   Sound.setWind(state === 'play' ? Math.min(1, alt / 200) : state === 'pause' ? 0 : 0.12);
-  updateCars(dt); updateBursts(dt);
+  updateCars(dt); updateBursts(dt); updateDemolition(dt);
+  updateWater(now / 1000);
+  updateLife(dt, now / 1000, game && state !== 'hub' && game.kind !== 'attract' ? game.site : null);
 
   // City upkeep: occupancy and income tick in real time.
   hubTimer += dt; slowTimer += dt; todTimer += dt;

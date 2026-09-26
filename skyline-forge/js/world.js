@@ -25,14 +25,80 @@ const lotDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const districtCols = new Set(DISTRICTS.map(d => d.col));
 
 /* ---------------- Ground, harbour and streets ---------------- */
-const land = new T.Mesh(new T.PlaneGeometry(6000, 3000 + QUAY_Z), new T.MeshStandardMaterial({ color: lin('#4d5157'), roughness: 1 }));
-land.rotation.x = -Math.PI / 2; land.position.set(0, -0.45, (QUAY_Z - 3000) / 2); land.receiveShadow = true; scene.add(land);
-const waterMat = new T.MeshStandardMaterial({ color: lin(TOD.day.water), roughness: 0.18, metalness: 0.2 });
-const water = new T.Mesh(new T.PlaneGeometry(6000, 3000), waterMat);
-water.rotation.x = -Math.PI / 2; water.position.set(0, WATER_Y, QUAY_Z + 1500); scene.add(water);
+// Streets: asphalt with dashed centre lines and zebra crossings. One texture tile per 74 m block
+// pitch, aligned so the tile edges run down the middle of every street.
+const streetTex = (() => {
+  const N = 256, k = N / BLOCK, c = canvasOf(N, N), g = c.getContext('2d'), r = mulberry32(21);
+  rect(g, '#4b4f55', 0, 0, N, N);
+  for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,.09)' : 'rgba(255,255,255,.05)'; g.fillRect(r() * N, r() * N, 1.5, 1.5); }
+  const half = Math.round(7 * k);
+  g.fillStyle = '#e3cf78';
+  for (let s = half + 5; s < N - half - 10; s += 14) { g.fillRect(s, -1, 8, 2); g.fillRect(s, N - 1, 8, 2); g.fillRect(-1, s, 2, 8); g.fillRect(N - 1, s, 2, 8); }
+  g.fillStyle = 'rgba(236,236,232,.85)';
+  for (const cx of [0, N]) for (const cy of [0, N]) {
+    for (let t = -half + 1; t < half - 1; t += 5) g.fillRect(cx + t, cy + (cy ? -half - 11 : half + 2), 3, 9);
+    for (let t = -half + 1; t < half - 1; t += 5) g.fillRect(cx + (cx ? -half - 11 : half + 2), cy + t, 9, 3);
+  }
+  const t = tex(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
+})();
+{
+  const cols = 80, h = 40 * BLOCK + (QUAY_Z - BLOCK / 2);         // west/north edges sit on street centres
+  streetTex.repeat.set(cols, h / BLOCK); streetTex.offset.set(0, 40 - h / BLOCK);
+  const land = new T.Mesh(new T.PlaneGeometry(cols * BLOCK, h).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ map: streetTex, roughness: 0.95 }));
+  land.position.set(BLOCK / 2, -0.45, QUAY_Z - h / 2); land.receiveShadow = true; scene.add(land);
+}
+// Harbour water: rolling waves, the sky reflected at grazing angles, a sun (or moon) glint and foam at the quay.
+const waterMat = new T.ShaderMaterial({
+  uniforms: T.UniformsUtils.merge([T.UniformsLib.fog, {
+    uTime: { value: 0 }, uDeep: { value: new T.Color('#1d5577') }, uSky: { value: new T.Color('#b8d3e6') },
+    uSun: { value: new T.Vector3(0.5, 0.5, 0.7) }, uSunCol: { value: new T.Color('#fff2d6') }, uGlint: { value: 1 },
+  }]),
+  vertexShader: [
+    'uniform float uTime; varying vec3 vW;',
+    '#include <fog_pars_vertex>',
+    'void main() {',
+    '  vec4 w = modelMatrix * vec4(position, 1.0);',
+    '  w.y += 0.32 * sin(w.x * 0.045 + uTime * 1.1) + 0.22 * sin(w.z * 0.07 - uTime * 1.4) + 0.1 * sin((w.x + w.z) * 0.16 + uTime * 2.3);',
+    '  vW = w.xyz;',
+    '  vec4 mvPosition = viewMatrix * w;',
+    '  gl_Position = projectionMatrix * mvPosition;',
+    '  #include <fog_vertex>',
+    '}'].join('\n'),
+  fragmentShader: [
+    'uniform float uTime; uniform vec3 uDeep; uniform vec3 uSky; uniform vec3 uSun; uniform vec3 uSunCol; uniform float uGlint; varying vec3 vW;',
+    '#include <common>',
+    '#include <fog_pars_fragment>',
+    'void main() {',
+    '  vec2 p = vW.xz; float t = uTime;',
+    '  float dx = 0.0144 * cos(p.x * 0.045 + t * 1.1) + 0.016 * cos((p.x + p.y) * 0.16 + t * 2.3) + 0.027 * cos(p.x * 0.9 + p.y * 0.3 + t * 3.1) + 0.018 * cos(p.x * 2.1 - t * 4.0);',
+    '  float dz = 0.0154 * cos(p.y * 0.07 - t * 1.4) + 0.016 * cos((p.x + p.y) * 0.16 + t * 2.3) + 0.033 * cos(p.y * 1.1 - p.x * 0.2 - t * 2.7) + 0.018 * cos(p.y * 1.9 + t * 3.6);',
+    '  vec3 N = normalize(vec3(-dx * 3.0, 1.0, -dz * 3.0));',
+    '  vec3 V = normalize(cameraPosition - vW);',
+    '  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);',
+    '  vec3 col = mix(uDeep, uSky, clamp(0.06 + fres * 0.92, 0.0, 1.0));',
+    '  vec3 R = reflect(-V, N);',
+    '  col += uSunCol * (pow(max(dot(R, normalize(uSun)), 0.0), 240.0) * 1.8 + pow(max(dot(R, normalize(uSun)), 0.0), 16.0) * 0.08) * uGlint;',
+    '  float edge = smoothstep(6.0, 0.0, vW.z - 44.0);',
+    '  col = mix(col, vec3(0.9, 0.94, 0.96), edge * (0.3 + 0.25 * sin(vW.x * 0.7 + t * 2.0)));',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '  #include <fog_fragment>',
+    '}'].join('\n'),
+  fog: true,
+});
+waterMat.uniforms.uSun.value = sunDir;
+{
+  const near = new T.Mesh(new T.PlaneGeometry(6000, 1600, 240, 80).rotateX(-Math.PI / 2), waterMat);
+  near.position.set(0, WATER_Y, QUAY_Z + 800); scene.add(near);
+  const far = new T.Mesh(new T.PlaneGeometry(12000, 6000).rotateX(-Math.PI / 2), waterMat);
+  far.position.set(0, WATER_Y - 0.3, QUAY_Z + 1600 + 3000); scene.add(far);
+}
 const quay = new T.Mesh(new T.BoxGeometry(6000, 2.2, 2), new T.MeshStandardMaterial({ color: lin('#8f8a80'), roughness: 0.9 }));
 quay.position.set(0, -0.9, QUAY_Z); quay.receiveShadow = true; scene.add(quay);
-todHooks.push(P => waterMat.color.copy(lin(P.water)));
+todHooks.push(P => { waterMat.uniforms.uDeep.value.set(P.water); waterMat.uniforms.uSunCol.value.set(P.sun); waterMat.uniforms.uGlint.value = P.glint; });
+function updateWater(t) {
+  waterMat.uniforms.uTime.value = t; waterMat.uniforms.uSky.value.copy(skyMat.uniforms.cHor.value).lerp(skyMat.uniforms.cMid.value, 0.35);
+  cityUniforms.uSkyTint.value.copy(skyMat.uniforms.cMid.value).convertSRGBToLinear();   // glass reflects the sky
+}
 
 const unitBox = new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const mtx = new T.Matrix4(), q0 = new T.Quaternion(), vPos = new T.Vector3(), vScale = new T.Vector3(), col3 = new T.Color();
@@ -52,7 +118,7 @@ function instanced(geo, mat, list, place, shadows) {
 const cityRand = mulberry32(2026);
 const parks = new Set(['1,-2', '-2,-3', '3,-4', '-5,-2', '6,-3']);
 const DT = { x: -90, z: -330 };
-const blocks = [], buildings = [], roofBoxes = [], trees = [];
+const blocks = [], buildings = [], roofBoxes = [], trees = [], spires = [], antennas = [], tanks = [], aviation = [];
 for (let i = -CITY_N; i <= CITY_N; i++) {
   for (let j = -CITY_N; j <= 0; j++) {
     const cx = i * BLOCK, cz = j * BLOCK, mine = j === 0 && districtCols.has(i), park = parks.has(`${i},${j}`);
@@ -67,23 +133,44 @@ for (let i = -CITY_N; i <= CITY_N; i++) {
       let h = 9 + cityRand() * 22 + 190 * Math.exp(-((dist / 340) ** 2)) * Math.pow(cityRand(), 0.8);
       if (j === 0) h = Math.min(h, 18 + cityRand() * 16);        // low waterfront rows beside your districts
       else if (j === -1) h = Math.min(h, 30 + cityRand() * 40);
-      const pal = ['#a9b0b8', '#98a2ad', '#8793a0', '#b3aa9d', '#7b8896', '#a0968a', '#6b798a', '#bbb8b2', '#5c7087'];
+      const glassy = h > 40 && cityRand() < 0.38;
+      const pal = glassy ? ['#6f8fa8', '#7d9bb0', '#5f7f99', '#8aa3b4', '#6a8394', '#8c9aa6'] : ['#a9b0b8', '#98a2ad', '#8793a0', '#b3aa9d', '#7b8896', '#a0968a', '#6b798a', '#bbb8b2', '#5c7087', '#c2b49c', '#9c8f84'];
       const col = pal[Math.floor(cityRand() * pal.length)];
+      let top = h;
       if (h > 80 && cityRand() < 0.7) {
         const split = h * (0.45 + cityRand() * 0.2);
-        buildings.push({ x: lx, z: lz, w, d, y: 0, h: split, c: col });
-        buildings.push({ x: lx, z: lz, w: w * 0.72, d: d * 0.72, y: split, h: h - split, c: col });
+        buildings.push({ x: lx, z: lz, w, d, y: 0, h: split, c: col, g: glassy });
+        buildings.push({ x: lx, z: lz, w: w * 0.72, d: d * 0.72, y: split, h: h - split, c: col, g: glassy });
         roofBoxes.push({ x: lx, z: lz, w: w * 0.34, d: d * 0.34, y: h, h: 3 + cityRand() * 4 });
+        top = h + 5;
       } else {
-        buildings.push({ x: lx, z: lz, w, d, y: 0, h, c: col });
+        buildings.push({ x: lx, z: lz, w, d, y: 0, h, c: col, g: glassy });
         if (cityRand() < 0.6) roofBoxes.push({ x: lx + (cityRand() - 0.5) * w * 0.3, z: lz + (cityRand() - 0.5) * d * 0.3, w: w * 0.3, d: d * 0.3, y: h, h: 2 + cityRand() * 2.5 });
+        else if (h < 50) tanks.push({ x: lx + (cityRand() - 0.5) * w * 0.4, z: lz + (cityRand() - 0.5) * d * 0.4, y: h, s: 0.8 + cityRand() * 0.6 });
+      }
+      // Skyscraper tops: spires, antennas, and red aviation lights (GDD §12 rooftop detail).
+      if (h > 70) {
+        const k = cityRand();
+        if (k < 0.35) { const sh = 10 + cityRand() * 22; spires.push({ x: lx, z: lz, y: top, h: sh, r: Math.min(w, d) * 0.22 }); top += sh; }
+        else if (k < 0.75) { const ah = 8 + cityRand() * 16; antennas.push({ x: lx, z: lz, y: top, h: ah }); top += ah; }
+        aviation.push({ x: lx, y: top + 0.6, z: lz });
       }
     }
   }
 }
-instanced(unitBox, new T.MeshStandardMaterial({ roughness: 0.95 }), blocks, b => { vPos.set(b.x, -0.45, b.z); vScale.set(60, 0.35, 60); }).receiveShadow = true;
+const pavingTex = (() => {
+  const N = 256, c = canvasOf(N, N), g = c.getContext('2d'), r = mulberry32(31);
+  rect(g, '#dedad2', 0, 0, N, N);
+  g.strokeStyle = 'rgba(0,0,0,.07)'; g.lineWidth = 1;
+  for (let s = 0; s < N; s += 8) { g.beginPath(); g.moveTo(s, 0); g.lineTo(s, N); g.moveTo(0, s); g.lineTo(N, s); g.stroke(); }
+  for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.08)'; g.fillRect(r() * N, r() * N, 2, 2); }
+  g.strokeStyle = '#f4f1ea'; g.lineWidth = 5; g.strokeRect(2.5, 2.5, N - 5, N - 5);       // curb
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.strokeRect(5.5, 5.5, N - 11, N - 11);
+  return tex(c);
+})();
+instanced(unitBox, new T.MeshStandardMaterial({ map: pavingTex, roughness: 0.95 }), blocks, b => { vPos.set(b.x, -0.45, b.z); vScale.set(60, 0.35, 60); }).receiveShadow = true;
 // Facade windows are computed in world space, so every building shares the same storey rhythm.
-const cityUniforms = { uLit: { value: 0.05 }, uWin: { value: 0.3 } };
+const cityUniforms = { uLit: { value: 0.05 }, uWin: { value: 0.3 }, uSkyTint: { value: new T.Color('#8fbfe8') } };
 const cityMat = new T.MeshStandardMaterial({ roughness: 0.85, metalness: 0.05 });
 cityMat.onBeforeCompile = sh => {
   sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin;
@@ -109,8 +196,39 @@ cityMat.onBeforeCompile = sh => {
     .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.8, 0.5) * fLit * uWin;');
 };
 cityMat.customProgramCacheKey = () => 'city-windows-2';
+// Glass curtain wall: full-height glazing with mullions and spandrel bands.
+const glassMat = new T.MeshStandardMaterial({ roughness: 0.25, metalness: 0.12 });
+glassMat.onBeforeCompile = sh => {
+  sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin; sh.uniforms.uSkyTint = cityUniforms.uSkyTint;
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vFP;\nvarying vec3 vFN;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 fpw = modelMatrix * instanceMatrix * vec4(position, 1.0);\nvFP = fpw.xyz;\nvFN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);');
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform float uLit;\nuniform float uWin;\nuniform vec3 uSkyTint;\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat gWin = 0.0;\nfloat gLit = 0.0;\nfloat gHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
+    .replace('#include <color_fragment>', [
+      '#include <color_fragment>',
+      'if (abs(vFN.y) < 0.5) {',
+      '  float fu = abs(vFN.x) > 0.5 ? vFP.z : vFP.x;',
+      '  vec2 cell = vec2(fu / 1.7, (vFP.y + 0.25) / 3.4);',
+      '  vec2 f = fract(cell);',
+      '  float w = step(0.07, f.x) * step(f.x, 0.93) * step(0.16, f.y) * step(f.y, 0.9) * step(1.0, cell.y);',
+      '  float r = gHash(floor(cell) + floor(vFP.xz * 0.02) * 3.7);',
+      '  vec3 glass = diffuseColor.rgb * mix(0.75, 1.15, clamp(f.y * 0.7 + r * 0.25, 0.0, 1.0));',
+      '  diffuseColor.rgb = mix(diffuseColor.rgb * 0.7, glass, w);',
+      '  gWin = w; gLit = w * step(1.0 - uLit * 0.8, r);',
+      '  diffuseColor.rgb *= mix(0.6, 1.0, step(3.6, vFP.y));',
+      '} else { diffuseColor.rgb *= 0.7; }'].join('\n'))
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.7, 0.12, gWin);')
+    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.86, 0.62) * gLit * uWin + uSkyTint * gWin * 0.22;');
+};
+glassMat.customProgramCacheKey = () => 'city-glass-2';
 todHooks.push(P => { cityUniforms.uLit.value = P.lit; cityUniforms.uWin.value = 0.3 + P.win * 0.9; });
-instanced(unitBox, cityMat, buildings, b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); }, true);
+instanced(unitBox, cityMat, buildings.filter(b => !b.g), b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); }, true);
+instanced(unitBox, glassMat, buildings.filter(b => b.g), b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); }, true);
+const steelGrey = new T.MeshStandardMaterial({ color: lin('#b8c0c8'), roughness: 0.35, metalness: 0.7 });
+instanced(new T.ConeGeometry(1, 1, 8).translate(0, 0.5, 0), steelGrey, spires, s => { vPos.set(s.x, s.y - 0.25, s.z); vScale.set(s.r, s.h, s.r); }, true);
+instanced(new T.CylinderGeometry(0.18, 0.35, 1, 6).translate(0, 0.5, 0), steelGrey, antennas, a => { vPos.set(a.x, a.y - 0.25, a.z); vScale.set(1, a.h, 1); });
+instanced(new T.CylinderGeometry(1.4, 1.4, 2.6, 10).translate(0, 1.3 + 1.6, 0), new T.MeshStandardMaterial({ color: lin('#8a6a4a'), roughness: 0.9 }), tanks, t => { vPos.set(t.x, t.y - 0.25, t.z); vScale.setScalar(t.s); }, true);
 instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofBoxes, r => { vPos.set(r.x, r.y - 0.25, r.z); vScale.set(r.w, r.h, r.d); });
 const treeTopGeo = new T.IcosahedronGeometry(2.4, 0).translate(0, 4.2, 0), trunkGeo = new T.CylinderGeometry(0.22, 0.3, 2.4, 5).translate(0, 1.2, 0);
 const leafMat = new T.MeshStandardMaterial({ color: lin('#4f7d3f'), roughness: 0.9, flatShading: true }), barkMat = new T.MeshStandardMaterial({ color: lin('#5a4634'), roughness: 1 });
@@ -198,7 +316,9 @@ for (const lot of LOTS) { const m = new T.Mesh(padGeo, padMats.locked); m.positi
 
 // Placeable models, one group per lot.
 const placeMeshes = {};
-function placeableModel(key) {
+const placeTemplates = {};
+function placeableModel(key) { return (placeTemplates[key] || (placeTemplates[key] = buildPlaceable(key))).clone(); }
+function buildPlaceable(key) {
   const g = new T.Group();
   const box = (w, h, d, c, x = 0, y = 0, z = 0) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d).translate(0, h / 2, 0), propMat(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   if (key === 'park') {
@@ -271,6 +391,15 @@ const TowerField = {
         if (kind === 'roof') { const r = roofProps(style); r.position.set(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z); r.traverse(o => { o.castShadow = true; }); scene.add(r); this.roofs.push(r); }
       }
     }
+    // Unfinished towers wear scaffolding and keep a small crane beside them (GDD §13 site evolution).
+    const scaf = [], cranes = [];
+    for (const t of this.towers()) {
+      if (t.done || this.hidden.has(t.id) || !t.xs.length) continue;
+      const n = t.xs.length, top = n * H * S, x = t.x + t.xs[n - 1] * S;
+      scaf.push({ x, y: Math.max(0, top - 2 * H * S), z: t.z, h: Math.min(n, 2) * H * S + 1.2 });
+      cranes.push({ x: t.x - 7.5, z: t.z - 6.5, h: top + 9 });
+    }
+    setScaffolds(scaf, cranes);
     for (const key of Object.keys(this.pools)) this.pools[key].mesh.count = 0;
     for (const [key, arr] of Object.entries(buckets)) {
       const p = this.pool(key, arr.length / 3);
@@ -278,6 +407,7 @@ const TowerField = {
       p.mesh.count = arr.length / 3;
       p.mesh.instanceMatrix.needsUpdate = true;
     }
+    if (typeof refreshAviation === 'function') refreshAviation();
   },
 };
 
@@ -314,6 +444,46 @@ function setHidden(set) {
   TowerField.hidden = set;
   for (const [id, m] of Object.entries(placeMeshes)) m.visible = !set.has(id);
   TowerField.rebuild();
+}
+
+/* ---------------- Scaffolding and site cranes for unfinished towers ---------------- */
+const scafMat = latticeMat('#c9ced4', 3, 2);
+const siteCraneMat = latticeMat('#f2b90f', 1, 8);
+const scafMesh = new T.InstancedMesh(new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), scafMat, 80);
+const siteMast = new T.InstancedMesh(new T.BoxGeometry(1.3, 1, 1.3).translate(0, 0.5, 0), siteCraneMat, 80);
+const siteJib = new T.InstancedMesh(new T.BoxGeometry(18, 1.1, 1.1).translate(5, 0, 0), siteCraneMat, 80);
+for (const m of [scafMesh, siteMast, siteJib]) { m.count = 0; m.frustumCulled = false; m.castShadow = true; scene.add(m); }
+const jibQ = new T.Quaternion().setFromAxisAngle(UP, Math.atan2(-6.5, 7.5));
+function setScaffolds(scaf, cranes) {
+  scafMesh.count = Math.min(80, scaf.length);
+  scaf.slice(0, 80).forEach((s, i) => scafMesh.setMatrixAt(i, mtx.compose(vPos.set(s.x, s.y, s.z), q0, vScale.set(W * S + 1, s.h, DEPTH + 1))));
+  siteMast.count = siteJib.count = Math.min(80, cranes.length);
+  cranes.slice(0, 80).forEach((c, i) => {
+    siteMast.setMatrixAt(i, mtx.compose(vPos.set(c.x, -0.3, c.z), q0, vScale.set(1, c.h, 1)));
+    siteJib.setMatrixAt(i, mtx.compose(vPos.set(c.x, c.h - 0.6, c.z), jibQ, vScale.set(1, 1, 1)));
+  });
+  for (const m of [scafMesh, siteMast, siteJib]) m.instanceMatrix.needsUpdate = true;
+}
+// Demolition: the floors topple from the top down in a cloud of dust, instead of vanishing.
+const demolishing = [];
+function demolishFx(lot, b) {
+  const bp = BLUEPRINTS[b.bp], n = b.xs.length;
+  for (let i = 0; i < n; i++) {
+    const kind = floorKind(bp, i, n, b.done), m = makeModule(styleAt(bp, i), kind);
+    m.position.set(lot.x + b.xs[i] * S, (i * H + H / 2) * S, lot.z);
+    scene.add(m);
+    demolishing.push({ m, delay: (n - 1 - i) * 0.07, vy: 0, vx: (Math.random() - 0.5) * 4, vz: (Math.random() - 0.5) * 4, spin: (Math.random() - 0.5) * 2, t: 0 });
+  }
+  for (let k = 0; k < 4; k++) setTimeout(() => burst(lot.x, 2 + k * 3, lot.z, 40, '#cfc6b4', 10, 4, 2.2, 5, false), k * 250);
+}
+function updateDemolition(dt) {
+  for (let i = demolishing.length - 1; i >= 0; i--) {
+    const d = demolishing[i];
+    d.t += dt; if (d.t < d.delay) continue;
+    d.vy -= 26 * dt; d.m.position.y += d.vy * dt; d.m.position.x += d.vx * dt; d.m.position.z += d.vz * dt;
+    d.m.rotation.z += d.spin * dt; d.m.rotation.x += d.spin * 0.5 * dt;
+    if (d.m.position.y < -4) { scene.remove(d.m); demolishing.splice(i, 1); }
+  }
 }
 
 /* ---------------- Selection ring (hub) ---------------- */

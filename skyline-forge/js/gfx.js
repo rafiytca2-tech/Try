@@ -24,9 +24,9 @@ const camera = new T.PerspectiveCamera(FOV, 1, 1, 9000);
 
 /* ---------------- Time of day (GDD §12) ---------------- */
 const TOD = {
-  day:    { sun: '#ffe4c0', sunI: 2.3,  dir: [0.52, 0.5, 0.69],  hs: '#dbe8ff', hg: '#6d5d4c', hI: 0.6,  top: '#3d7ccc', mid: '#8fbfe8', hor: '#e8d4ba', exp: 1.02, win: 0,   lit: 0.05, stars: 0,   fog: 0.0012, water: '#2f6f8f' },
-  sunset: { sun: '#ffa865', sunI: 2.0,  dir: [0.8, 0.2, 0.56],   hs: '#f3c7a6', hg: '#4a3a3a', hI: 0.5,  top: '#34487f', mid: '#d88c6c', hor: '#f4b777', exp: 1.05, win: 0.55, lit: 0.3, stars: 0.1, fog: 0.0013, water: '#4a5a7c' },
-  night:  { sun: '#aebfff', sunI: 0.5,  dir: [-0.35, 0.62, 0.7], hs: '#56689a', hg: '#15161c', hI: 0.45, top: '#030713', mid: '#0b1530', hor: '#1c2a4b', exp: 1.12, win: 1.25, lit: 0.55, stars: 1, fog: 0.0016, water: '#1a3656' },
+  day:    { sun: '#ffe4c0', sunI: 2.3,  dir: [0.52, 0.5, 0.69],  hs: '#dbe8ff', hg: '#6d5d4c', hI: 0.6,  top: '#3d7ccc', mid: '#8fbfe8', hor: '#e8d4ba', exp: 1.02, win: 0,   lit: 0.05, stars: 0,   fog: 0.0012, water: '#1d5577', glint: 1 },
+  sunset: { sun: '#ffa865', sunI: 2.0,  dir: [0.8, 0.2, 0.56],   hs: '#f3c7a6', hg: '#4a3a3a', hI: 0.5,  top: '#34487f', mid: '#d88c6c', hor: '#f4b777', exp: 1.05, win: 0.55, lit: 0.3, stars: 0.1, fog: 0.0013, water: '#3a4466', glint: 1.2 },
+  night:  { sun: '#aebfff', sunI: 0.5,  dir: [-0.35, 0.62, 0.7], hs: '#56689a', hg: '#15161c', hI: 0.45, top: '#030713', mid: '#0b1530', hor: '#1c2a4b', exp: 1.12, win: 1.25, lit: 0.55, stars: 1, fog: 0.0016, water: '#0d1b2e', glint: 0.45 },
 };
 const SPACE = { top: '#04060f', mid: '#0a1030', hor: '#141d44' };
 const ALT_MIX = [[0, 0], [210, 0.1], [390, 0.45], [540, 0.78], [720, 1]];   // the classic's sky darkening, metres
@@ -132,10 +132,20 @@ function paintPlants(g, x, y, w, h) {
   for (let i = 0; i < 9; i++) { g.fillStyle = ['#2e8a3a', '#3fae4a', '#5cc85a'][i % 3]; g.beginPath(); g.arc(x + 2 + r() * (w - 4), y + h * 0.45 + r() * h * 0.45, 2 + r() * 2.5, 0, 7); g.fill(); }
   rect(g, '#7a5532', x, y + h - 4, w, 4);
 }
-// kind: foundation | floor | special. lit: paint the night emissive map instead.
-function paintBlock(g, st, kind, lit) {
-  const R = lit ? () => {} : (c, x, y, w, h) => rect(g, c, x, y, w, h);
-  const G = lit ? (x, y, w, h) => litGlass(g, x, y, w, h) : (x, y, w, h) => paintGlass(g, x, y, w, h);
+// kind: foundation | floor | special. mode: 'color' | 'lit' (night emissive) | 'height' (relief for normals).
+function reliefOf(st, c) {
+  if (c === st.outline) return 0.62;
+  if (c === NAVY || c === NAVY_2) return 0.78;               // window frames stand proud
+  if (c === '#efe0b2' || c === '#d4bb7c') return 0.9;         // the slab edge sticks out most
+  if (c === '#8c7644') return 0.55;
+  if (c === st.light) return 0.8;
+  if (c === st.dark) return 0.6;
+  return 0.72;                                                 // wall
+}
+function paintBlock(g, st, kind, mode) {
+  const lit = mode === 'lit' || mode === true, height = mode === 'height';
+  const R = lit ? () => {} : height ? (c, x, y, w, h) => { const v = Math.round(reliefOf(st, c) * 255); rect(g, `rgb(${v},${v},${v})`, x, y, w, h); } : (c, x, y, w, h) => rect(g, c, x, y, w, h);
+  const G = lit ? (x, y, w, h) => litGlass(g, x, y, w, h) : height ? (x, y, w, h) => rect(g, '#4a4a4a', x, y, w, h) : (x, y, w, h) => paintGlass(g, x, y, w, h);
   if (lit) rect(g, '#000000', 0, 0, W, H);
   R(st.outline, 0, 0, W, H);
   R(st.body, 1, 1, W - 2, H - 2);
@@ -155,7 +165,7 @@ function paintBlock(g, st, kind, lit) {
     R('#d8e6f5', 17, 28, 1, 3); R('#d8e6f5', 22, 28, 1, 3);
   } else if (kind === 'special') {
     R(NAVY, 4, 8, 32, 31);
-    if (lit) litGlass(g, 5, 9, 30, 29); else paintPlants(g, 5, 9, 30, 29);
+    if (lit) litGlass(g, 5, 9, 30, 29); else if (height) rect(g, '#6a6a6a', 5, 9, 30, 29); else paintPlants(g, 5, 9, 30, 29);
     R(st.light, 4, 39, 32, 1);
   } else if (st.win === 'ribbon') {
     for (const y of [8, 24]) {
@@ -176,8 +186,23 @@ function paintBlock(g, st, kind, lit) {
 }
 function blockTexture(st, kind, lit) {
   const K = 6, c = canvasOf(W * K, H * K), g = c.getContext('2d');
-  g.scale(K, K); paintBlock(g, st, kind, lit);
+  g.scale(K, K); paintBlock(g, st, kind, lit ? 'lit' : 'color');
   return tex(c);
+}
+// Normal map from the painted relief (Sobel), so frames and the slab edge catch the light.
+function blockNormal(st, kind) {
+  const K = 6, w = W * K, h = H * K, c = canvasOf(w, h), g = c.getContext('2d');
+  g.scale(K, K); paintBlock(g, st, kind, 'height');
+  const src = g.getImageData(0, 0, w, h).data, out = g.createImageData(w, h), d = out.data;
+  const hAt = (x, y) => src[((clamp(y, 0, h - 1) * w) + clamp(x, 0, w - 1)) * 4] / 255;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (hAt(x + 1, y) - hAt(x - 1, y)) * 2.2, dy = (hAt(x, y + 1) - hAt(x, y - 1)) * 2.2;
+    const l = Math.hypot(dx, dy, 1), i = (y * w + x) * 4;
+    d[i] = (-dx / l * 0.5 + 0.5) * 255; d[i + 1] = (dy / l * 0.5 + 0.5) * 255; d[i + 2] = (1 / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.putImageData(out, 0, 0);
+  const t = new T.CanvasTexture(c); t.anisotropy = maxAniso;
+  return t;
 }
 const topTex = (() => {
   const c = canvasOf(128, 128), g = c.getContext('2d'), r = mulberry32(3);
@@ -222,7 +247,8 @@ function matsFor(style, kind) {
   const m = MATS[style] || (MATS[style] = {});
   if (!m[k]) {
     const st = STYLES[style];
-    const side = new T.MeshStandardMaterial({ map: blockTexture(st, k, false), emissiveMap: blockTexture(st, k, true), emissive: new T.Color(0xffffff), emissiveIntensity: TOD[todName].win, roughness: 0.55, metalness: 0.05 });
+    const side = new T.MeshStandardMaterial({ map: blockTexture(st, k, false), emissiveMap: blockTexture(st, k, true), normalMap: save.settings.quality === 'battery' ? null : blockNormal(st, k), emissive: new T.Color(0xffffff), emissiveIntensity: TOD[todName].win, roughness: 0.5, metalness: 0.06 });
+    if (side.normalMap) side.normalScale.set(0.9, 0.9);
     winMats.push(side);
     m[k] = [side, side, matTop, matBottom, side, side];
   }
@@ -230,8 +256,11 @@ function matsFor(style, kind) {
 }
 const propCache = {};
 function propMat(c) { return propCache[c] || (propCache[c] = new T.MeshStandardMaterial({ color: lin(c), roughness: 0.6 })); }
-// Roof cap (classic ROOF_H = 10 px) with a prop per style.
-function roofProps(style) {
+// Roof cap (classic ROOF_H = 10 px) with a prop per style. Built once per style, then cloned, so
+// rebuilding the city never allocates new geometry.
+const roofTemplates = {};
+function roofProps(style) { return (roofTemplates[style] || (roofTemplates[style] = buildRoofProps(style))).clone(); }
+function buildRoofProps(style) {
   const st = STYLES[style], g = new T.Group(), top = H * S / 2;
   const add = (geo, mat, x, y, z) => { const o = new T.Mesh(geo, mat); o.position.set(x, top + y, z); o.castShadow = true; g.add(o); return o; };
   add(new T.BoxGeometry(W * S + 0.2, 0.45, DEPTH + 0.2), propMat(st.outline), 0, 0.22, 0);
@@ -245,10 +274,21 @@ function roofProps(style) {
   } else if (style === 'green' || style === 'teal') {
     add(new T.BoxGeometry(4.2, 0.6, 4.2), new T.MeshStandardMaterial({ color: lin('#9fe8ff'), roughness: 0.2, metalness: 0.4 }), 0, 0.75, 0);
     add(new T.BoxGeometry(2.4, 0.5, 2.4), new T.MeshStandardMaterial({ color: lin('#d8f7ff'), roughness: 0.2, metalness: 0.4 }), 0, 1.3, 0);
-  } else if (style === 'silver' || style === 'obsidian') {
-    add(new T.BoxGeometry(4.2, 0.6, 4.2), propMat(st.light), 0, 0.75, 0);
-    add(new T.CylinderGeometry(0.12, 0.3, 9, 6), propMat('#c9ced4'), 0, 5.4, 0);
-    add(new T.SphereGeometry(0.3, 10, 8), new T.MeshBasicMaterial({ color: '#ff3b2f' }), 0, 10, 0);
+  } else if (style === 'silver') {                      // Skyline Spire: observation deck and a needle spire
+    const glass = new T.MeshStandardMaterial({ color: lin('#9fd4f0'), roughness: 0.12, metalness: 0.5, emissive: new T.Color('#ffd89a'), emissiveIntensity: 0.25 });
+    add(new T.CylinderGeometry(4.3, 3.2, 2.6, 16), glass, 0, 1.6, 0);
+    add(new T.CylinderGeometry(4.6, 4.6, 0.4, 16), propMat(st.light), 0, 3.1, 0);
+    add(new T.CylinderGeometry(2.2, 3.4, 3.2, 12), propMat(st.body), 0, 4.9, 0);
+    add(new T.ConeGeometry(1.6, 16, 8), propMat('#e8edf2'), 0, 14.5, 0);
+    add(new T.CylinderGeometry(0.1, 0.18, 8, 6), propMat('#c9ced4'), 0, 26, 0);
+    add(new T.SphereGeometry(0.35, 10, 8), new T.MeshBasicMaterial({ color: '#ff3b2f' }), 0, 30.2, 0);
+  } else if (style === 'obsidian') {                    // Forge Megatower: stepped gold crown with a beacon
+    const gold = new T.MeshStandardMaterial({ color: lin('#e8c55e'), roughness: 0.3, metalness: 0.7, emissive: new T.Color('#ffb640'), emissiveIntensity: 0.15 });
+    add(new T.BoxGeometry(5.6, 1.2, 5.6), gold, 0, 1.0, 0);
+    add(new T.BoxGeometry(4.2, 1.6, 4.2), propMat(st.body), 0, 2.4, 0);
+    add(new T.BoxGeometry(3.4, 1.2, 3.4), gold, 0, 3.8, 0);
+    add(new T.ConeGeometry(2.2, 7, 4), gold, 0, 7.9, 0).rotation.y = Math.PI / 4;
+    add(new T.SphereGeometry(0.5, 12, 10), new T.MeshBasicMaterial({ color: '#fff1c2' }), 0, 11.8, 0);
   } else {
     add(new T.BoxGeometry(4.2, 0.45, 4.2), propMat(st.light), 0, 0.67, 0);
     add(new T.BoxGeometry(2.6, 0.45, 2.6), propMat(st.body), 0, 1.1, 0);

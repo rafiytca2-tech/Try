@@ -116,7 +116,7 @@ function tickCity(dtSec) {
   const k = 1 - Math.exp(-dtSec / (ECON.occTauMin * 60));
   for (const [, b] of buildingsList()) if (b.occT != null) b.occ += (b.occT - b.occ) * k;
   measureCity();
-  save.bank = Math.min(incomeCap(), save.bank + City.rate * dtSec / 3600);
+  if (save.bank < incomeCap()) save.bank = Math.min(incomeCap(), save.bank + City.rate * dtSec / 3600);   // never shrinks if the rate drops
 }
 function catchUpOffline() {
   const away = Math.max(0, (Date.now() - (save.seen || Date.now())) / 1000);
@@ -190,6 +190,7 @@ function needsMet(key, lot) {
 function canBuild(key, lot, opts = {}) {
   const bp = BLUEPRINTS[key], d = DISTRICT_BY_ID[lot.d];
   const cost = opts.cont ? Math.round(bp.cost * ECON.continueFee) : permitCost(key);
+  if (opts.cont) { const b = buildingAt(lot.id); if (!b || b.bp !== key || b.done) return { ok: false, reason: 'Nothing to continue here', cost }; }
   if (!save.districts[lot.d]) return { ok: false, reason: `Buy ${d.name} first`, cost };
   if (bp.level > save.level) return { ok: false, reason: `City level ${bp.level}`, cost, locked: true };
   if (d.maxFloors && bp.floors > d.maxFloors) return { ok: false, reason: `Max ${d.maxFloors} floors here`, cost };
@@ -215,12 +216,12 @@ function payPermit(key, lot, cont) {
 }
 function refundPending() {
   if (!save.pending) return 0;
-  const c = save.pending.cost || 0; addCoins(c); delete save.pending; persist(); return c;
+  const c = save.pending.cost || 0; addCoins(c); save.pending = null; persist(); return c;
 }
 
 /* ---------------- Finishing a city build ---------------- */
 function completeBuild(r) {
-  delete save.pending;
+  save.pending = null;
   const lot = LOT_BY_ID[r.site.id], bp = BLUEPRINTS[r.bp], d = DISTRICT_BY_ID[lot.d];
   const prev = buildingAt(lot.id), cont = !!(prev && !prev.done && prev.bp === r.bp && r.xs.length > prev.xs.length && r.xs.slice(0, prev.xs.length).every((x, i) => Math.abs(x - prev.xs[i]) < 0.2));
   const bonus = 1 + ((d.bonus && (d.bonus[r.bp] || 0)) || 0) + ((d.bonus && (d.bonus[bp.role] || 0)) || 0) + FORGE.specialBonus * r.specialPerfects;
@@ -243,19 +244,20 @@ function completeBuild(r) {
     if ((prev.done && !rec.done) || (prev.done === rec.done && prev.cap > rec.cap)) kept = true;
   }
   if (!kept && r.xs.length) save.lots[lot.id] = rec;
+  const topped = r.done && !kept;                        // a discarded rebuild isn't a top-out
   // Rewards (DESIGN.md §6)
   const E = ECON.build, sm = bp.mult;
   let coins = Math.round(r.newFloors * E.perFloor * sm + r.perfects * E.perPerfect + r.powerPerfects * E.perPowerPerfect);
   let prestige = r.recoveryPrestige;
-  const firstTop = r.done && !(save.mastery[r.bp] && save.mastery[r.bp].built);
-  if (r.done) { coins += Math.round(bp.cost * E.completion + stars * bp.floors * E.perStarFloor); prestige += Math.round(stars * bp.floors / 4); }
+  const firstTop = topped && !(save.mastery[r.bp] && save.mastery[r.bp].built);
+  if (topped) { coins += Math.round(bp.cost * E.completion + stars * bp.floors * E.perStarFloor); prestige += Math.round(stars * bp.floors / 4); }
   addCoins(coins); addPrestige(prestige);
   const m = save.mastery[r.bp] || (save.mastery[r.bp] = { built: 0, stars: 0 });
-  if (r.done) { m.built++; m.stars = Math.max(m.stars, stars); save.stats.toppedOut++; if (stars === 3) save.stats.threeStars++; }
+  if (topped) { m.built++; m.stars = Math.max(m.stars, stars); save.stats.toppedOut++; if (stars === 3) save.stats.threeStars++; }
   save.stats.builds++;
   recomputeCity();
-  const out = { coins, prestige, stars, kept, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
-  bus.emit('build', { bp: r.bp, done: r.done, stars, quality, perfects: r.perfects, powerPerfects: r.powerPerfects });
+  const out = { coins, prestige, stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
+  bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects });
   persistNow();
   return out;
 }

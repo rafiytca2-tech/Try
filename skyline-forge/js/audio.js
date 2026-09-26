@@ -75,6 +75,7 @@ const Sound = {
   click() { this.tone(900, 0.04, { type: 'triangle', vol: 0.04 }); },
   deny() { this.tone(180, 0.18, { type: 'square', vol: 0.04, slide: 140 }); },
   place() { this.tone(220, 0.2, { vol: 0.18, slide: 110 }); this.hiss(0.2, { freq: 1200, vol: 0.08 }); },
+  demolish() { this.hiss(2.2, { freq: 260, vol: 0.45 }); for (let i = 0; i < 7; i++) this.tone(48 + Math.random() * 40, 0.5, { vol: 0.2, delay: i * 0.16 }); },
   setWind(k) { if (this.wind) this.wind.gain.setTargetAtTime(k * 0.1, this.ctx.currentTime, 0.5); },
 };
 
