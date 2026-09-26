@@ -75,13 +75,13 @@ function defaultSave() {
     ach: {},                     // achievement id -> unlock time
     mastery: {},                 // blueprint -> { built, stars }
     cosmetics: { crane: 'yellow' },
-    settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto', tod: 'auto', bigText: false },
+    settings: { classic: false, sfx: true, music: true, haptics: true, shake: !reduceMotion, tips: true, quality: 'auto', tod: 'auto', bigText: false, weather: 'live', contrast: false },
     tips: {},
     ftue: 0,                     // onboarding step: 0 new, 1 first build started, 2 done
     pending: null,               // a paid permit whose build hasn't finished (refunded on next start)
     seenAch: 0,                  // achievements already seen in Trophies (drives the badge)
     events: { active: null, next: 0, seen: 0 },   // rotating city events (meta.js)
-    weekly: { key: '', best: 0, claimed: false },
+    weekly: { key: '', best: 0, tiers: 0 },
     stadium: { stage: 0, parts: {} },            // the Harbor Stadium megaproject
     custom: [],                  // player-made blueprints
     overlay: '',                 // hub map overlay

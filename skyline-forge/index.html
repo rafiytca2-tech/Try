@@ -179,6 +179,11 @@ button{font:inherit;color:inherit}
 .happy b.warn{color:var(--moving)}
 .happy b.bad{color:var(--danger)}
 .demand{flex-wrap:wrap;cursor:pointer}
+.status{display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 70px)}
+.spill{pointer-events:auto;display:flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:999px;cursor:pointer;color:var(--ink);font:700 14px var(--f-cond);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.spill i{font-style:normal;color:var(--accent);font-size:16px}
+.spill small{font:600 13px var(--f-cond);color:var(--muted);letter-spacing:.04em}
+.spill.bonus small{color:var(--stable)}
 .ovkey{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:12px;font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .ovkey b{color:var(--ink)}
 .ovkey i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--a),var(--b),var(--c))}
@@ -280,6 +285,21 @@ select option{color:#111}
 .howto span{font-size:15px}
 .ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .ach div{padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.variants{display:flex;gap:6px;margin-top:7px}
+.vsw{width:28px;height:28px;border-radius:7px;background:var(--c);border:2px solid rgba(255,255,255,.15);cursor:pointer;padding:0;box-shadow:inset 0 4px 0 rgba(255,255,255,.3)}
+.vsw.on{border-color:#fff;outline:2px solid var(--accent)}
+.vsw[aria-disabled="true"]{opacity:.28;cursor:not-allowed}
+.variants.wrap{flex-wrap:wrap}
+.studio{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:start}
+#stPrev{width:96px;height:330px;border-radius:12px;background:linear-gradient(#27405f,#0f1824)}
+.stForm{display:grid;gap:8px;min-width:0}
+.stForm .setting{display:flex;flex-direction:column;align-items:stretch;gap:3px;font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stForm .setting b{color:var(--ink)}
+.stForm select,.stForm input{width:100%;box-sizing:border-box;min-width:0;text-transform:none;letter-spacing:0}
+.stForm input[type=range]{accent-color:var(--accent);margin:4px 0}
+.stForm input:not([type]){font:600 15px var(--f-body);color:var(--ink);background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.stForm .vsw{width:24px;height:24px}
+.ach.tiers{grid-template-columns:repeat(3,1fr)}
 .ach div.on{border-color:rgba(255,194,26,.45);background:rgba(255,194,26,.08)}
 .ach b{display:block;font:700 15px var(--f-cond);letter-spacing:.04em;text-transform:uppercase}
 .ach small{display:block;color:var(--muted);font-size:12px;line-height:1.3}
@@ -348,6 +368,7 @@ select option{color:#111}
       <button class="icon-btn glass" id="btnMenu" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2"/></svg><small>Menu</small></button>
     </div>
     <div class="hub-bottom">
+      <div class="status"><button class="spill glass" id="evPill" type="button" hidden></button><button class="spill glass" id="wxPill" type="button"></button></div>
       <div class="ovkey glass" id="ovKey" hidden><b id="ovName">Land value</b><span id="ovLo">Low</span><i id="ovRamp"></i><span id="ovHi">High</span></div>
       <div class="goal glass" id="goal" role="button" tabindex="0"></div>
       <div class="demand glass" aria-label="Demand">
@@ -467,6 +488,9 @@ select option{color:#111}
 <script src="js/engine.js"></script>
 <script src="js/city.js"></script>
 <script src="js/meta.js"></script>
+<script src="js/events.js"></script>
+<script src="js/stadium.js"></script>
+<script src="js/studio.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

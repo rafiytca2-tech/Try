@@ -31,6 +31,8 @@ const TOD = {
 const SPACE = { top: '#04060f', mid: '#0a1030', hor: '#141d44' };
 const ALT_MIX = [[0, 0], [210, 0.1], [390, 0.45], [540, 0.78], [720, 1]];   // the classic's sky darkening, metres
 let todName = 'day', fogBoost = 0;
+// Weather's effect on light and sky (events.js eases these toward the current weather).
+const wxVis = { grey: 0, sun: 1, fog: 1, rain: 0, snow: 0, wind: 1, flash: 0 };
 function currentTod() {
   const pref = save.settings.tod;
   if (pref !== 'auto') return TOD[pref] ? pref : 'day';
@@ -86,7 +88,7 @@ function applyTimeOfDay() {
   todName = currentTod();
   const P = TOD[todName];
   hemi.color.copy(lin(P.hs)); hemi.groundColor.copy(lin(P.hg)); hemi.intensity = P.hI;
-  sun.color.copy(lin(P.sun)); sun.intensity = P.sunI;
+  sun.color.copy(lin(P.sun)); sun.intensity = P.sunI * wxVis.sun; hemi.intensity = P.hI * (0.8 + 0.2 * wxVis.sun);
   sunDir.set(...P.dir).normalize();
   renderer.toneMappingExposure = P.exp;
   for (const m of winMats) m.emissiveIntensity = P.win;
@@ -99,11 +101,16 @@ function altMix(alt) {
 // alt: camera height in metres. The sky darkens toward space as the tower climbs (from the classic).
 function applySky(alt) {
   const P = TOD[todName], k = altMix(Math.max(0, alt));
-  for (const key of ['top', 'mid', 'hor']) skyTmp[key].set(P[key]).lerp(colB.set(SPACE[key]), k);
+  for (const key of ['top', 'mid', 'hor']) {
+    skyTmp[key].set(P[key]);
+    if (wxVis.grey > 0.001) { const c = skyTmp[key], l = (0.3 * c.r + 0.55 * c.g + 0.15 * c.b) * (1 - 0.4 * wxVis.grey); c.lerp(colA.setRGB(l, l * 1.02, l * 1.06), wxVis.grey); }
+    skyTmp[key].lerp(colB.set(SPACE[key]), k);
+  }
   skyMat.uniforms.cTop.value.copy(skyTmp.top); skyMat.uniforms.cMid.value.copy(skyTmp.mid); skyMat.uniforms.cHor.value.copy(skyTmp.hor);
-  skyMat.uniforms.sunK.value = (todName === 'night' ? 0.15 : 1) * (1 - clamp((alt - 400) / 300, 0, 0.8));
+  skyMat.uniforms.sunK.value = (todName === 'night' ? 0.15 : 1) * (1 - clamp((alt - 400) / 300, 0, 0.8)) * (1 - wxVis.grey);
   scene.fog.color.copy(skyTmp.hor);
-  scene.fog.density = fogBoost || P.fog * (1 - clamp((alt - 150) / 500, 0, 0.8));
+  scene.fog.density = fogBoost || P.fog * wxVis.fog * (1 - clamp((alt - 150) / 500, 0, 0.8));
+  renderer.toneMappingExposure = P.exp * (1 - 0.1 * wxVis.grey) + wxVis.flash * 1.3;
   stars.material.opacity = Math.max(P.stars, clamp((alt - 270) / 240, 0, 1));
 }
 
@@ -364,12 +371,12 @@ function buildRenoProps(kind) {
   }
   return g;
 }
-function makeModule(style, kind) {
+function makeModule(style, kind, roofStyle) {
   const g = new T.Group();
   const body = new T.Mesh(geoModule, matsFor(style, kind));
   body.castShadow = body.receiveShadow = true;
   g.add(body);
-  if (kind === 'roof') g.add(roofProps(style));
+  if (kind === 'roof') g.add(roofProps(roofStyle || style));
   return g;
 }
 

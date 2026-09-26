@@ -94,7 +94,7 @@ waterMat.uniforms.uSun.value = sunDir;
 }
 const quay = new T.Mesh(new T.BoxGeometry(6000, 2.2, 2), new T.MeshStandardMaterial({ color: lin('#8f8a80'), roughness: 0.9 }));
 quay.position.set(0, -0.9, QUAY_Z); quay.receiveShadow = true; scene.add(quay);
-todHooks.push(P => { waterMat.uniforms.uDeep.value.set(P.water); waterMat.uniforms.uSunCol.value.set(P.sun); waterMat.uniforms.uGlint.value = P.glint; });
+todHooks.push(P => { waterMat.uniforms.uDeep.value.set(P.water); waterMat.uniforms.uSunCol.value.set(P.sun); waterMat.uniforms.uGlint.value = P.glint * wxVis.sun; });
 function updateWater(t) {
   waterMat.uniforms.uTime.value = t; waterMat.uniforms.uSky.value.copy(skyMat.uniforms.cHor.value).lerp(skyMat.uniforms.cMid.value, 0.35);
   cityUniforms.uSkyTint.value.copy(skyMat.uniforms.cMid.value).convertSRGBToLinear();   // glass reflects the sky
@@ -277,7 +277,8 @@ const planets = [
 function updateSkyDressing(alt, dt) {
   for (const p of planets) p.s.material.opacity = clamp((alt - p.from) / 150, 0, 1);
   const fade = 0.85 * (1 - clamp((alt - 390) / 120, 0, 1));   // the classic's clouds thin out above 390 m
-  for (const c of clouds) { c.material.opacity = fade; if (!c.visible) continue; c.position.x += c.userData.v * dt; if (c.position.x > 1100) c.position.x -= 2200; }
+  const g = 1 - 0.55 * wxVis.grey;
+  for (const c of clouds) { c.material.opacity = fade * (0.75 + 0.25 * Math.min(1, wxVis.grey * 2)); c.material.color.setRGB(g, g, g * 1.03); if (!c.visible) continue; c.position.x += c.userData.v * dt * wxVis.wind; if (c.position.x > 1100) c.position.x -= 2200; }
 }
 
 /* ---------------- Piers ---------------- */
@@ -454,7 +455,7 @@ const TowerField = {
   // Towers as { id, x, z, bp, xs, done, style? }.
   towers() {
     const out = [];
-    for (const lot of LOTS) { const b = save.lots[lot.id]; if (b && b.bp && b.xs && b.xs.length) out.push({ id: lot.id, x: lot.x, z: lot.z, bp: BLUEPRINTS[b.bp], xs: b.xs, done: b.done, reno: b.reno }); }
+    for (const lot of LOTS) { const b = save.lots[lot.id]; if (b && b.bp && b.xs && b.xs.length) out.push({ id: lot.id, x: lot.x, z: lot.z, bp: BLUEPRINTS[b.bp], style: b.style, xs: b.xs, done: b.done, reno: b.reno }); }
     if (save.race.xs && save.race.xs.length) out.push({ id: 'record', x: RECORD_PIER.x, z: RECORD_PIER.z, bp: { style: save.race.style }, xs: save.race.xs, done: true });
     return out;
   },
@@ -466,18 +467,18 @@ const TowerField = {
       if (this.hidden.has(t.id)) continue;
       const n = t.xs.length;
       for (let i = 0; i < n; i++) {
-        const kind = floorKind(t.bp, i, n, t.done), style = styleAt(t.bp, i);
+        const kind = floorKind(t.bp, i, n, t.done), style = floorStyleOf(t.bp, i, t.style);
         const key = style + '|' + (kind === 'roof' ? 'floor' : kind);
         (buckets[key] || (buckets[key] = [])).push(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z);
         if (kind === 'roof') {
-          const r = roofProps(style); r.position.set(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z);
+          const r = roofProps(roofStyleOf(t.bp, t.style)); r.position.set(t.x + t.xs[i] * S, (i * H + H / 2) * S, t.z);
           if (t.reno && t.reno.garden) r.add(renoProps('garden'));
           if (t.reno && t.reno.solar) r.add(renoProps('solar'));
           r.traverse(o => { o.castShadow = true; }); scene.add(r); this.roofs.push(r);
         }
       }
       // Feature lighting: LED strips up the corners, lit after dark.
-      if (t.reno && t.reno.lights && t.done) for (const dx of [-1, 1]) for (const dz of [-1, 1]) lightStrips.push({ x: t.x + t.xs[0] * S + dx * (W * S / 2 + 0.06), z: t.z + dz * (DEPTH / 2 + 0.06), h: n * H * S, c: STYLES[t.bp.style].light });
+      if (t.reno && t.reno.lights && t.done) for (const dx of [-1, 1]) for (const dz of [-1, 1]) lightStrips.push({ x: t.x + t.xs[0] * S + dx * (W * S / 2 + 0.06), z: t.z + dz * (DEPTH / 2 + 0.06), h: n * H * S, c: STYLES[floorStyleOf(t.bp, n - 1, t.style)].light });
     }
     // Unfinished towers wear scaffolding and keep a small crane beside them (GDD §13 site evolution).
     const scaf = [], cranes = [];
@@ -487,6 +488,7 @@ const TowerField = {
       scaf.push({ x, y: Math.max(0, top - 2 * H * S), z: t.z, h: Math.min(n, 2) * H * S + 1.2 });
       cranes.push({ x: t.x - 7.5, z: t.z - 6.5, h: top + 9 });
     }
+    if (typeof stadiumStage === 'function' && stadiumStage() > 0 && !stadiumDone()) cranes.push({ x: STADIUM.centre.x + 38, z: STADIUM.centre.z - 24, h: 46 });
     setScaffolds(scaf, cranes);
     for (const key of Object.keys(this.pools)) this.pools[key].mesh.count = 0;
     for (const [key, arr] of Object.entries(buckets)) {
@@ -632,7 +634,7 @@ const demolishing = [];
 function demolishFx(lot, b) {
   const bp = BLUEPRINTS[b.bp], n = b.xs.length;
   for (let i = 0; i < n; i++) {
-    const kind = floorKind(bp, i, n, b.done), m = makeModule(styleAt(bp, i), kind);
+    const kind = floorKind(bp, i, n, b.done), m = makeModule(floorStyleOf(bp, i, b.style), kind, roofStyleOf(bp, b.style));
     m.position.set(lot.x + b.xs[i] * S, (i * H + H / 2) * S, lot.z);
     scene.add(m);
     demolishing.push({ m, delay: (n - 1 - i) * 0.07, vy: 0, vx: (Math.random() - 0.5) * 4, vz: (Math.random() - 0.5) * 4, spin: (Math.random() - 0.5) * 2, t: 0 });

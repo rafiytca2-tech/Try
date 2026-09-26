@@ -139,11 +139,52 @@ function roleAt(bp, i) {
   for (const [end, , role] of bp.sections) if (i < end) return role;
   return 'res';
 }
+// The facade a floor wears: a mastery variant (or a custom blueprint) replaces the single style;
+// sectioned towers keep their sections. Roofs follow the blueprint's own roof.
+const floorStyleOf = (bp, i, style) => (bp && bp.sections ? styleAt(bp, i) : style || (bp ? bp.style : 'green'));
+const roofStyleOf = (bp, style) => (bp && (bp.roof || (bp.sections ? bp.style : null))) || (bp && bp.style) || style || 'green';
+// Mastery (GDD §7): building a blueprint again unlocks facade variants and a small capacity bonus.
+const STYLE_VARIANTS = {
+  flats: ['blue', 'sky', 'mint'], market: ['red', 'orange', 'brick'], residence: ['cream', 'sand', 'white'], office: ['green', 'teal', 'navy'],
+  hotel: ['violet', 'navy', 'obsidian'], luxury: ['gold', 'white', 'obsidian'], hq: ['teal', 'silver', 'navy'], spire: ['silver', 'white', 'sky'],
+  works: ['brick', 'sand', 'orange'], school: ['mint', 'sky', 'cream'], clinic: ['white', 'mint', 'sky'], station: ['navy', 'red', 'obsidian'],
+  arena: ['orange', 'violet', 'red'], university: ['sand', 'brick', 'cream'], hospital: ['white', 'silver', 'mint'], tech: ['sky', 'obsidian', 'violet'],
+};
+const MASTERY_TIERS = [0, 2, 5];           // topped out this many times to unlock each facade
+const masteryTier = key => { const m = save.mastery[key]; const n = m ? m.built : 0; return MASTERY_TIERS.filter(t => n >= t).length - 1; };
 const isSpecial = (bp, i) => !!(bp && bp.special && i > 0 && i < bp.floors - 1 && i % bp.special.every === 0);
 const ROLE_NAMES = { res: 'residents', com: 'shop jobs', off: 'office jobs', hot: 'guests', landmark: 'visitors', mixed: 'residents & jobs', ind: 'factory jobs', edu: 'students & staff', health: 'patients & staff', safety: 'officers', ent: 'visitors' };
 const ROLE_LABEL = { res: 'Residential', com: 'Commercial', off: 'Office', hot: 'Hospitality', landmark: 'Landmark', mixed: 'Mixed use', ind: 'Industrial', edu: 'Education', health: 'Healthcare', safety: 'Safety', ent: 'Entertainment' };
 const SERVICE_ROLES = ['health', 'edu', 'safety'];
 const SERVICE_NAMES = { health: 'Healthcare', edu: 'Education', safety: 'Safety' };
+
+/* ---- Blueprint Studio (GDD §7): late-game custom towers. The game derives cost, materials and
+   capacity from the design, and the player still has to build every floor. ---- */
+const STUDIO = {
+  max: 6,
+  floors: [12, 100],
+  roles: {
+    res:   { name: 'Homes',     mult: 1.25, needs: [] },
+    com:   { name: 'Shops',     mult: 1.5,  needs: ['res'] },
+    off:   { name: 'Offices',   mult: 2.0,  needs: ['res', 'com'] },
+    hot:   { name: 'Hotel',     mult: 2.3,  needs: ['parkOrWater'] },
+    mixed: { name: 'Mixed use', mult: 2.4,  needs: ['com', 'off'] },
+  },
+  specials: { none: '', garden: 'Sky Garden', lobby: 'Sky Lobby', pool: 'Sky Pool', deck: 'Observation Deck' },
+  roofs: { blue: 'Water tank', red: 'Billboard', green: 'Glass crown', silver: 'Needle spire', obsidian: 'Gold crown', white: 'Helipad', sand: 'Clock cupola', sky: 'Glass pavilion', orange: 'Floodlit dome', navy: 'Radio mast', mint: 'Sports court', brick: 'Chimney' },
+};
+function deriveBlueprint(d) {
+  const R = STUDIO.roles[d.role] || STUDIO.roles.res, F = clamp(Math.round(d.floors), STUDIO.floors[0], STUDIO.floors[1]);
+  const bp = {
+    name: d.name || 'My Tower', role: d.role, floors: F, level: FEATURES.studio, style: d.style, roof: d.roof, custom: true,
+    cost: Math.round(Math.pow(F, 1.6) * 9.6 * R.mult / 10) * 10, mat: Math.round(F * (F > 40 ? 2.2 : 1.5)),
+    mult: Math.round(R.mult * (1 + F / 200) * 100) / 100, needs: R.needs.slice(),
+    blurb: `Your design: ${F} floors of ${R.name.toLowerCase()}${d.special && d.special !== 'none' ? `, a ${STUDIO.specials[d.special]} every ${d.every} floors` : ''}.`,
+  };
+  if (d.special && d.special !== 'none') bp.special = { every: d.every || 10, name: STUDIO.specials[d.special] };
+  if (d.role === 'mixed') bp.sections = [[Math.max(2, Math.round(F * 0.2)), d.style, 'com'], [Math.round(F * 0.65), d.style, 'off'], [F, d.style, 'res']];
+  return bp;
+}
 
 /* ---- Placeables: no crane, placed instantly on a lot. ---- */
 const PLACEABLES = {
@@ -193,8 +234,8 @@ const rankFor = level => { let r = RANKS[0][1]; for (const [l, n] of RANKS) if (
 const LEVELS = [0, 40, 150, 350, 650, 1000, 1500, 2100, 2800, 3600, 4500, 5600, 6800, 8200, 9800,
   11600, 13600, 15800, 18200, 21000, 24000, 27500, 31500, 36000, 41000, 47000, 54000, 62000, 71000, 81000];
 const MAX_LEVEL = LEVELS.length;
-const FEATURES = { hold: 2, contracts: 3, power: 4, recall: 5, daily: 5 };
-const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', power: 'Power Drop', recall: 'Recall', daily: 'Daily Challenge' };
+const FEATURES = { hold: 2, contracts: 3, power: 4, recall: 5, daily: 5, weekly: 6, stadium: 8, studio: 14 };
+const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', power: 'Power Drop', recall: 'Recall', daily: 'Daily Challenge', weekly: 'Weekly Challenge', stadium: 'Harbor Stadium project', studio: 'Blueprint Studio' };
 
 /* ---- Economy ---- */
 const ECON = {
@@ -217,6 +258,7 @@ const ECON = {
   contractReplace: 50,
   daily: { base: 150, perStreak: 50, streakCap: 7, prestige: 5, perStar: 20 },
   stars: [0.8, 0.92],        // quality for 2 and 3 stars (1 star = topped out)
+  masteryBonus: 0.02,        // capacity per mastery tier
 };
 
 /* ---- Daily challenge modifiers (GDD §10 challenge modifiers) ---- */
@@ -229,6 +271,32 @@ const DAILY_MODS = [
   { id: 'norecall', name: 'No Recall',    desc: 'Every swing counts.', apply: m => { m.noRecall = true; } },
   { id: 'fog',     name: 'Fog',           desc: 'Thick fog over the harbour.', apply: m => { m.fog = true; } },
 ];
+
+/* ---- Weather (GDD §12): changes every two hours, same for everyone. It sets the mood, and in city
+   builds it adds a readable challenge that pays a bonus. You can always wait for it to change. ---- */
+const WEATHER = {
+  clear:  { name: 'Clear',        icon: '☀', w: 34, bonus: 0,    desc: 'Calm and clear.' },
+  cloudy: { name: 'Cloudy',       icon: '☁', w: 20, bonus: 0,    desc: 'Grey skies, no effect on building.' },
+  wind:   { name: 'Windy',        icon: '≋', w: 14, bonus: 0.15, desc: 'Towers never fully stop swaying. Build coins +15%.', mods: { wind: 5 } },
+  rain:   { name: 'Rain',         icon: '☂', w: 14, bonus: 0.1,  desc: 'Wet steel lands a little harder. Build coins +10%.', mods: { gravity: 1.08 } },
+  fog:    { name: 'Fog',          icon: '▒', w: 9,  bonus: 0.15, desc: 'Sea fog rolls in over the harbour. Build coins +15%.', mods: { fog: true } },
+  storm:  { name: 'Storm',        icon: 'ϟ', w: 9,  bonus: 0.35, desc: 'Wind, rain and lightning. Build coins +35%.', mods: { wind: 8, gravity: 1.08 } },
+  snow:   { name: 'Snow',         icon: '❄', w: 0,  bonus: 0.2,  desc: 'Snow on the steel: the crane swings a touch faster. Build coins +20%.', mods: { swing: 1.1 } },
+};
+const WEATHER_HOURS = 2;
+
+/* ---- City events (GDD §10): one runs at a time, rotating every three hours. Opportunities, never punishments. ---- */
+const EVENTS = [
+  { id: 'boom',     name: 'Housing Boom',        icon: '⌂', desc: 'Homes built now move in fuller: residential capacity +20%.', cap: { res: 0.2 } },
+  { id: 'expand',   name: 'Corporate Expansion', icon: '▤', desc: 'Office capacity +20% on new builds, and jobs pay ×1.3.', cap: { off: 0.2 }, inc: { jobs: 1.3 } },
+  { id: 'festival', name: 'Tourism Festival',    icon: '✺', desc: 'Hotels, arenas and landmarks earn ×1.5.', inc: { guests: 1.5, visitors: 1.5 } },
+  { id: 'market',   name: 'Market Week',         icon: '◈', desc: 'Shop capacity +20% on new builds, and the whole city spends ×1.15.', cap: { com: 0.2 }, inc: { all: 1.15 } },
+  { id: 'final',    name: 'Championship Final',  icon: '⚑', desc: 'Visitors earn ×1.4, and every Perfect pays +5 coins.', inc: { visitors: 1.4 }, perfectCoins: 5 },
+  { id: 'contest',  name: 'Construction Contest', icon: '⚒', desc: 'Every Perfect pays +8 coins and every Power Perfect +25.', perfectCoins: 8, powerCoins: 25 },
+  { id: 'steel',    name: 'Steel Delivery',      icon: '▣', desc: 'Harbor Works output ×2, and materials cost half price.', matRate: 2, matPrice: 0.5 },
+  { id: 'tech',     name: 'Tech Conference',     icon: '⌘', desc: 'School and university capacity +20% on new builds, and jobs pay ×1.2.', cap: { edu: 0.2 }, inc: { jobs: 1.2 } },
+];
+const EVENT_HOURS = 3, EVENT_LEVEL = 3;
 
 /* ---- Contracts (GDD §10). make() returns the goal for a player's level. ---- */
 const CONTRACTS = [
@@ -244,6 +312,9 @@ const CONTRACTS = [
   { id: 'pop',      min: 2, w: 1, make: (r, c) => { const p = Math.max(100, Math.round(c.pop * 1.3 / 50) * 50); return { type: 'pop', p, target: 1, text: `Grow the city to ${fmt(p)} residents`, coins: Math.round(p * 0.4), prestige: 5 }; } },
   { id: 'parks',    min: 3, w: 1, make: r => { const n = pick(r, [1, 2]); return { type: 'parks', target: n, text: `Place ${plural(n, 'park')}`, coins: 180 * n, prestige: 3 }; } },
   { id: 'daily',    min: 5, w: 1, make: () => ({ type: 'daily', target: 1, text: "Clear today's Daily Challenge", coins: 300, prestige: 6 }) },
+  { id: 'reno',     min: 4, w: 1, make: r => { const n = pick(r, [1, 2]); return { type: 'reno', target: n, text: `Renovate ${plural(n, 'building')}`, coins: 260 * n, prestige: 4 }; } },
+  { id: 'weather',  min: 3, w: 1, make: () => ({ type: 'weather', target: 1, text: 'Top out a building in wind, rain, fog or a storm', coins: 420, prestige: 6 }) },
+  { id: 'transit',  min: 5, w: 1, make: () => ({ type: 'transit', target: 1, text: 'Open a new transit stop', coins: 500, prestige: 4 }) },
 ];
 
 /* ---- Achievements: each pays prestige once. ---- */
@@ -280,6 +351,16 @@ const ACHIEVEMENTS = [
   { id: 'daily7',    name: 'Dedicated',          desc: 'Clear the Daily Challenge 7 days in a row.', pr: 15 },
   { id: 'daily30',   name: 'Institution',        desc: 'Clear the Daily Challenge 30 days in a row.', pr: 50 },
   { id: 'contract10', name: 'Contractor',        desc: 'Complete 10 contracts.', pr: 10 },
+  { id: 'stage1',    name: 'Groundbreaking',     desc: 'Finish the first stage of Harbor Stadium.', pr: 10 },
+  { id: 'stadium',   name: 'Full House',         desc: 'Finish Harbor Stadium.', pr: 40 },
+  { id: 'weekly1',   name: 'Weekly Winner',      desc: 'Earn Gold in a Weekly Challenge.', pr: 15 },
+  { id: 'storm',     name: 'Storm Chaser',       desc: 'Top out a building in a storm.', pr: 10 },
+  { id: 'reno5',     name: 'Makeover',           desc: 'Carry out 5 renovations.', pr: 8 },
+  { id: 'designer',  name: 'Architect',          desc: 'Top out a tower of your own design.', pr: 15 },
+  { id: 'variant',   name: 'Signature Style',    desc: 'Unlock a facade variant.', pr: 5 },
+  { id: 'clean',     name: 'Clean Energy',       desc: 'Run solar and wind power together.', pr: 8 },
+  { id: 'metro',     name: 'Underground',        desc: 'Open a Metro Station.', pr: 6 },
+  { id: 'event',     name: 'Opportunist',        desc: 'Earn bonus coins from a city event.', pr: 4 },
 ];
 
 /* ---- Cosmetics: crane paint, unlocked by prestige. ---- */

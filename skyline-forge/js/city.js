@@ -106,7 +106,9 @@ function recomputeCity() {
   A.W = W; A.jobs = jobs;
   A.jobRatio = W > 0 ? jobs / W : 1;
   A.shopRatio = A.Rcap > 0 ? A.Ccap / (0.25 * A.Rcap) : 1;
-  A.tourism = Math.min(1, 0.3 + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
+  const stad = typeof stadiumDone === 'function' && stadiumDone();
+  A.stadium = stad;
+  A.tourism = Math.min(1, 0.3 + (stad ? 0.25 : 0.03 * save.stadium.stage) + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
   // Traffic: commuters vs road and transit capacity (GDD §9).
   A.commute = 0.9 * Math.min(jobs, W);
   A.congestion = Math.max(0, A.commute / A.roadCap - 1);
@@ -115,7 +117,7 @@ function recomputeCity() {
   A.unemployment = unemployment;
   const svcSum = A.svc.health + A.svc.edu + A.svc.safety;
   A.happy = clamp(0.62 + Math.min(0.25, 0.05 * A.parks) + Math.min(0.1, 0.05 * A.plazas) + 0.15 * (A.buildings ? A.covered / A.buildings : 0) + (A.landmarks ? 0.1 : 0)
-    + 0.06 * svcSum + Math.min(0.08, 0.01 * A.gardens) + Math.min(0.08, 0.04 * A.arenas)
+    + 0.06 * svcSum + Math.min(0.08, 0.01 * A.gardens) + Math.min(0.08, 0.04 * A.arenas) + (stad ? 0.06 : 0)
     - 0.2 * unemployment - 0.1 * shopShort - 0.12 * Math.min(1, A.congestion) - 0.12 * A.pollShare - 0.2 * (1 - A.util), 0.25, 1);
   // Demand bars, -1..1 (GDD §6 Demand)
   A.demand = {
@@ -161,11 +163,14 @@ function measureCity() {
     indOut += (c.ind || 0) * o;
     lvSum += City.lv[lot.id]; n++;
   }
+  if (A.stadium) visitors += STADIUM.visitors * (0.5 + 0.5 * A.tourism);
   const filled = Math.min(jobsHeld, 0.5 * P + 0.3 * guests);
   A.pop = P; A.filled = filled; A.guests = guests; A.visitors = visitors;
   A.meanLV = n ? lvSum / n : 1;
-  A.matRate = indOut / ECON.materialsPerCap;
-  City.rate = (0.25 * P + 0.125 * rich + 0.3 * filled + 0.8 * guests + 0.5 * visitors) * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion));
+  const ev = eventNow();
+  A.matRate = indOut / ECON.materialsPerCap * ((ev && ev.matRate) || 1);
+  City.rate = (eventInc('res') * (0.25 * P + 0.125 * rich) + eventInc('jobs') * 0.3 * filled + eventInc('guests') * 0.8 * guests + eventInc('visitors') * 0.5 * visitors)
+    * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion));
 }
 const population = () => (City.A ? Math.round(City.A.pop) : 0);
 const incomeCap = () => Math.max(50, City.rate * ECON.incomeCapHours);
@@ -239,6 +244,13 @@ function nearbyHas(lot, test) {
   }
   return false;
 }
+// The facade the player picked in Trophies > Mastery, if they've unlocked it.
+function chosenStyle(key) {
+  const v = STYLE_VARIANTS[key], m = save.mastery[key], base = BLUEPRINTS[key].style;
+  if (!v || !m || !m.style) return base;
+  const i = v.indexOf(m.style);
+  return i >= 0 && i <= masteryTier(key) ? m.style : base;
+}
 function permitCost(key) { return key === 'flats' && save.freeFlats ? 0 : BLUEPRINTS[key].cost; }
 const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office', edu: 'a school or university' };
 function needsMet(key, lot) {
@@ -270,7 +282,7 @@ function canBuild(key, lot, opts = {}) {
   return { ok: true, cost, mat };
 }
 // Materials can always be bought, at a price, so a shortage never walls the player off.
-const matPrice = n => n * ECON.materialPrice;
+const matPrice = n => Math.ceil(n * ECON.materialPrice * ((eventNow() && eventNow().matPrice) || 1));
 function buyMaterials(n) {
   const c = matPrice(n);
   if (n <= 0 || save.coins < c) return false;
@@ -297,7 +309,9 @@ function completeBuild(r) {
   save.pending = null;
   const lot = LOT_BY_ID[r.site.id], bp = BLUEPRINTS[r.bp], d = DISTRICT_BY_ID[lot.d];
   const prev = buildingAt(lot.id), cont = !!(prev && !prev.done && prev.bp === r.bp && r.xs.length > prev.xs.length && r.xs.slice(0, prev.xs.length).every((x, i) => Math.abs(x - prev.xs[i]) < 0.2));
-  const bonus = 1 + ((d.bonus && (d.bonus[r.bp] || 0)) || 0) + ((d.bonus && (d.bonus[bp.role] || 0)) || 0) + FORGE.specialBonus * r.specialPerfects;
+  const ev = eventNow(), evCap = (ev && ev.cap && ev.cap[bp.role]) || 0;
+  const bonus = 1 + ((d.bonus && (d.bonus[r.bp] || 0)) || 0) + ((d.bonus && (d.bonus[bp.role] || 0)) || 0) + FORGE.specialBonus * r.specialPerfects
+    + ECON.masteryBonus * Math.max(0, masteryTier(r.bp)) + evCap;
   const caps = {};
   for (const [role, v] of Object.entries(r.caps)) caps[role] = Math.round(v * bonus);
   if (cont) for (const [role, v] of Object.entries(capsOf(prev))) caps[role] = (caps[role] || 0) + v;
@@ -305,7 +319,7 @@ function completeBuild(r) {
   const quality = cont ? ((prev.quality || 0.8) * (prev.landed || prev.xs.length) + r.quality * r.landed) / Math.max(1, landed) : r.quality;
   const stars = r.done ? (quality >= ECON.stars[1] ? 3 : quality >= ECON.stars[0] ? 2 : 1) : 0;
   const rec = {
-    bp: r.bp, xs: r.xs, target: r.target, done: r.done, caps, cap: capTotal(caps), quality, landed, stars,
+    bp: r.bp, style: cont ? prev.style : r.style, xs: r.xs, target: r.target, done: r.done, caps, cap: capTotal(caps), quality, landed, stars,
     perfects: r.perfects + (cont ? prev.perfects || 0 : 0), combo: Math.max(r.maxCombo, cont ? prev.combo || 0 : 0),
     power: r.powerPerfects + (cont ? prev.power || 0 : 0), strongest: Math.max(r.strongest, cont ? prev.strongest || 1 : 1),
     recoveries: (cont ? prev.recoveries || [] : []).concat(r.recoveries), specials: r.specialPerfects + (cont ? prev.specials || 0 : 0),
@@ -320,7 +334,9 @@ function completeBuild(r) {
   const topped = r.done && !kept;                        // a discarded rebuild isn't a top-out
   // Rewards (DESIGN.md §6)
   const E = ECON.build, sm = bp.mult;
-  let coins = Math.round(r.newFloors * E.perFloor * sm + r.perfects * E.perPerfect + r.powerPerfects * E.perPowerPerfect);
+  const wx = WEATHER[r.mods && r.mods.weather] || WEATHER.clear;
+  const eventCoins = r.perfects * ((ev && ev.perfectCoins) || 0) + r.powerPerfects * ((ev && ev.powerCoins) || 0);
+  let coins = Math.round((r.newFloors * E.perFloor * sm + r.perfects * E.perPerfect + r.powerPerfects * E.perPowerPerfect) * (1 + wx.bonus) + eventCoins);
   let prestige = r.recoveryPrestige;
   const firstTop = topped && !(save.mastery[r.bp] && save.mastery[r.bp].built);
   if (topped) { coins += Math.round(bp.cost * E.completion + stars * bp.floors * E.perStarFloor); prestige += Math.round(stars * bp.floors / 4); }
@@ -331,8 +347,8 @@ function completeBuild(r) {
   if (topped) { m.built++; m.stars = Math.max(m.stars, stars); save.stats.toppedOut++; if (stars === 3) save.stats.threeStars++; }
   save.stats.builds++;
   recomputeCity();
-  const out = { coins, prestige, materials: Math.max(0, Math.floor(salvage)), stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
-  bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects });
+  const out = { coins, wxBonus: wx.bonus, eventCoins, prestige, materials: Math.max(0, Math.floor(salvage)), stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
+  bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects, weather: r.mods && r.mods.weather, eventCoins, tier: masteryTier(r.bp) });
   persistNow();
   return out;
 }
@@ -381,6 +397,7 @@ function renovate(lot, id) {
   const b = buildingAt(lot.id), R = RENOVATIONS.find(x => x.id === id);
   addCoins(-r.cost); save.materials -= R.mat;
   (b.reno || (b.reno = {}))[id] = Date.now();
+  save.stats.renos = (save.stats.renos || 0) + 1;
   recomputeCity(); persistNow();
   bus.emit('renovate', { id, bp: b.bp });
   return true;

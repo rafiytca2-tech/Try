@@ -46,7 +46,7 @@ function newGame(kind, o = {}) {
   const mods = Object.assign({ swing: 1, gravity: 1, wind: 0, lives: CFG.lives, noHold: false, noRecall: false, fog: false }, o.mods || {});
   const g = {
     kind, site: o.site || PIER, bpKey: o.bp || null, bp, style: o.style || (bp ? bp.style : 'green'),
-    target: o.target || (bp ? bp.floors : 0), mult: o.mult || (bp ? bp.mult : 2), mods, daily: o.daily || null,
+    target: o.target || (bp ? bp.floors : 0), mult: o.mult || (bp ? bp.mult : 2), mods, daily: o.daily || null, weekly: o.weekly || null, stage: o.stage ?? null, slowmo: 0,
     tower: [], lives: mods.lives, pop: 0, perfects: 0, maxCombo: 0,
     combo: { timer: 0, streak: 0 },
     swingPhase: o.swingPhase || 0,
@@ -70,14 +70,14 @@ function newGame(kind, o = {}) {
     g.group.position.x = p0 * S;
     o.xs.forEach((x, i) => {
       const kind2 = floorKind(bp, i, o.xs.length + 1, false);
-      const m = makeModule(bp ? styleAt(bp, i) : g.style, kind2);
+      const st = floorStyleOf(bp, i, g.style), m = makeModule(st, kind2);
       m.position.set((x - p0) * S, (i * H + H / 2) * S, 0);
       g.group.add(m);
-      g.tower.push({ x, kind: kind2, style: bp ? styleAt(bp, i) : g.style, residents: 0, mesh: m });
+      g.tower.push({ x, kind: kind2, style: st, residents: 0, mesh: m });
     });
     g.startFloors = o.xs.length;
   }
-  g.hookMesh = makeModule(floorStyle(g), nextKind(g)); siteRoot.add(g.hookMesh);
+  g.hookMesh = makeModule(floorStyle(g), nextKind(g), roofStyleOf(g.bp, g.style)); siteRoot.add(g.hookMesh);
   g.camY = introCam(g);
   if (g.intro) g.intro.from = g.camY;
   fogBoost = mods.fog ? 0.011 : 0;
@@ -116,7 +116,7 @@ function nextKind(g) {
   if (g.target && n === g.target - 1) return 'roof';
   return isSpecial(g.bp, n) ? 'special' : 'floor';
 }
-const floorStyle = g => (g.bp ? styleAt(g.bp, g.tower.length) : g.style);
+const floorStyle = g => floorStyleOf(g.bp, g.tower.length, g.style);
 // The building rocks as one rigid piece about the middle of its base.
 function swayAngle(g) {
   const n = g.tower.length;
@@ -253,6 +253,8 @@ function settle(g, b, dx) {
   dust(top.x - W / 2, top.y + H, 8, 3 + E); dust(top.x + W / 2, top.y + H, 8, 3 + E);
   if (perfect) {
     sparkle(top.x, top.y);
+    // Impact moment: a Power Perfect lands in slow motion with a ring of sparks.
+    if (b.power > 1 && !reduceMotion) { g.slowmo = 0.45; Sound.slowmo(); burst(sx(top.x), sy(top.y), sz(), 50, '#fff1b8', 12, 3, 0.8, 1.2, true); }
     popup(b.power > 1 ? 'Power Perfect' : 'Perfect', top.x, top.y - 16, 'perfect');
     if (c.streak >= 2) popup(`Combo ×${c.streak}`, top.x, top.y - 40, 'combo', 0.08);
   } else {
@@ -369,7 +371,7 @@ function update(dt) {
       hk.e = Math.max(0, hk.e - dt * 4);                 // empty hook reels up out of sight
       if (hk.next) {
         hk.wait -= dt;
-        if (hk.wait <= 0 && hk.e <= 0) { hk.has = true; hk.next = false; hk.e = 0; g.hookMesh = makeModule(floorStyle(g), nextKind(g)); siteRoot.add(g.hookMesh); Sound.ratchet(); }   // next floor comes down
+        if (hk.wait <= 0 && hk.e <= 0) { hk.has = true; hk.next = false; hk.e = 0; g.hookMesh = makeModule(floorStyle(g), nextKind(g), roofStyleOf(g.bp, g.style)); siteRoot.add(g.hookMesh); Sound.ratchet(); }   // next floor comes down
       }
     }
   }
@@ -435,7 +437,7 @@ function finishRound(g) {
   g.finished = true;
   const n = g.tower.length;
   onSessionEnd({
-    kind: g.kind, site: g.site, bp: g.bpKey, style: g.style, target: g.target, daily: g.daily, mods: g.mods,
+    kind: g.kind, site: g.site, bp: g.bpKey, style: g.style, target: g.target, daily: g.daily, weekly: g.weekly, stage: g.stage, mods: g.mods,
     floors: n, newFloors: n - g.startFloors, done: !!(g.target && n >= g.target),
     pts: g.pop, caps: g.caps, quality: g.landed ? g.quality / g.landed : 0, landed: g.landed,
     perfects: g.perfects, maxCombo: g.maxCombo, powerPerfects: g.powerPerfects, bestRisk: g.bestRisk, bestPerfectRisk: g.bestPerfectRisk,

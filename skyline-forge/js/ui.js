@@ -65,7 +65,7 @@ function updateBuildHud() {
   const n = g.tower.length, goal = g.target;
   if ($('lives').children.length !== g.mods.lives) $('lives').innerHTML = LIFE_SVG.repeat(g.mods.lives);
   $('hudBadge').innerHTML = goal ? `${n}<small>/${goal}</small>` : String(n);
-  setText('hudLabel', g.kind === 'race' ? 'Sky Race' : g.kind === 'daily' ? 'Daily' : (g.bp ? g.bp.name : 'Floors'));
+  setText('hudLabel', g.kind === 'race' ? 'Sky Race' : g.kind === 'daily' ? 'Daily' : g.kind === 'weekly' ? 'Weekly' : g.kind === 'stage' ? STADIUM.stages[g.stage].name : (g.bp ? g.bp.name : 'Floors'));
   $('gaugeBar').hidden = !goal;
   if (goal) {
     $('gaugeFill').style.setProperty('--c', styleColor(floorStyle(g)));
@@ -87,7 +87,8 @@ function updateLiveHud() {
   box.hidden = !showMult;
   const special = g.hook.has && nextKind(g) === 'special' && g.bp;
   $('bpName').hidden = showMult;
-  setText('bpName', special ? `${g.bp.special.name}: land it Perfect` : (g.daily ? dailyConfig(g.daily).name : ''));
+  const wx = g.kind === 'city' && WEATHER[g.mods.weather];
+  setText('bpName', special ? `${g.bp.special.name}: land it Perfect` : g.daily ? dailyConfig(g.daily).name : g.weekly ? weeklyConfig().name : wx && wx.bonus ? `${wx.icon} ${wx.name} · coins +${Math.round(wx.bonus * 100)}%` : '');
   $('bpName').style.color = special ? 'var(--stable)' : '';
   if (showMult) {
     const hm = ch ? FORGE.hold.mult[holdBand(ch.t)] : f.hold, pm = ch ? 1 : f.power;
@@ -154,6 +155,12 @@ function updateHubHud() {
   setText('traffic', tr < 0.6 ? 'Light' : tr < 1 ? 'Busy' : 'Jammed');
   $('traffic').className = tr >= 1 ? 'bad' : tr > 0.85 ? 'warn' : '';
   setTraffic(A); refreshOverlay();
+  const ev = eventNow(), wx = WEATHER[weatherNow()];
+  $('evPill').hidden = !ev;
+  const evHtml = ev ? `<i>${ev.icon}</i>${esc(ev.name)}<small>${fmtDuration(eventEndsIn())}</small>` : '';
+  if (hudCache.ev !== evHtml) { hudCache.ev = evHtml; $('evPill').innerHTML = evHtml; }
+  const wxHtml = `<i>${wx.icon}</i>${wx.name}${wx.bonus ? `<small>+${Math.round(wx.bonus * 100)}% coins</small>` : ''}`;
+  if (hudCache.wx !== wxHtml) { hudCache.wx = wxHtml; $('wxPill').innerHTML = wxHtml; $('wxPill').classList.toggle('bonus', !!wx.bonus); }
   const nc = contractsReady();
   $('badgeContracts').hidden = !nc; setText('badgeContracts', String(nc));
   $('btnContracts').style.opacity = contractsOn() ? '' : '0.55';
@@ -230,6 +237,15 @@ function updateLabels(show) {
     if (e2.textContent !== txt) e2.textContent = txt;
     place(e2, lot.x, b.xs.length * H * S + 3, lot.z);
   }
+  {
+    const el = labelEl('p:stadium', 'dlabel'), n = stadiumStage();
+    if (!show) el.hidden = true;
+    else {
+      const html = `${STADIUM.name}<small>${save.level < FEATURES.stadium ? `Level ${FEATURES.stadium}` : stadiumDone() ? 'Open' : `Stage ${n + 1} of ${STADIUM.stages.length}`}</small>`;
+      if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
+      place(el, STADIUM.centre.x, 2, STADIUM.island.z1 + 2);
+    }
+  }
   for (const key of ['p:pier', 'p:record']) {
     const el = labelEl(key, 'dlabel');
     if (!show) { el.hidden = true; continue; }
@@ -272,14 +288,14 @@ function closeModal() {
 const head = (title, sub) => `<div class="head"><div><h2>${title}</h2>${sub ? `<p class="sub">${sub}</p>` : ''}</div><button class="x" type="button" data-close aria-label="Close">✕</button></div>`;
 function bind(root, sel, fn) { for (const el of root.querySelectorAll(sel)) el.addEventListener('click', e => { Sound.click(); fn(el, e); }); }
 
-function estimate(key) { const bp = BLUEPRINTS[key]; return Math.round(bp.floors * 20 * bp.mult / 10) * 10; }
+function estimate(key) { const bp = typeof key === 'string' ? BLUEPRINTS[key] : key; return Math.round(bp.floors * 20 * bp.mult / 10) * 10; }
 function bpCard(key, lot, check) {
   const bp = BLUEPRINTS[key];
   const cost = check.cost ?? permitCost(key), mat = check.mat ?? matCost(key);
   const status = check.ok ? (cost ? `Build ${coinTxt(cost)}` : 'Build · Free') + (mat ? `<br>${matTxt(mat)}` : '') : esc(check.reason);
   return `<button class="card" type="button" data-bp="${key}" aria-disabled="${!check.ok}">
-    <i class="sw" style="--c:${styleColor(bp.style)}"></i>
-    <span><b>${bp.name}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small><small>${esc(bp.blurb)}</small></span>
+    <i class="sw" style="--c:${styleColor(chosenStyle(key))}"></i>
+    <span><b>${esc(bp.name)}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small><small>${esc(bp.blurb)}</small></span>
     <span class="go">${status}</span></button>`;
 }
 const PLACE_COL = { park: '#5c9a45', plaza: '#cbbfa6', bus: '#2f5d8a', tram: '#c8342c', ferry: '#3b7fe0', metro: '#d83a2f', rail: '#b88a5a', power: '#8f7f6d', tower: '#6fa8c8', solar: '#1f3b66', wind: '#e8ebee', waterworks: '#4a8fb0' };
@@ -332,10 +348,13 @@ function openLotSheet(lot, tab = 'towers') {
   }
   if (b && b.bp && tab !== 'rebuild') { openBuildingSheet(lot, b); return; }
   const rebuild = tab === 'rebuild';
-  const TABS = [['towers', 'Towers'], ['services', 'Services'], ['places', 'Parks &amp; transit'], ['utility', 'Utilities']];
+  const TABS = [['towers', 'Towers'], ['services', 'Services'], ['places', 'Parks &amp; transit'], ['utility', 'Utilities']].concat(studioOn() ? [['studio', 'Studio']] : []);
   const tabs = rebuild ? '' : `<div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${n}</button>`).join('')}</div>`;
   let list, extra = '';
-  if (tab === 'places' || tab === 'utility') {
+  if (tab === 'studio') {
+    list = save.custom.map(d => bpCard(customKey(d.id), lot, canBuild(customKey(d.id), lot))).join('');
+    extra = `<p class="sub">Your own designs (${save.custom.length} of ${STUDIO.max}).</p><div class="btn-row"><button class="btn" type="button" id="stNew" ${save.custom.length >= STUDIO.max ? 'disabled' : ''}>New design</button><button class="btn" type="button" id="stEdit" ${save.custom.length ? '' : 'disabled'}>Edit designs</button></div>`;
+  } else if (tab === 'places' || tab === 'utility') {
     list = byLevel(Object.keys(PLACEABLES).filter(k => UTIL_KEYS.has(k) === (tab === 'utility')), PLACEABLES).map(k => placeCard(k, lot)).join('');
     if (tab === 'utility') extra = gridLine();
   } else {
@@ -345,6 +364,10 @@ function openLotSheet(lot, tab = 'towers') {
   openSheet(`${head(rebuild ? 'Rebuild' : 'Empty lot', lotTitle(lot))}${lotPills(lot)}${rebuild ? '<p class="lede">The new tower replaces the old one only if it is better (finished beats unfinished, then more capacity).</p>' : ''}${tabs}${extra}<div class="cards">${list || '<p class="sub">Nothing here yet. Keep growing your city.</p>'}</div>`, s => {
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
     bind(s, '[data-tab]', el => openLotSheet(lot, el.dataset.tab));
+    bind(s, '#stNew', () => showStudio(null, () => openLotSheet(lot, 'studio')));
+    bind(s, '#stEdit', () => openModal(`${head('Your designs')}<div class="cards">${save.custom.map(d => `<button class="card" type="button" data-edit="${d.id}"><i class="sw" style="--c:${styleColor(d.style)}"></i><span><b>${esc(d.name)}</b><small>${d.floors} floors · ${STUDIO.roles[d.role].name}${customInUse(d.id) ? ' · standing in your city' : ''}</small></span><span class="go">${customInUse(d.id) ? 'View' : 'Edit'}</span></button>`).join('')}</div>`, p => {
+      bind(p, '[data-edit]', el => showStudio(el.dataset.edit, () => openLotSheet(lot, 'studio')));
+    }));
     bind(s, '[data-bp]', el => {
       const key = el.dataset.bp, c = canBuild(key, lot);
       if (!c.ok && c.matShort) { offerMaterials(c.matShort, c.cost, () => { closeSheet(); startCityBuild(lot, key, false); }); return; }
@@ -432,7 +455,9 @@ function openPierSheet(record) {
     <div class="cards">
       <button class="card" type="button" id="race"><i class="sw" style="--c:#3cbf3c"></i><span><b>Sky Race</b><small>The classic endless game. Three misses and it's over. Best: ${save.race.best} floors.</small></span><span class="go">Play</span></button>
       <button class="card" type="button" id="daily" aria-disabled="${!dailyOn()}"><i class="sw" style="--c:#ffc21a"></i><span><b>Daily Challenge</b><small>Same challenge for everyone today. Keep your streak going.</small></span><span class="go">${dailyOn() ? (dailyCleared() ? 'Cleared' : 'Play') : `Level ${FEATURES.daily}`}</span></button>
+      <button class="card" type="button" id="weekly" aria-disabled="${!weeklyOn()}"><i class="sw" style="--c:#c9a8ff"></i><span><b>Weekly Challenge</b><small>A long tower with its own weather and crane. Bronze, silver and gold every week.</small></span><span class="go">${weeklyOn() ? `${weeklyState().tiers ? WEEKLY_TIERS[weeklyState().tiers - 1][0] : 'Play'}` : `Level ${FEATURES.weekly}`}</span></button>
     </div>`, s => {
+    bind(s, '#weekly', () => { if (!weeklyOn()) { Sound.deny(); toast(`The Weekly Challenge opens at city level ${FEATURES.weekly}`); return; } closeSheet(); showWeekly(); });
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
     bind(s, '#race', () => { closeSheet(); startRace(); });
     bind(s, '#daily', () => { if (!dailyOn()) { Sound.deny(); toast(`The Daily Challenge opens at city level ${FEATURES.daily}`); return; } closeSheet(); showDaily(); });
@@ -508,6 +533,19 @@ function showDaily() {
     bind(p, '#go', () => { $('modal').hidden = true; modalClose = null; startDaily(); });
   });
 }
+function showWeekly() {
+  const cfg = weeklyConfig(), w = weeklyState(), wx = WEATHER[cfg.weather];
+  const tiers = WEEKLY_TIERS.map(([n, c, p], i) => `<div class="${w.tiers > i ? 'on' : ''}"><b>${n}</b><small>${fmt(cfg.tiers[i])} points</small><small class="coin">+${fmt(c)} · +${p} ✦</small></div>`).join('');
+  openModal(`${head(esc(cfg.name), `Weekly Challenge · ends in ${fmtDuration(weekEndsIn())}`)}
+    <div class="pills"><span class="gold">Build ${cfg.target} floors</span><span>${wx.icon} ${wx.name}</span>${cfg.mods.map(m => `<span>${esc(m.name)}</span>`).join('')}</div>
+    <ul class="howto">${cfg.mods.map(m => `<li><b>${esc(m.name)}</b><span>${esc(m.desc)}</span></li>`).join('')}<li><b>${wx.name}</b><span>${esc(wx.desc.replace(/ Build coins.*$/, ''))}</span></li></ul>
+    <div class="ach tiers">${tiers}</div>
+    <dl class="stats"><dt>Your best this week</dt><dd>${w.best ? fmt(w.best) : '–'}</dd><dt>Weekly golds</dt><dd>${fmt(save.stats.weeklyGolds || 0)}</dd></dl>
+    <p class="sub">Top out the tower to earn a tier. Everyone gets the same tower, weather and crane all week.</p>
+    <button class="btn primary" type="button" id="go">${w.best ? 'Try again' : 'Start'}</button>`, p => {
+    bind(p, '#go', () => { $('modal').hidden = true; modalClose = null; startWeekly(); });
+  });
+}
 function showTrophies(tab = 'ach') {
   const tabs = [['ach', 'Achievements'], ['mastery', 'Mastery'], ['crane', 'Crane'], ['stats', 'Records']];
   let body = '';
@@ -515,8 +553,9 @@ function showTrophies(tab = 'ach') {
     const n = Object.keys(save.ach).length;
     body = `<p class="sub">${n} of ${ACHIEVEMENTS.length} unlocked</p><div class="ach">${ACHIEVEMENTS.map(a => `<div class="${save.ach[a.id] ? 'on' : ''}"><b>${esc(a.name)}</b><small>${esc(a.desc)}</small><small class="prestige">+${a.pr} ✦</small></div>`).join('')}</div>`;
   } else if (tab === 'mastery') {
-    body = `<div class="cards">${BP_KEYS.map(k => { const bp = BLUEPRINTS[k], m = save.mastery[k] || { built: 0, stars: 0 }, locked = bp.level > save.level;
-      return `<div class="card" aria-disabled="${locked}"><i class="sw" style="--c:${styleColor(bp.style)}"></i><span><b>${bp.name}</b><small>${locked ? `Unlocks at level ${bp.level}` : `Topped out ${plural(m.built, 'time')}`}</small></span>${starsHtml(m.stars)}</div>`; }).join('')}</div>`;
+    body = `<p class="sub">Top out a blueprint again to unlock new facades (at ${MASTERY_TIERS[1]} and ${MASTERY_TIERS[2]}) and +${Math.round(ECON.masteryBonus * 100)}% capacity per tier. Tap a facade to use it on new builds.</p><div class="cards">${BP_KEYS.map(k => { const bp = BLUEPRINTS[k], m = save.mastery[k] || { built: 0, stars: 0 }, locked = bp.level > save.level, tier = masteryTier(k), cur = chosenStyle(k);
+      const vars = (STYLE_VARIANTS[k] || []).map((st, i) => `<button class="vsw ${st === cur ? 'on' : ''}" type="button" data-var="${k}:${st}" aria-disabled="${i > tier}" aria-label="${st} facade${i > tier ? `, top out ${MASTERY_TIERS[i]} times to unlock` : ''}" style="--c:${styleColor(st)}"></button>`).join('');
+      return `<div class="card" aria-disabled="${locked}" style="cursor:default"><i class="sw" style="--c:${styleColor(cur)}"></i><span><b>${bp.name}</b><small>${locked ? `Unlocks at level ${bp.level}` : `Topped out ${plural(m.built, 'time')}${tier > 0 ? ` · +${Math.round(tier * ECON.masteryBonus * 100)}% capacity` : ''}`}</small>${locked ? '' : `<span class="variants">${vars}</span>`}</span>${starsHtml(m.stars)}</div>`; }).join('')}</div>`;
   } else if (tab === 'crane') {
     body = `<p class="sub">Prestige unlocks new paint for your crane. You have ${fmt(save.prestige)} ✦.</p><div class="cards">${CRANE_PAINTS.map(p => { const on = paintUnlocked(p), cur = save.cosmetics.crane === p.id;
       return `<button class="card" type="button" data-paint="${p.id}" aria-disabled="${!on}"><i class="sw" style="--c:${p.color}"></i><span><b>${p.name}</b><small>${on ? 'Unlocked' : `Needs ${p.need} ✦`}</small></span><span class="go">${cur ? 'In use' : on ? 'Use' : ''}</span></button>`; }).join('')}</div>`;
@@ -533,6 +572,11 @@ function showTrophies(tab = 'ach') {
   openModal(`${head('Trophies', `${fmt(save.prestige)} prestige ✦`)}<div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}">${n}</button>`).join('')}</div>${body}`, p => {
     bind(p, '[data-tab]', el => showTrophies(el.dataset.tab));
     bind(p, '[data-paint]', el => { if (setPaint(el.dataset.paint)) showTrophies('crane'); else Sound.deny(); });
+    bind(p, '[data-var]', el => {
+      const [k, st] = el.dataset.var.split(':');
+      if (el.getAttribute('aria-disabled') === 'true') { Sound.deny(); toast(`Top out ${BLUEPRINTS[k].name} ${MASTERY_TIERS[STYLE_VARIANTS[k].indexOf(st)]} times to unlock`); return; }
+      (save.mastery[k] || (save.mastery[k] = { built: 0, stars: 0 })).style = st; persist(); showTrophies('mastery');
+    });
   });
   save.seenAch = Object.keys(save.ach).length; persist();
   $('badgeTrophies').hidden = true;
@@ -545,6 +589,7 @@ function showSettings(onDone) {
     ${sw('sSfx', 'Sound effects', S2.sfx)}${sw('sMusic', 'Music', S2.music)}${sw('sHaptics', 'Vibration', S2.haptics)}
     ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}
     <label class="setting">Time of day<select id="sTod"><option value="auto">Match my clock</option><option value="day">Day</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
+    <label class="setting">Weather<select id="sWeather"><option value="live">Live weather</option><option value="off">Always clear</option></select></label>
     <label class="setting">Graphics<select id="sQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="battery">Battery saver</option></select></label>
     <div class="btn-row"><button class="btn" type="button" id="sHow">How to play</button><button class="btn" type="button" id="sTipsReset">Replay tips</button></div>
     <button class="btn ghost danger" type="button" id="sReset">Reset all progress</button>
@@ -555,7 +600,8 @@ function showSettings(onDone) {
       if (key === 'haptics' && e.target.checked) vib(20);
       if (key === 'bigText') document.body.classList.toggle('big', e.target.checked);
     });
-    p.querySelector('#sTod').value = S2.tod; p.querySelector('#sQuality').value = S2.quality;
+    p.querySelector('#sTod').value = S2.tod; p.querySelector('#sQuality').value = S2.quality; p.querySelector('#sWeather').value = S2.weather;
+    p.querySelector('#sWeather').addEventListener('change', e => { save.settings.weather = e.target.value; persist(); });
     p.querySelector('#sTod').addEventListener('change', e => { save.settings.tod = e.target.value; persist(); applyTimeOfDay(); });
     p.querySelector('#sQuality').addEventListener('change', e => { save.settings.quality = e.target.value; persist(); applyQuality(); });
     bind(p, '#sHow', () => showHowto(() => showSettings(onDone)));
@@ -579,6 +625,16 @@ function showHowto(onDone) {
     <h3>Your city</h3>
     <p class="lede">Every tower you top out moves people in. Homes need jobs and shops nearby, offices need workers. Watch the <b>R C O</b> demand bars, keep people happy with parks and transit, and collect income when you come back. Population raises your city level and unlocks new blueprints, districts and moves.</p>
     <button class="btn primary" type="button" data-close>Got it</button>`, null, onDone);
+}
+// The city today: this event, the next one, and the weather.
+function showToday() {
+  const ev = eventNow(), nx = eventNext(), wid = weatherNow(), wx = WEATHER[wid], nwx = WEATHER[weatherAt(Date.now() + weatherChangesIn() + 1000)];
+  openModal(`${head('Today in the city', new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }))}
+    ${ev ? `<div class="card" aria-disabled="false" style="cursor:default"><i class="sw" style="--c:var(--accent)"></i><span><b>${ev.icon} ${esc(ev.name)}</b><small>${esc(ev.desc)}</small></span><span class="go">${fmtDuration(eventEndsIn())}<br><small>left</small></span></div>
+    <p class="sub">Next: <b>${esc(nx.name)}</b> in ${fmtDuration(eventEndsIn())}. ${esc(nx.desc)}</p>` : `<p class="lede">City events start at <b>level ${EVENT_LEVEL}</b>: housing booms, festivals, contests and more, a new one every ${EVENT_HOURS} hours.</p>`}
+    <div class="card" style="cursor:default"><i class="sw" style="--c:${wx.bonus ? 'var(--stable)' : '#7fb8ff'}"></i><span><b>${wx.icon} ${wx.name}</b><small>${esc(wx.desc)}</small></span><span class="go">${fmtDuration(weatherChangesIn())}<br><small>left</small></span></div>
+    <p class="sub">Then: ${nwx.icon} ${nwx.name}. Weather only affects city builds, and each build keeps the weather it started in.</p>
+    <button class="btn primary" type="button" data-close>Close</button>`);
 }
 function showCityInfo() {
   const A = City.A, lp = levelProgress();
@@ -646,6 +702,23 @@ function showResults(r, sum) {
     rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
     note = sum.record ? 'Your Record Tower on the pier has been rebuilt to match.' : `Record: ${sum.best} floors.`;
     primary = ['Race again', () => startRace()]; secondary = ['City', () => leaveSession()];
+  } else if (r.kind === 'weekly') {
+    const cfg = weeklyConfig(r.weekly);
+    eyebrow = `Weekly Challenge · ${cfg.name}`; title = sum.newTiers.length ? `${sum.newTiers[sum.newTiers.length - 1]} tier!` : r.done ? 'Topped out' : 'Not this time';
+    stars = sum.tier; capLabel = 'points';
+    if (sum.coins) rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
+    if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
+    note = sum.tier < 3 ? `Next tier at ${fmt(cfg.tiers[sum.tier])} points. Best this week: ${fmt(sum.best)}.` : `Gold this week. Best: ${fmt(sum.best)}.`;
+    primary = ['Try again', () => startWeekly()]; secondary = ['City', () => leaveSession()];
+  } else if (r.kind === 'stage') {
+    const st = STADIUM.stages[r.stage];
+    eyebrow = `${STADIUM.name} · stage ${r.stage + 1} of ${STADIUM.stages.length}`; title = r.done ? `${st.name} complete` : 'Stage not finished';
+    stars = sum.stars; capLabel = 'points';
+    rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
+    if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
+    note = r.done ? (stadiumDone() ? 'The stadium is finished. The crowds are coming.' : `Next: ${STADIUM.stages[r.stage + 1].name} (level ${STADIUM.stages[r.stage + 1].level}).`) : 'The stage is still paid for. Try again for free.';
+    primary = ['Back to city', () => leaveSession()];
+    secondary = r.done ? ['See the stadium', () => leaveSession()] : ['Try again', () => startStage()];
   } else {
     const cfg = dailyConfig(r.daily);
     eyebrow = `Daily Challenge · ${cfg.name}`; title = r.done ? 'Challenge cleared' : 'Not this time';
@@ -661,7 +734,9 @@ function showResults(r, sum) {
   if (r.strongest > 1.05) rows.push(['Strongest impact', `${r.strongest.toFixed(1)}×`]);
   if (r.bestRisk > 1.01) rows.push(['Highest risk', `×${r.bestRisk.toFixed(1)}`]);
   if (bp && bp.special && r.specialPerfects) rows.push([`${bp.special.name} bonuses`, `+${Math.round(r.specialPerfects * FORGE.specialBonus * 100)}%`]);
-  if (sum.bonus > 1.001 && r.kind === 'city') rows.push(['District and floor bonus', `+${Math.round((sum.bonus - 1) * 100)}%`]);
+  if (sum.bonus > 1.001 && r.kind === 'city') rows.push(['Capacity bonus', `+${Math.round((sum.bonus - 1) * 100)}%`]);
+  if (sum.wxBonus) rows.push([`${WEATHER[r.mods.weather].name} bonus`, `+${Math.round(sum.wxBonus * 100)}% coins`]);
+  if (sum.eventCoins) rows.push([`${eventNow() ? eventNow().name : 'Event'} bonus`, `+${fmt(sum.eventCoins)} coins`]);
   $('resEyebrow').textContent = eyebrow; $('resTitle').textContent = title;
   $('resHeight').textContent = r.target ? `${r.floors}/${r.target}` : String(r.floors);
   $('resHeightSub').textContent = `floors · ${Math.round(r.floors * H * S)} m`;

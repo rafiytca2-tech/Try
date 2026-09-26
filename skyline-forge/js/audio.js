@@ -5,7 +5,7 @@
  * ==================================================================== */
 
 const Sound = {
-  ctx: null, master: null, sfx: null, music: null, noise: null, wind: null,
+  ctx: null, master: null, sfx: null, music: null, noise: null, wind: null, rain: null, amb: null,
   init() {
     if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -22,6 +22,16 @@ const Sound = {
     const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6;
     this.wind = c.createGain(); this.wind.gain.value = 0;
     src.connect(bp).connect(this.wind).connect(this.sfx); src.start();
+    // Rain: bright filtered noise. City ambience: a low murmur of traffic and people, louder as the city grows.
+    const rs = c.createBufferSource(); rs.buffer = buf; rs.loop = true; rs.playbackRate.value = 0.8;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+    this.rain = c.createGain(); this.rain.gain.value = 0;
+    rs.connect(hp).connect(lp).connect(this.rain).connect(this.sfx); rs.start();
+    const as = c.createBufferSource(); as.buffer = buf; as.loop = true; as.playbackRate.value = 0.5;
+    const al = c.createBiquadFilter(); al.type = 'lowpass'; al.frequency.value = 380;
+    this.amb = c.createGain(); this.amb.gain.value = 0;
+    as.connect(al).connect(this.amb).connect(this.sfx); as.start();
     this.apply();
     Music.start();
   },
@@ -77,6 +87,12 @@ const Sound = {
   place() { this.tone(220, 0.2, { vol: 0.18, slide: 110 }); this.hiss(0.2, { freq: 1200, vol: 0.08 }); },
   demolish() { this.hiss(2.2, { freq: 260, vol: 0.45 }); for (let i = 0; i < 7; i++) this.tone(48 + Math.random() * 40, 0.5, { vol: 0.2, delay: i * 0.16 }); },
   setWind(k) { if (this.wind) this.wind.gain.setTargetAtTime(k * 0.1, this.ctx.currentTime, 0.5); },
+  setRain(k) { if (this.rain) this.rain.gain.setTargetAtTime(k * 0.07, this.ctx.currentTime, 0.8); },
+  setAmbience(k) { if (this.amb) this.amb.gain.setTargetAtTime(k * 0.12, this.ctx.currentTime, 1); },
+  thunder(delay = 0) { this.hiss(2.6, { freq: 180, sweep: 60, vol: 0.5, delay }); this.tone(42, 1.8, { vol: 0.25, delay: delay + 0.05, slide: 30 }); },
+  gull() { const f = 1500 + Math.random() * 500; this.tone(f, 0.18, { type: 'triangle', vol: 0.02, slide: f * 0.7 }); this.tone(f * 0.9, 0.22, { type: 'triangle', vol: 0.018, slide: f * 0.6, delay: 0.2 }); },
+  horn() { this.tone(98, 1.4, { type: 'sawtooth', vol: 0.03, attack: 0.15 }); this.tone(147, 1.4, { type: 'sawtooth', vol: 0.02, attack: 0.15 }); },
+  slowmo() { this.hiss(0.5, { type: 'bandpass', freq: 2400, sweep: 300, q: 2, vol: 0.12 }); this.tone(60, 0.6, { vol: 0.3, type: 'triangle', slide: 38 }); },
 };
 
 // Generative music: layers join as the combo grows and fall away on a miss (GDD §13).

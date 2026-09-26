@@ -61,7 +61,9 @@ bus.on('build', ev => eachContract(c => {
   else if (c.type === 'quality' && ev.done && ev.quality >= c.q - 1e-6) progressContract(c);
 }));
 bus.on('recovery', ev => eachContract(c => { if (c.type === 'recovery' && ev.tier >= c.k) progressContract(c); }));
-bus.on('place', ev => eachContract(c => { if (c.type === 'parks' && ev.key === 'park') progressContract(c); }));
+bus.on('place', ev => eachContract(c => { if ((c.type === 'parks' && ev.key === 'park') || (c.type === 'transit' && PLACEABLES[ev.key].transit)) progressContract(c); }));
+bus.on('renovate', () => eachContract(c => { if (c.type === 'reno') progressContract(c); }));
+bus.on('build', ev => eachContract(c => { if (c.type === 'weather' && ev.done && WEATHER[ev.weather] && WEATHER[ev.weather].bonus) progressContract(c); }));
 bus.on('daily', () => eachContract(c => { if (c.type === 'daily') progressContract(c); }));
 function checkPopContracts() { const p = population(); eachContract(c => { if (c.type === 'pop' && p >= c.p) progressContract(c); }); }
 function claimContract(i) {
@@ -131,6 +133,44 @@ function recordDaily(r) {
   return out;
 }
 
+/* ---------------- Weekly challenge (GDD §15): same tower, weather and crane for everyone all week ---------------- */
+function weekKey(d = new Date()) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t - y0) / 864e5 + 1) / 7)).padStart(2, '0')}`;
+}
+function weekEndsIn() { const d = new Date(), end = new Date(d); end.setHours(24, 0, 0, 0); end.setDate(end.getDate() + (7 - (d.getDay() || 7))); return end - d; }
+const weeklyOn = () => save.level >= FEATURES.weekly;
+function weeklyConfig(key = weekKey()) {
+  const rng = mulberry32(hashStr('weekly:' + key));
+  const style = pick(rng, ['navy', 'teal', 'orange', 'violet', 'brick', 'sky', 'obsidian', 'gold']);
+  const target = 30 + Math.floor(rng() * 5) * 5;
+  const pool = DAILY_MODS.filter(m => m.id !== 'oneshot' && m.id !== 'fog'), mods = [];
+  while (mods.length < 2) { const m = pool.splice(Math.floor(rng() * pool.length), 1)[0]; if ((m.id === 'purist' && mods.some(x => x.id === 'norecall')) || (m.id === 'norecall' && mods.some(x => x.id === 'purist'))) continue; mods.push(m); }
+  const weather = pick(rng, ['clear', 'wind', 'rain', 'storm', 'snow']);
+  const names = ['Harbour Classic', 'Steel Week', 'Titan Tower', 'High Tide', 'Skyline Sprint', 'Crane Kings', 'Iron Lattice', 'Night Riveters'];
+  const tiers = [target * 24, target * 32, target * 40];
+  return { key, style, target, mods, weather, name: pick(rng, names), mult: 2.5, tiers };
+}
+function weeklyModObject(cfg) { const m = {}; for (const mod of cfg.mods) mod.apply(m); Object.assign(m, WEATHER[cfg.weather].mods || {}); m.weather = cfg.weather; return m; }
+function weeklyState() { const w = save.weekly; if (w.key !== weekKey()) { w.key = weekKey(); w.best = 0; w.tiers = 0; } return w; }
+const WEEKLY_TIERS = [['Bronze', 400, 4], ['Silver', 900, 8], ['Gold', 1800, 16]];
+function recordWeekly(r) {
+  const cfg = weeklyConfig(r.weekly), w = weeklyState();
+  const prevBest = w.best; w.best = Math.max(w.best, r.pts);
+  const reached = r.done ? cfg.tiers.filter(t => r.pts >= t).length : 0;
+  const out = { best: w.best, newBest: r.pts > prevBest, tier: reached, newTiers: [], coins: 0, prestige: 0 };
+  for (let i = w.tiers || 0; i < reached; i++) { const [name, c, p] = WEEKLY_TIERS[i]; out.newTiers.push(name); out.coins += c; out.prestige += p; }
+  if (reached > (w.tiers || 0)) {
+    if (reached === 3) save.stats.weeklyGolds = (save.stats.weeklyGolds || 0) + 1;
+    w.tiers = reached; addCoins(out.coins); addPrestige(out.prestige);
+    bus.emit('weekly', reached);
+  }
+  persistNow();
+  return out;
+}
+
 /* ---------------- Sky Race (the classic Quick Game) ---------------- */
 function recordRace(r) {
   const R = save.race, E = ECON.race;
@@ -184,6 +224,20 @@ bus.on('level', l => { if (l >= 10) unlockAch('level10'); if (l >= 20) unlockAch
 bus.on('district', n => { if (n >= 3) unlockAch('district3'); if (n >= DISTRICTS.length) unlockAch('district8'); });
 bus.on('daily', streak => { if (streak >= 3) unlockAch('daily3'); if (streak >= 7) unlockAch('daily7'); if (streak >= 30) unlockAch('daily30'); });
 bus.on('contract', n => { if (n >= 10) unlockAch('contract10'); });
+bus.on('stadium', n => { unlockAch('stage1'); if (n >= STADIUM.stages.length) unlockAch('stadium'); });
+bus.on('weekly', tier => { if (tier >= 3) unlockAch('weekly1'); });
+bus.on('renovate', () => { if ((save.stats.renos || 0) >= 5) unlockAch('reno5'); });
+bus.on('build', ev => {
+  if (ev.done && ev.weather === 'storm') unlockAch('storm');
+  if (ev.done && ev.bp.startsWith('custom-')) unlockAch('designer');
+  if (ev.tier >= 1 && STYLE_VARIANTS[ev.bp]) unlockAch('variant');
+  if (ev.eventCoins > 0) unlockAch('event');
+});
+bus.on('place', ev => {
+  if (ev.key === 'metro') unlockAch('metro');
+  const placed = new Set(Object.values(save.lots).filter(b => b && b.place).map(b => b.place));
+  if (placed.has('solar') && placed.has('wind')) unlockAch('clean');
+});
 function checkPopAchievements() { const p = population(); if (p >= 1000) unlockAch('pop1k'); if (p >= 10000) unlockAch('pop10k'); if (p >= 50000) unlockAch('pop50k'); }
 
 /* ---------------- Cosmetics ---------------- */

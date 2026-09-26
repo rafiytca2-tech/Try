@@ -78,6 +78,7 @@ function goToHub() {
 function enterHub(openNear) {
   state = 'hub';
   $('hub').hidden = false; $('hud').hidden = true;
+  $('toasts').style.top = '';
   recomputeCity(); updateHubHud(); setOverlayUI(); flushToasts();
   if (moveIn) {
     const m = moveIn; moveIn = null;
@@ -112,7 +113,7 @@ function beginSession(kind, opts) {
   show(null); $('hub').hidden = true; updateLabels(false);
   Music.setChain(0); input.down = false; input.pending = false;
   updateBuildHud();
-  $('btnRestart').hidden = kind === 'city';
+  $('btnRestart').hidden = kind === 'city' || kind === 'stage';
   if (fromHub) { state = 'fly'; flyTo(o => buildCamera(game, o), 1.5, () => { state = 'play'; $('hud').hidden = false; }); }
   else { state = 'play'; $('hud').hidden = false; }
 }
@@ -121,9 +122,15 @@ function startCityBuild(lot, key, cont) {
   if (!payPermit(key, lot, cont)) { const c = canBuild(key, lot, { cont }); Sound.deny(); toast(c.reason || 'Cannot build here'); return; }
   if (save.ftue === 0) { save.ftue = 1; persist(); }
   const b = buildingAt(lot.id);
-  beginSession('city', { site: lot, bp: key, xs: cont && b ? b.xs : null });
+  beginSession('city', { site: lot, bp: key, xs: cont && b ? b.xs : null, style: cont && b ? b.style : chosenStyle(key), mods: weatherMods() });
 }
 function startRace() { Sound.resume(); beginSession('race', { site: PIER, style: 'green' }); }
+function startWeekly() {
+  if (!weeklyOn()) return;
+  Sound.resume();
+  const cfg = weeklyConfig();
+  beginSession('weekly', { site: PIER, style: cfg.style, target: cfg.target, mult: cfg.mult, mods: weeklyModObject(cfg), weekly: cfg.key });
+}
 function startDaily() {
   if (!dailyOn()) return;
   Sound.resume();
@@ -141,12 +148,15 @@ function onSessionEnd(r) {
     }
   }
   else if (r.kind === 'race') { sum = recordRace(r); if (sum.record) TowerField.rebuild(); }
+  else if (r.kind === 'weekly') sum = recordWeekly(r);
+  else if (r.kind === 'stage') { sum = completeStage(r); if (r.done) moveIn = { lot: STADIUM.centre, text: `${sum.name} complete`, done: false, h: 20 }; }
   else sum = recordDaily(r);
   checkPopAchievements(); checkPopContracts();
   hideCoach(); input.down = false;
   $('hud').hidden = true;
   state = 'result';
   showResults(r, sum);
+  $('toasts').style.top = 'calc(var(--top) + 12px)';        // above the results card
   flushToasts();
 }
 function leaveSession(another) {
@@ -155,7 +165,8 @@ function leaveSession(another) {
   game = null;
   setSite(null); setCraneSite(null); setHidden(new Set()); rebuildLots(); clearPops();
   show(null); $('hud').hidden = true;
-  if (site && !site.pier) { hubCam.tx = site.x; hubCam.tz = site.z + 12; hubCam.d = 150; }
+  if (site && site.stadium) { hubCam.tx = STADIUM.centre.x - 20; hubCam.tz = STADIUM.centre.z; hubCam.d = 170; }
+  else if (site && !site.pier) { hubCam.tx = site.x; hubCam.tz = site.z + 12; hubCam.d = 150; }
   else { hubCam.tx = 0; hubCam.tz = 30; hubCam.d = 210; }
   clampHub();
   state = 'fly';
@@ -167,7 +178,8 @@ function pause() {
   input.down = false; input.pending = false;
   state = 'pause';
   const g = game;
-  $('pauseInfo').textContent = g.kind === 'city' ? `${g.bp.name}: ${g.tower.length} of ${g.target} floors. Stopping keeps what you've built.` : g.kind === 'race' ? `Sky Race: ${g.tower.length} floors.` : `Daily Challenge: ${g.tower.length} of ${g.target} floors.`;
+  $('pauseInfo').textContent = g.kind === 'city' ? `${g.bp.name}: ${g.tower.length} of ${g.target} floors. Stopping keeps what you've built.` : g.kind === 'race' ? `Sky Race: ${g.tower.length} floors.`
+    : g.kind === 'stage' ? `${STADIUM.stages[g.stage].name}: ${g.tower.length} of ${g.target} floors. The stage stays paid if you stop.` : `${g.kind === 'weekly' ? 'Weekly' : 'Daily'} Challenge: ${g.tower.length} of ${g.target} floors.`;
   show('pause');
 }
 function resume() { if (state === 'pause') { state = 'play'; show(null); } }
@@ -244,6 +256,8 @@ function pickAt(cx, cy) {
   if (R.intersectPlane(groundPlane, pickHit)) {
     for (const lot of LOTS) if (Math.abs(pickHit.x - lot.x) <= 9.5 && Math.abs(pickHit.z - lot.z) <= 9.5) return lot.id;
     for (const p of [PIER, RECORD_PIER]) if (Math.abs(pickHit.x - p.x) <= 13 && pickHit.z >= QUAY_Z && pickHit.z <= p.z + 28) return p.id;
+    const I = STADIUM.island;
+    if (pickHit.x >= I.x0 && pickHit.x <= I.x1 && pickHit.z >= I.z0 - 4 && pickHit.z <= I.z1) return 'stadium';
   }
   return null;
 }
@@ -254,6 +268,7 @@ function tapCity(cx, cy) {
   Sound.click();
   if (id === 'pier') { selectRing(PIER); openPierSheet(false); return; }
   if (id === 'record') { selectRing(RECORD_PIER); openPierSheet(true); return; }
+  if (id === 'stadium') { if (save.level < FEATURES.stadium) { Sound.deny(); toast(`${STADIUM.name} opens at city level ${FEATURES.stadium}`); return; } openStadiumSheet(); return; }
   openLotSheet(LOT_BY_ID[id]);
 }
 function hubDown(e) {
@@ -359,6 +374,7 @@ click('btnDaily', showDaily);
 click('btnRace', startRace);
 click('btnTrophies', () => showTrophies());
 click('btnMap', cycleOverlay);
+click('evPill', showToday); click('wxPill', showToday);
 $('gridBox').parentElement.addEventListener('click', () => { Sound.click(); showCityInfo(); });
 click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
   bind(p, '#mInfo', showCityInfo); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());
@@ -386,7 +402,7 @@ window.skylineBack = () => {
 
 /* ---------------- Main loop (fixed 120 Hz steps, like the classic) ---------------- */
 const STEP = 1 / 120;
-let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0;
+let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0, lastEventId, lastWeather = null;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -394,7 +410,8 @@ function frame(now) {
   if (state === 'pause') { if (pausedFrames++ > 1) return; } else pausedFrames = 0;
   adapt(dt);
   if (game && (state === 'title' || state === 'play' || state === 'result')) {
-    sceneTime += dt; acc += dt;
+    const slow = game.slowmo > 0; if (slow) game.slowmo -= dt;
+    sceneTime += dt; acc += slow ? dt * 0.28 : dt;
     while (acc >= STEP) { update(STEP); acc -= STEP; }
   } else acc = 0;
   if (game) syncScene(game);
@@ -410,7 +427,9 @@ function frame(now) {
     floodlight.intensity = todName === 'night' ? 2.2 : todName === 'sunset' ? 0.8 : 0;
     floodlight.position.set(game.site.x - 14, top + 30, game.site.z + 30); floodlight.target.position.set(game.site.x, top * 0.6, game.site.z);
   } else { aimSun(cam.look.x, 0, cam.look.z, Math.min(260, 60 + hubCam.d * 0.55)); floodlight.intensity = 0; }
-  Sound.setWind(state === 'play' ? Math.min(1, alt / 200) : state === 'pause' ? 0 : 0.12);
+  Sound.setWind(state === 'pause' ? 0 : Math.min(1, (state === 'play' ? Math.min(1, alt / 200) : 0.12) * (0.6 + 0.4 * wxVis.wind)));
+  if (Sound.ctx) Sound.setAmbience(state === 'hub' ? clamp(0.25 + population() / 20000, 0.25, 1) * clamp(1.4 - hubCam.d / 400, 0.2, 1) : 0);
+  updateWeather(dt, now / 1000);
   updateCars(dt); updateBursts(dt); updateDemolition(dt); updateProps(dt, now / 1000);
   overlayMesh.visible = state === 'hub' && !!OVERLAYS[save.overlay];
   updateWater(now / 1000);
@@ -426,6 +445,12 @@ function frame(now) {
     slowTimer = 0;
     checkPopAchievements(); checkPopContracts();
     if (state === 'hub') { ensureContracts(); if ($('modal').hidden) { const ups = checkLevelUp(); if (ups.length) showLevelUps(ups, updateHubHud); } }
+    const ev = eventNow(), evId = ev ? ev.id : null;
+    if (lastEventId !== undefined && evId !== lastEventId && ev) { toast(`New city event: ${ev.name}`, 'good'); recomputeCity(); }
+    lastEventId = evId;
+    const wx = weatherNow();
+    if (lastWeather && wx !== lastWeather && WEATHER[wx].bonus) toast(`${WEATHER[wx].name}: city builds pay +${Math.round(WEATHER[wx].bonus * 100)}% coins`);
+    lastWeather = wx;
     persist();
   }
   if (todTimer >= 60) { todTimer = 0; if (save.settings.tod === 'auto' && currentTod() !== todName) applyTimeOfDay(); }
@@ -448,13 +473,14 @@ function frame(now) {
 
 /* ---------------- Boot ---------------- */
 loadSave();
+registerCustoms();
 document.body.classList.toggle('big', !!save.settings.bigText);
 applyQuality();
 applyTimeOfDay();
 setCranePaint(save.cosmetics.crane);
 {
   const refund = refundPending();
-  rebuildLots();
+  rebuildLots(); rebuildStadium();
   const off = catchUpOffline();
   if (buildingsList().length && off.away > 600) pendingWelcome = off;
   if (refund) setTimeout(() => toast(`Your last build was interrupted. Permit refunded: ${fmt(refund)} coins.`), 800);
