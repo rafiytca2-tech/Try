@@ -16,7 +16,7 @@ function show(id) { for (const s of ['title', 'pause', 'result']) $(s).hidden = 
 const cam = { pos: new T.Vector3(), look: new T.Vector3() };
 const goalPose = { pos: new T.Vector3(), look: new T.Vector3() };
 const hubCam = { tx: 0, tz: 12, d: 190, yaw: 0 };
-const HUB_BOUNDS = { x0: -330, x1: 410, z0: -90, z1: 130, d0: 45, d1: 560 };
+const HUB_BOUNDS = { x0: -410, x1: 490, z0: -90, z1: 140, d0: 45, d1: 600 };
 const hubPitch = d => lerp(0.5, 1.05, clamp((d - 45) / 420, 0, 1));
 function hubPose(out) {
   const p = hubPitch(hubCam.d);
@@ -155,7 +155,7 @@ function onSessionEnd(r) {
   }
   else if (r.kind === 'race') { sum = recordRace(r); if (sum.record) TowerField.rebuild(); }
   else if (r.kind === 'weekly') sum = recordWeekly(r);
-  else if (r.kind === 'stage') { sum = completeStage(r); if (r.done) moveIn = { lot: STADIUM.centre, text: `${sum.name} complete`, done: false, h: 20 }; }
+  else if (r.kind === 'stage') { sum = completeStage(r); if (r.done) moveIn = { lot: PROJECTS[sum.project].centre, text: `${sum.name} complete`, done: false, h: 20 }; }
   else sum = recordDaily(r);
   checkPopAchievements(); checkPopContracts();
   hideCoach(); input.down = false;
@@ -171,7 +171,7 @@ function leaveSession(another) {
   game = null;
   setSite(null); setCraneSite(null); setHidden(new Set()); rebuildLots(); clearPops();
   show(null); $('hud').hidden = true;
-  if (site && site.stadium) { hubCam.tx = STADIUM.centre.x - 20; hubCam.tz = STADIUM.centre.z; hubCam.d = 170; }
+  if (site && site.project) { const P = PROJECTS[site.project]; hubCam.tx = P.centre.x + (P.centre.x > 0 ? -20 : 20); hubCam.tz = P.centre.z; hubCam.d = 170; }
   else if (site && !site.pier) { hubCam.tx = site.x; hubCam.tz = site.z + 12; hubCam.d = 150; }
   else { hubCam.tx = 0; hubCam.tz = 30; hubCam.d = 210; }
   clampHub();
@@ -185,7 +185,7 @@ function pause() {
   state = 'pause';
   const g = game;
   $('pauseInfo').textContent = g.kind === 'city' ? `${g.bp.name}: ${g.tower.length} of ${g.target} floors. Stopping keeps what you've built.` : g.kind === 'race' ? `Sky Race: ${g.tower.length} floors.`
-    : g.kind === 'stage' ? `${STADIUM.stages[g.stage].name}: ${g.tower.length} of ${g.target} floors. The stage stays paid if you stop.` : `${g.kind === 'weekly' ? 'Weekly' : 'Daily'} Challenge: ${g.tower.length} of ${g.target} floors.`;
+    : g.kind === 'stage' ? `${PROJECTS[g.project || 'stadium'].stages[g.stage].name}: ${g.tower.length} of ${g.target} floors. The stage stays paid if you stop.` : `${g.kind === 'weekly' ? 'Weekly' : 'Daily'} Challenge: ${g.tower.length} of ${g.target} floors.`;
   show('pause');
 }
 function resume() { if (state === 'pause') { state = 'play'; show(null); } }
@@ -262,8 +262,7 @@ function pickAt(cx, cy) {
   if (R.intersectPlane(groundPlane, pickHit)) {
     for (const lot of LOTS) if (Math.abs(pickHit.x - lot.x) <= 9.5 && Math.abs(pickHit.z - lot.z) <= 9.5) return lot.id;
     for (const p of [PIER, RECORD_PIER]) if (Math.abs(pickHit.x - p.x) <= 13 && pickHit.z >= QUAY_Z && pickHit.z <= p.z + 28) return p.id;
-    const I = STADIUM.island;
-    if (pickHit.x >= I.x0 && pickHit.x <= I.x1 && pickHit.z >= I.z0 - 4 && pickHit.z <= I.z1) return 'stadium';
+    for (const P of Object.values(PROJECTS)) { const I = P.island; if (pickHit.x >= I.x0 && pickHit.x <= I.x1 && pickHit.z >= I.z0 - 4 && pickHit.z <= I.z1) return 'project:' + P.id; }
   }
   return null;
 }
@@ -274,7 +273,11 @@ function tapCity(cx, cy) {
   Sound.click();
   if (id === 'pier') { selectRing(PIER); openPierSheet(false); return; }
   if (id === 'record') { selectRing(RECORD_PIER); openPierSheet(true); return; }
-  if (id === 'stadium') { if (save.level < FEATURES.stadium) { Sound.deny(); toast(`${STADIUM.name} opens at city level ${FEATURES.stadium}`); return; } openStadiumSheet(); return; }
+  if (id.startsWith('project:')) {
+    const P = PROJECTS[id.slice(8)], lvl = P.stages[0].level;
+    if (save.level < lvl) { Sound.deny(); toast(`${P.name} opens at city level ${lvl}`); return; }
+    openProjectSheet(P); return;
+  }
   openLotSheet(LOT_BY_ID[id]);
 }
 function hubDown(e) {
@@ -458,7 +461,7 @@ function frame(now) {
   Sound.setWind(state === 'pause' ? 0 : Math.min(1, (state === 'play' ? Math.min(1, alt / 200) : 0.12) * (0.6 + 0.4 * wxVis.wind)));
   if (Sound.ctx) Sound.setAmbience(state === 'hub' ? clamp(0.25 + population() / 20000, 0.25, 1) * clamp(1.4 - hubCam.d / 400, 0.2, 1) : 0);
   updateWeather(dt, now / 1000);
-  updateCars(dt); updateBursts(dt); updateDemolition(dt); updateProps(dt, now / 1000);
+  updateCars(dt); updateBursts(dt); updateDemolition(dt); updateProps(dt, now / 1000); updateProjects(dt, now / 1000);
   overlayMesh.visible = state === 'hub' && !!OVERLAYS[save.overlay];
   updateWater(now / 1000);
   updateLife(dt, now / 1000, game && state !== 'hub' && game.kind !== 'attract' ? game.site : null);
@@ -528,7 +531,7 @@ applyTimeOfDay();
 setCranePaint(save.cosmetics.crane);
 {
   const refund = refundPending();
-  rebuildLots(); rebuildStadium();
+  rebuildLots(); for (const P of Object.values(PROJECTS)) P.rebuild();
   const off = catchUpOffline();
   if (buildingsList().length && off.away > 600) pendingWelcome = off;
   if (refund) setTimeout(() => toast(`Your last build was interrupted. Permit refunded: ${fmt(refund)} coins.`), 800);

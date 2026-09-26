@@ -49,7 +49,7 @@ function newGame(kind, o = {}) {
   const mods = Object.assign({ swing: 1, gravity: 1, wind: 0, lives: CFG.lives, noHold: false, noRecall: false, fog: false }, o.mods || {});
   const g = {
     kind, site: o.site || PIER, bpKey: o.bp || null, bp, style: o.style || (bp ? bp.style : 'green'),
-    target: o.target || (bp ? bp.floors : 0), mult: o.mult || (bp ? bp.mult : 2), mods, daily: o.daily || null, weekly: o.weekly || null, stage: o.stage ?? null, slowmo: 0,
+    target: o.target || (bp ? bp.floors : 0), mult: o.mult || (bp ? bp.mult : 2), mods, daily: o.daily || null, weekly: o.weekly || null, stage: o.stage ?? null, project: o.project || null, slowmo: 0,
     tower: [], lives: mods.lives, pop: 0, perfects: 0, maxCombo: 0,
     combo: { timer: 0, streak: 0 },
     swingPhase: o.swingPhase || 0,
@@ -554,7 +554,7 @@ function finishRound(g) {
   g.finished = true;
   const n = g.tower.length;
   onSessionEnd({
-    kind: g.kind, site: g.site, bp: g.bpKey, style: g.style, target: g.target, daily: g.daily, weekly: g.weekly, stage: g.stage, mods: g.mods,
+    kind: g.kind, site: g.site, bp: g.bpKey, style: g.style, target: g.target, daily: g.daily, weekly: g.weekly, stage: g.stage, project: g.project, mods: g.mods,
     floors: n, newFloors: n - g.startFloors, done: !!(g.target && n >= g.target),
     pts: g.pop, caps: g.caps, quality: g.landed ? g.quality / g.landed : 0, landed: g.landed,
     perfects: g.perfects, maxCombo: g.maxCombo, powerPerfects: g.powerPerfects, bestRisk: g.bestRisk, bestPerfectRisk: g.bestPerfectRisk,

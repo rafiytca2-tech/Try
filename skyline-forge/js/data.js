@@ -93,6 +93,10 @@ const STYLES = {
   orange:   { body: '#ef8a3c', light: '#f8bd8a', dark: '#b35a1c', outline: '#3d1a05', win: 'ribbon' },
   sand:     { body: '#d8c29a', light: '#f2e6cc', dark: '#a68f63', outline: '#473a22', win: 'balcony' },
   sky:      { body: '#4fb4d8', light: '#a6dcf0', dark: '#2a7a99', outline: '#0a2a38', win: 'ribbon' },
+  marble:   { body: '#e9e4d8', light: '#fbf8f1', dark: '#b9b1a0', outline: '#4a4436', win: 'twin' },
+  pearl:    { body: '#eeebf4', light: '#ffffff', dark: '#c3bdd0', outline: '#3b3550', win: 'ribbon' },
+  glass:    { body: '#7fb3d5', light: '#c7e3f5', dark: '#4f86ad', outline: '#15324a', win: 'ribbon' },
+  magenta:  { body: '#d0418f', light: '#f08cc4', dark: '#8f2560', outline: '#3a0b25', win: 'ribbon' },
 };
 const STYLE_KEYS = Object.keys(STYLES);
 
@@ -131,6 +135,14 @@ const BLUEPRINTS = {
                blurb: 'Education across a wide area, and Tech Campus unlocks nearby.' },
   hospital:  { name: 'General Hospital',  role: 'health', floors: 20, level: 12, cost: 6500, mult: 2.0, style: 'white', radius: 170, mat: 40,
                blurb: 'Healthcare across a wide area.' },
+  museum:    { name: 'City Museum',       role: 'ent', floors: 10,  level: 7,  cost: 2600,  mult: 2.0, style: 'marble', unique: true, tourism: 0.12, mat: 15,
+               blurb: 'A domed museum: tourists all year and a calmer, prouder city.' },
+  mall:      { name: 'Mega Mall',         role: 'com', floors: 16,  level: 9,  cost: 4500,  mult: 2.6, style: 'magenta', unique: true, needs: ['res'], tourism: 0.05, mat: 30,
+               blurb: 'Hundreds of shops under one roof. Needs homes nearby.' },
+  convention: { name: 'Convention Centre', role: 'ent', floors: 12, level: 11, cost: 6000,  mult: 2.4, style: 'glass', unique: true, needs: ['hot'], tourism: 0.1, mat: 40,
+               blurb: 'Trade fairs and conferences. Needs a hotel nearby.' },
+  opera:     { name: 'Opera House',       role: 'ent', floors: 14,  level: 12, cost: 8000,  mult: 2.6, style: 'pearl', unique: true, tourism: 0.15, aura: 0.15, mat: 60,
+               blurb: 'White sails on the skyline: tourism, and land value +0.15 within 100 m.' },
   tech:      { name: 'Tech Campus',       role: 'off', floors: 24,  level: 14, cost: 9000,  mult: 2.9, style: 'sky', needs: ['edu'], mat: 60, rich: true,
                blurb: 'High-paying jobs. Needs a school or university nearby.' },
 };
@@ -201,14 +213,21 @@ const PLACEABLES = {
   ferry: { name: 'Ferry Terminal', level: 9, cost: 2500, radius: 90,  lv: 0.15, transit: 1, cap: 400, tourism: 0.1, waterfront: true, blurb: 'Waterfront lots only. Transit and tourists from across the harbour.' },
   metro: { name: 'Metro Station', level: 12, cost: 5000, radius: 110, lv: 0.25, transit: 2, cap: 900, blurb: 'Transit within 110 m: land value +25%, big traffic relief.' },
   rail:  { name: 'Rail Station',  level: 15, cost: 9000, radius: 140, lv: 0.25, transit: 2, cap: 1500, tourism: 0.1, blurb: 'Intercity rail: land value +25% within 140 m, tourists, huge traffic relief.' },
+  hsr:   { name: 'High-Speed Rail', level: 18, cost: 16000, radius: 200, lv: 0.3, transit: 2, cap: 2500, tourism: 0.15, blurb: 'Bullet trains to the rest of the country: land value +30% within 200 m, big tourism and traffic relief.' },
   power: { name: 'Power Plant',   level: 4,  cost: 800,  power: 150, pollution: 70, blurb: '+150 power. Pollutes the lots around it.' },
   tower: { name: 'Water Tower',   level: 4,  cost: 600,  water: 160, blurb: '+160 water.' },
   solar: { name: 'Solar Farm',    level: 9,  cost: 2600, power: 120, blurb: '+120 clean power.' },
   wind:  { name: 'Wind Turbines', level: 12, cost: 4200, power: 240, blurb: '+240 clean power.' },
   waterworks: { name: 'Water Works', level: 10, cost: 3200, water: 420, blurb: '+420 water.' },
+  dump:  { name: 'Landfill',        level: 5,  cost: 700,  waste: 160, pollution: 50, blurb: '+160 waste handling. Smells: pollutes nearby lots.' },
+  recycling: { name: 'Recycling Centre', level: 11, cost: 3800, waste: 420, blurb: '+420 clean waste handling.' },
+  cell:  { name: 'Cell Tower',      level: 6,  cost: 900,  data: 180, blurb: '+180 connectivity.' },
+  datacenter: { name: 'Data Centre', level: 13, cost: 6000, data: 600, blurb: '+600 connectivity for a wired city.' },
 };
-// Utilities (GDD §6): every floor uses power and water; the old grid supplies the first few towers.
-const UTIL = { basePower: 80, baseWater: 80, perFloor: 1, heavyPerFloor: 2 };
+// Utilities (GDD §6): every floor uses power, water, waste handling and connectivity; the old grid
+// covers the first few towers. Offices and tech use twice the connectivity.
+const UTIL = { basePower: 80, baseWater: 80, baseWaste: 80, baseData: 80, perFloor: 1, heavyPerFloor: 2 };
+const UTIL_NAMES = { power: 'Power', water: 'Water', waste: 'Waste', data: 'Data' };
 
 /* ---- Districts: city blocks along the harbour, bought as the city grows. ---- */
 const DISTRICTS = [
@@ -222,6 +241,8 @@ const DISTRICTS = [
   { id: 'uptown',    name: 'Uptown',             col: 4,  level: 15, cost: 60000, lv: 1.35, bonus: { res: 0.2 }, trait: 'Residential capacity +20%.' },
   { id: 'dockyards', name: 'Dockyards',          col: 5,  level: 4,  cost: 2500,  lv: 0.90, bonus: { ind: 0.3 }, docks: true, trait: 'Industrial harbour: factories +30%, and their pollution stays in the docks.' },
   { id: 'unihill',   name: 'University Hill',    col: -4, level: 12, cost: 20000, lv: 1.20, bonus: { edu: 0.3 }, trait: 'Schools and universities +30%, covering half again as far.' },
+  { id: 'suburbs',   name: 'Suburbs',            col: 6,  level: 6,  cost: 6000,  lv: 0.95, maxFloors: 12, bonus: { res: 0.25 }, road: 150, trait: 'Low-rise family streets: max 12 floors, homes +25%, extra road capacity.' },
+  { id: 'nightlife', name: 'Entertainment District', col: -5, level: 10, cost: 30000, lv: 1.2, bonus: { ent: 0.35, com: 0.15 }, tourism: 0.2, trait: 'Arenas and landmarks +35%, shops +15%, tourism +20%. Bright lights all night.' },
 ];
 const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map(d => [d.id, d]));
 
@@ -264,8 +285,8 @@ const TRADE_BONUS = 0.05;          // income for every other city you own
 const LEVELS = [0, 40, 150, 350, 700, 1200, 1900, 2800, 4000, 5500, 7500, 10000, 13000, 16500, 20500,
   25000, 30000, 36000, 43000, 51000, 60000, 70000, 82000, 95000, 110000, 127000, 146000, 167000, 190000, 220000];
 const MAX_LEVEL = LEVELS.length;
-const FEATURES = { hold: 2, contracts: 3, power: 4, recall: 5, daily: 5, weekly: 6, stadium: 8, studio: 14 };
-const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', power: 'Power Drop', recall: 'Recall', daily: 'Daily Challenge', weekly: 'Weekly Challenge', stadium: 'Harbor Stadium project', studio: 'Blueprint Studio' };
+const FEATURES = { hold: 2, contracts: 3, power: 4, recall: 5, daily: 5, weekly: 6, stadium: 8, studio: 14, airport: 15 };
+const FEATURE_NAMES = { hold: 'Hold Momentum', contracts: 'Contracts board', power: 'Power Drop', recall: 'Recall', daily: 'Daily Challenge', weekly: 'Weekly Challenge', stadium: 'Harbor Stadium project', studio: 'Blueprint Studio', airport: 'Harbor Airport project' };
 
 /* ---- Economy ---- */
 const ECON = {
@@ -391,6 +412,8 @@ const ACHIEVEMENTS = [
   { id: 'clean',     name: 'Clean Energy',       desc: 'Run solar and wind power together.', pr: 8 },
   { id: 'metro',     name: 'Underground',        desc: 'Open a Metro Station.', pr: 6 },
   { id: 'event',     name: 'Opportunist',        desc: 'Earn bonus coins from a city event.', pr: 4 },
+  { id: 'airport',   name: 'Cleared for Take-off', desc: 'Open your airport.', pr: 40 },
+  { id: 'collapse',  name: 'Back to the Drawing Board', desc: 'Survive a collapse and top the tower out anyway.', pr: 8 },
   { id: 'photo1',    name: 'Say Cheese',         desc: 'Take a picture in Photo mode.', pr: 3 },
   { id: 'region2',   name: 'Sister City',        desc: 'Found a city in a second region.', pr: 20 },
   { id: 'region4',   name: 'World Builder',      desc: 'Build a city in every region.', pr: 60 },

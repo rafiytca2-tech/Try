@@ -228,6 +228,8 @@ bus.on('daily', streak => { if (streak >= 3) unlockAch('daily3'); if (streak >= 
 bus.on('contract', n => { if (n >= 10) unlockAch('contract10'); });
 bus.on('stadium', n => { unlockAch('stage1'); if (n >= STADIUM.stages.length) unlockAch('stadium'); });
 bus.on('photo', () => unlockAch('photo1'));
+bus.on('airport', n => { if (n >= AIRPORT.stages.length) unlockAch('airport'); });
+bus.on('session', r => { if (r.collapses && r.done) unlockAch('collapse'); });
 bus.on('region', n => { if (n >= 2) unlockAch('region2'); if (n >= REGIONS.length) unlockAch('region4'); });
 bus.on('weekly', tier => { if (tier >= 3) unlockAch('weekly1'); });
 bus.on('renovate', () => { if ((save.stats.renos || 0) >= 5) unlockAch('reno5'); });

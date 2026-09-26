@@ -22,7 +22,7 @@ const hasRole = (b, role) => { const c = capsOf(b); return (c[role] || 0) > 0; }
 /* ---------------- Per-lot context: land value, services, pollution, transit ---------------- */
 function serviceRadius(b, lot) { const bp = BLUEPRINTS[b.bp]; return (bp.radius || 0) * (bp.role === 'edu' && lot.d === 'unihill' ? 1.5 : 1); }
 function lotContext() {
-  const src = { park: [], plaza: [], transit: [], poll: [], svc: [], landmark: [] }, ctx = {};
+  const src = { park: [], plaza: [], transit: [], poll: [], svc: [], landmark: [], aura: [] }, ctx = {};
   for (const lot of LOTS) {
     const p = placeAt(lot.id), b = buildingAt(lot.id), docks = !!DISTRICT_BY_ID[lot.d].docks;
     if (p) {
@@ -36,6 +36,7 @@ function lotContext() {
       if (SERVICE_ROLES.includes(bp.role) && b.done) src.svc.push([lot, bp.role, serviceRadius(b, lot)]);
       if (bp.pollution && b.xs.length) src.poll.push([lot, bp.pollution * (docks ? 0.5 : 1)]);
       if (bp.role === 'landmark' && b.done) src.landmark.push(lot);
+      if (bp.aura && b.done) src.aura.push([lot, bp.aura]);
     }
   }
   for (const lot of LOTS) {
@@ -50,6 +51,7 @@ function lotContext() {
     for (const [o, r] of src.poll) if (o.id !== lot.id && lotDist(lot, o) <= r) c.poll++;
     v -= 0.15 * Math.min(2, c.poll);
     if (src.landmark.some(o => lotDist(lot, o) <= 150)) v += 0.2;
+    for (const [o, a] of src.aura) if (lotDist(lot, o) <= 100) { v += a; break; }
     const b = buildingAt(lot.id);
     if (b && b.reno && b.reno.facade) v += 0.1;
     c.lv = Math.max(0.5, v);
@@ -63,11 +65,13 @@ const landValue = lot => (City.ctx && City.ctx[lot.id] ? City.ctx[lot.id].lv : D
 function recomputeCity() {
   const RM = regionMods();
   const A = { Rcap: 0, Ccap: 0, Ocap: 0, Icap: 0, Gcap: 0, Vcap: 0, Svc: 0, Ecap: 0, parks: 0, plazas: 0, landmarks: 0, arenas: 0, covered: 0, buildings: 0,
-    waterHotels: 0, floors: 0, power: UTIL.basePower, water: Math.round(UTIL.baseWater * (RM.water || 1)), powerUse: 0, waterUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
+    waterHotels: 0, floors: 0, power: UTIL.basePower, water: Math.round(UTIL.baseWater * (RM.water || 1)), powerUse: 0, waterUse: 0,
+    waste: UTIL.baseWaste, wasteUse: 0, data: UTIL.baseData, dataUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
     svc: { health: 0, edu: 0, safety: 0 }, extraTourism: 0 };
   const ctx = City.ctx = lotContext();
   const list = buildingsList();
   A.roadCap += 60 * Object.keys(save.districts).length;
+  for (const id of Object.keys(save.districts)) A.roadCap += (DISTRICT_BY_ID[id] && DISTRICT_BY_ID[id].road) || 0;
   for (const lot of LOTS) {
     City.lv[lot.id] = ctx[lot.id].lv;
     const p = placeAt(lot.id); if (!p) continue;
@@ -76,8 +80,10 @@ function recomputeCity() {
     if (p === 'plaza') A.plazas++;
     A.power += Math.round((P.power || 0) * (p === 'solar' ? RM.solar || 1 : p === 'wind' ? RM.wind || 1 : 1));
     A.water += Math.round((P.water || 0) * (RM.water || 1)); A.roadCap += P.cap || 0; A.extraTourism += P.tourism || 0;
+    A.waste += P.waste || 0; A.data += P.data || 0;
   }
-  let oldTownTourism = 0, resCovered = 0, resTotal = 0;
+  let resTotal = 0;
+  const busyDistricts = new Set();
   for (const [lot, b] of list) {
     const c = capsOf(b), bp = BLUEPRINTS[b.bp], n = b.xs.length;
     A.Rcap += c.res || 0; A.Ccap += c.com || 0; A.Ocap += c.off || 0; A.Icap += c.ind || 0; A.Gcap += c.hot || 0; A.Vcap += c.landmark || 0;
@@ -85,6 +91,8 @@ function recomputeCity() {
     A.buildings++; A.floors += n;
     const heavy = bp.role === 'ind' || bp.role === 'landmark' || bp.role === 'mixed';
     A.powerUse += n * (heavy ? UTIL.heavyPerFloor : UTIL.perFloor); A.waterUse += n * UTIL.perFloor;
+    A.wasteUse += n * UTIL.perFloor; A.dataUse += n * (bp.role === 'off' ? UTIL.heavyPerFloor : UTIL.perFloor);
+    if (b.done && bp.tourism) A.extraTourism += bp.tourism;
     if (b.reno && b.reno.solar) A.power += n;
     if (b.reno && b.reno.garden) A.gardens++;
     if (b.reno && b.reno.lights) A.lights++;
@@ -92,7 +100,7 @@ function recomputeCity() {
     if (bp.role === 'ent' && b.done) A.arenas++;
     if (bp.role === 'ind') A.industry++;
     if ((c.hot || 0) > 0 && lot.water) A.waterHotels++;
-    if (DISTRICT_BY_ID[lot.d].tourism) oldTownTourism = DISTRICT_BY_ID[lot.d].tourism;
+    busyDistricts.add(lot.d);
     const cx = ctx[lot.id];
     if (cx.transit > 0) A.covered++;
     if ((c.res || 0) > 0) {
@@ -107,7 +115,17 @@ function recomputeCity() {
   // Utilities: a shortage empties buildings (GDD §6 Utilities).
   A.powerRatio = A.powerUse ? Math.min(1, A.power / A.powerUse) : 1;
   A.waterRatio = A.waterUse ? Math.min(1, A.water / A.waterUse) : 1;
-  A.util = Math.min(A.powerRatio, A.waterRatio);
+  A.wasteRatio = A.wasteUse ? Math.min(1, A.waste / A.wasteUse) : 1;
+  A.dataRatio = A.dataUse ? Math.min(1, A.data / A.dataUse) : 1;
+  A.util = Math.min(A.powerRatio, A.waterRatio, A.wasteRatio, A.dataRatio);
+  // The tightest utility, for the HUD and hints.
+  A.load = { power: A.powerUse / Math.max(1, A.power), water: A.waterUse / Math.max(1, A.water), waste: A.wasteUse / Math.max(1, A.waste), data: A.dataUse / Math.max(1, A.data) };
+  A.worstUtil = Object.keys(A.load).reduce((a, b) => (A.load[b] > A.load[a] ? b : a), 'power');
+  const districtTourism = [...busyDistricts].reduce((s, id) => s + (DISTRICT_BY_ID[id].tourism || 0), 0);
+  const air = typeof airportDone === 'function' && airportDone();
+  A.airport = air;
+  if (air) { A.roadCap += 1500; A.extraTourism += 0.2; }
+  else if (save.airport) A.extraTourism += 0.02 * (save.airport.stage || 0);
   // Jobs and workers.
   const W = 0.5 * A.Rcap, jobs = A.Ccap + A.Ocap + A.Icap + 0.3 * A.Gcap + 0.5 * A.Svc + 0.4 * A.Ecap;
   A.W = W; A.jobs = jobs;
@@ -115,7 +133,7 @@ function recomputeCity() {
   A.shopRatio = A.Rcap > 0 ? A.Ccap / (0.25 * A.Rcap) : 1;
   const stad = typeof stadiumDone === 'function' && stadiumDone();
   A.stadium = stad;
-  A.tourism = Math.min(1, 0.3 + (RM.tourism || 0) + (stad ? 0.25 : 0.03 * save.stadium.stage) + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
+  A.tourism = Math.min(1, 0.3 + (RM.tourism || 0) + (stad ? 0.25 : 0.03 * save.stadium.stage) + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + districtTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
   // Traffic: commuters vs road and transit capacity (GDD §9).
   A.commute = 0.9 * Math.min(jobs, W);
   A.congestion = Math.max(0, A.commute / A.roadCap - 1);
@@ -171,6 +189,7 @@ function measureCity() {
     lvSum += City.lv[lot.id]; n++;
   }
   if (A.stadium) visitors += STADIUM.visitors * (0.5 + 0.5 * A.tourism);
+  if (A.airport) visitors += AIRPORT.visitors * (0.5 + 0.5 * A.tourism);
   const filled = Math.min(jobsHeld, 0.5 * P + 0.3 * guests);
   A.pop = P; A.filled = filled; A.guests = guests; A.visitors = visitors;
   A.meanLV = n ? lvSum / n : 1;
@@ -261,7 +280,7 @@ function chosenStyle(key) {
   return i >= 0 && i <= masteryTier(key) ? m.style : base;
 }
 function permitCost(key) { return key === 'flats' && save.freeFlats ? 0 : BLUEPRINTS[key].cost; }
-const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office', edu: 'a school or university' };
+const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office', edu: 'a school or university', hot: 'a hotel' };
 function needsMet(key, lot) {
   const bp = BLUEPRINTS[key], missing = [];
   for (const need of bp.needs || []) {

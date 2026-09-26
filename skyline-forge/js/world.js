@@ -440,6 +440,41 @@ function buildPlaceable(key) {
     });
     box(5.6, 4, 4, '#dcd5c6', 4.4, 0, -5); box(5.9, 0.35, 4.3, '#2f5d8a', 4.4, 4, -5);
     box(0.5, 0.5, 6, '#2f7fd8', 2.2, 0.6, -1.2); box(5, 0.5, 0.5, '#2f7fd8', -1.5, 0.6, 0.2);
+  } else if (key === 'hsr') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    for (const x of [-6, 0, 6]) box(1.2, 3.2, 1.2, '#c9c4b8', x, 0, 4.5);               // viaduct piers
+    box(17, 0.6, 4, '#d9d2c2', 0, 3.2, 4.5);
+    for (const z of [3.8, 5.2]) box(17, 0.12, 0.18, '#6b6f75', 0, 3.8, z);
+    const train = new T.Group(); train.position.set(-1, 3.9, 4.5); g.add(train);
+    const body = new T.Mesh(new T.BoxGeometry(12, 2.2, 2.6).translate(0, 1.1, 0), propMat('#f2f4f6')); body.castShadow = true; train.add(body);
+    const nose = new T.Mesh(new T.SphereGeometry(1.3, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2).rotateZ(-Math.PI / 2).scale(2.6, 0.85, 1), propMat('#f2f4f6')); nose.position.set(6, 1.1, 0); train.add(nose);
+    const stripe = new T.Mesh(new T.BoxGeometry(12.05, 0.35, 2.65).translate(0, 0.8, 0), propMat('#2f7fd8')); train.add(stripe);
+    const win = new T.Mesh(new T.BoxGeometry(11, 0.6, 2.66).translate(-0.3, 1.6, 0), propMat('#1d2a38')); train.add(win);
+    box(12, 5, 5, '#e8e2d4', 0, 0, -4); const roof = new T.Mesh(new T.CylinderGeometry(3.6, 3.6, 12.4, 16, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#9fd4f0'), roughness: 0.15, metalness: 0.5, side: T.DoubleSide }));
+    roof.scale.set(1, 0.5, 0.8); roof.position.set(0, 5, -4); g.add(roof);
+  } else if (key === 'dump') {
+    const ground = new T.Mesh(new T.BoxGeometry(17, 0.3, 17).translate(0, -0.1, 0), propMat('#8a7a5a')); ground.receiveShadow = true; g.add(ground);
+    const mound = new T.Mesh(new T.SphereGeometry(6.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#6f7a4a'), roughness: 1, flatShading: true }));
+    mound.scale.set(1, 0.45, 0.8); mound.position.set(-1, 0, -1.5); mound.castShadow = mound.receiveShadow = true; g.add(mound);
+    for (const [x, z, c] of [[4, 5, '#d8b53c'], [-5, 5.5, '#c8342c']]) { box(3.2, 1.6, 1.8, c, x, 0, z); box(1.2, 1.2, 1.8, '#2a2d33', x + 1.8, 0, z); }
+    box(17, 1.6, 0.15, '#6b6f75', 0, 0, 8.4); box(0.15, 1.6, 17, '#6b6f75', 8.4, 0, 0); box(0.15, 1.6, 17, '#6b6f75', -8.4, 0, 0);
+  } else if (key === 'recycling') {
+    box(17, 0.15, 17, '#b9b2a4', 0, 0, 0);
+    box(11, 4.5, 7, '#dcd5c6', -2, 0, -3); box(11.4, 0.4, 7.4, '#3f9a5a', -2, 4.5, -3);
+    const tri = new T.Mesh(new T.RingGeometry(0.9, 1.4, 3).rotateZ(Math.PI / 2), propMat('#2e8a4a')); tri.position.set(-2, 2.6, 0.55); g.add(tri);
+    [['#2f7fd8', -5], ['#d8b53c', -1.5], ['#3f9a5a', 2], ['#8f7f6d', 5.5]].forEach(([c, x]) => box(2.6, 1.8, 3, c, x, 0, 5));
+  } else if (key === 'cell') {
+    const lawn = new T.Mesh(new T.BoxGeometry(17, 0.35, 17).translate(0, -0.1, 0), new T.MeshStandardMaterial({ map: grassTex, roughness: 1 })); lawn.receiveShadow = true; g.add(lawn);
+    const mast = new T.Mesh(new T.BoxGeometry(1.4, 26, 1.4).translate(0, 13, 0), latticeMat('#c9ced4', 1, 12)); mast.castShadow = true; g.add(mast);
+    for (const y of [18, 22, 25]) for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3, p = new T.Mesh(new T.BoxGeometry(0.5, 2, 0.25), propMat('#eef1f4')); p.position.set(Math.cos(a) * 1.1, y, Math.sin(a) * 1.1); p.rotation.y = -a; g.add(p); }
+    const dish = new T.Mesh(new T.CylinderGeometry(0.9, 0.9, 0.2, 14).rotateX(Math.PI / 2), propMat('#eef1f4')); dish.position.set(0, 15, 1.1); g.add(dish);
+    box(2.4, 2.2, 2.4, '#8d99a6', 4, 0, 4);
+  } else if (key === 'datacenter') {
+    box(17, 0.15, 17, '#9a948a', 0, 0, 0);
+    box(14, 5, 10, '#26394f', 0, 0, -2);
+    for (let y = 1; y < 5; y += 1.2) box(14.05, 0.12, 10.05, '#39c7ff', 0, y, -2).material = new T.MeshStandardMaterial({ color: lin('#39c7ff'), emissive: new T.Color('#39c7ff'), emissiveIntensity: 0.6 });
+    for (let x = -5; x <= 5; x += 2.5) { const fan = new T.Mesh(new T.CylinderGeometry(0.9, 0.9, 0.5, 14), propMat('#8d99a6')); fan.position.set(x, 5.25, -2); g.add(fan); }
+    box(3, 2, 2, '#5a6470', -5, 0, 6); box(3, 2, 2, '#5a6470', 0, 0, 6);
   }
   return g;
 }
@@ -500,7 +535,7 @@ const TowerField = {
       scaf.push({ x, y: Math.max(0, top - 2 * H * S), z: t.z, h: Math.min(n, 2) * H * S + 1.2 });
       cranes.push({ x: t.x - 7.5, z: t.z - 6.5, h: top + 9 });
     }
-    if (typeof stadiumStage === 'function' && stadiumStage() > 0 && !stadiumDone()) cranes.push({ x: STADIUM.centre.x + 38, z: STADIUM.centre.z - 24, h: 46 });
+    if (typeof PROJECTS === 'object') for (const P of Object.values(PROJECTS)) if (projStage(P) > 0 && !projDone(P)) cranes.push({ x: P.centre.x + (P.centre.x > 0 ? 38 : -50), z: P.centre.z - 24, h: 46 });
     setScaffolds(scaf, cranes);
     for (const key of Object.keys(this.pools)) this.pools[key].mesh.count = 0;
     for (const [key, arr] of Object.entries(buckets)) {

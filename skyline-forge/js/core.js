@@ -83,6 +83,7 @@ function defaultSave() {
     events: { active: null, next: 0, seen: 0 },   // rotating city events (meta.js)
     weekly: { key: '', best: 0, tiers: 0 },
     stadium: { stage: 0, parts: {} },            // the Harbor Stadium megaproject
+    airport: { stage: 0, parts: {} },            // the Harbor Airport megaproject
     custom: [],                  // player-made blueprints
     overlay: '',                 // hub map overlay
     region: 'harbor',            // the city you are in; the others wait in regions{}

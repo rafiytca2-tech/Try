@@ -343,6 +343,26 @@ function buildRoofProps(style) {
     add(new T.CylinderGeometry(0.75, 0.75, 0.08, 20).rotateX(Math.PI / 2), propMat('#fbf6ea'), 0, 1.9, 1.34);
     add(new T.BoxGeometry(0.06, 0.55, 0.04), propMat('#2a2a2a'), 0, 2.1, 1.4);
     add(new T.CylinderGeometry(0.05, 0.05, 1.6, 6), propMat('#c9a86a'), 0, 6.2, 0);
+  } else if (style === 'marble') {                      // Museum: a dome with a lantern
+    add(new T.CylinderGeometry(2.3, 2.3, 0.8, 24), propMat(st.light), 0, 0.85, 0);
+    add(new T.SphereGeometry(2.2, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#7fb3a0'), roughness: 0.5, metalness: 0.3 }), 0, 1.25, 0);
+    add(new T.CylinderGeometry(0.35, 0.45, 1, 10), propMat(st.light), 0, 3.9, 0);
+    add(new T.ConeGeometry(0.4, 0.8, 10), propMat('#c9a86a'), 0, 4.8, 0);
+  } else if (style === 'pearl') {                       // Opera house: white shell sails
+    const shell = new T.MeshStandardMaterial({ color: lin('#fbfaf6'), roughness: 0.35, side: T.DoubleSide });
+    [[-1.6, 3.2, 0.5], [0.4, 4, 0.2], [2.2, 2.8, -0.1]].forEach(([x, h, t]) => {
+      const s = add(new T.SphereGeometry(h, 16, 10, 0, Math.PI, 0, Math.PI / 2), shell, x, 0.45, 0);
+      s.scale.set(0.45, 1, 0.9); s.rotation.set(0, Math.PI / 2, -0.35 + t);
+    });
+  } else if (style === 'glass') {                       // Convention centre: a wide glass canopy and flags
+    add(new T.BoxGeometry(6.4, 0.25, 6.4), new T.MeshStandardMaterial({ color: lin('#c7e3f5'), roughness: 0.1, metalness: 0.5 }), 0, 1.9, 0);
+    for (const [x, z] of [[-2.9, -2.9], [2.9, -2.9], [-2.9, 2.9], [2.9, 2.9]]) add(new T.CylinderGeometry(0.1, 0.1, 1.5, 6), propMat('#c9ced4'), x, 1.1, z);
+    ['#d8412f', '#2f7fd8', '#d8b53c'].forEach((c, k) => { add(new T.CylinderGeometry(0.04, 0.04, 2.4, 6), propMat('#d8d2c4'), -1.6 + k * 1.6, 3.2, 2.9); add(new T.BoxGeometry(0.9, 0.55, 0.03), propMat(c), -1.15 + k * 1.6, 4, 2.9); });
+  } else if (style === 'magenta') {                     // Mega mall: a big lit sign and rooftop parking
+    add(new T.BoxGeometry(5.6, 0.1, 5.6), propMat('#5a6068'), 0, 0.5, 0);
+    for (let x = -2; x <= 2; x += 1) add(new T.BoxGeometry(0.06, 0.02, 1.4), propMat('#f2f2ee'), x, 0.56, -1.2);
+    add(new T.BoxGeometry(5, 1.4, 0.3), new T.MeshStandardMaterial({ color: lin('#ffd1ea'), emissive: new T.Color('#ff7ac0'), emissiveIntensity: 0.7 }), 0, 1.6, 2.7);
+    add(new T.BoxGeometry(0.2, 1.2, 0.2), propMat('#3a3f46'), -2, 0.9, 2.6); add(new T.BoxGeometry(0.2, 1.2, 0.2), propMat('#3a3f46'), 2, 0.9, 2.6);
   } else if (style === 'sky') {                         // Tech campus: glass pavilion and a dish
     add(new T.BoxGeometry(3.6, 1.6, 3.6), new T.MeshStandardMaterial({ color: lin('#a8e4f8'), roughness: 0.1, metalness: 0.5, emissive: new T.Color('#9fe8ff'), emissiveIntensity: 0.18 }), -0.6, 1.25, -0.4);
     const dish = add(new T.SphereGeometry(1.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), new T.MeshStandardMaterial({ color: lin('#eef1f4'), roughness: 0.4, side: T.DoubleSide }), 2, 1.6, 2); dish.rotation.x = -0.9;

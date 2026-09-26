@@ -5,9 +5,9 @@
  * save.regions and keep earning (up to the usual storage) while away.  *
  * ==================================================================== */
 
-const CITY_FIELDS = ['lots', 'districts', 'level', 'bank', 'stadium', 'freeFlats'];
+const CITY_FIELDS = ['lots', 'districts', 'level', 'bank', 'stadium', 'airport', 'freeFlats'];
 const regionNow = () => REGION_BY_ID[save.region] || REGIONS[0];
-const freshCity = () => ({ lots: {}, districts: { harbor: true }, level: 1, bank: 0, stadium: { stage: 0, parts: {} }, freeFlats: true });
+const freshCity = () => ({ lots: {}, districts: { harbor: true }, level: 1, bank: 0, stadium: { stage: 0, parts: {} }, airport: { stage: 0, parts: {} }, freeFlats: true });
 function snapshotCity() {
   const c = {};
   for (const k of CITY_FIELDS) c[k] = save[k];
@@ -41,7 +41,7 @@ function travelTo(id) {
   save.region = id;
   City.A = null; City.lv = {}; City.ctx = null;
   applyRegionLook(regionNow().look);
-  rebuildLots(); rebuildStadium(true);
+  rebuildLots(); for (const P of Object.values(PROJECTS)) P.rebuild(true);
   recomputeCity();
   const away = Math.max(0, (Date.now() - (c.at || Date.now())) / 1000);
   if (away > 5) tickCity(Math.min(away, 7 * 24 * 3600));       // it kept filling up and earning while you were gone

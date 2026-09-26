@@ -65,7 +65,7 @@ function updateBuildHud() {
   const n = g.tower.length, goal = g.target;
   if ($('lives').children.length !== g.mods.lives) $('lives').innerHTML = LIFE_SVG.repeat(g.mods.lives);
   $('hudBadge').innerHTML = goal ? `${n}<small>/${goal}</small>` : String(n);
-  setText('hudLabel', g.kind === 'race' ? 'Sky Race' : g.kind === 'daily' ? 'Daily' : g.kind === 'weekly' ? 'Weekly' : g.kind === 'stage' ? STADIUM.stages[g.stage].name : (g.bp ? g.bp.name : 'Floors'));
+  setText('hudLabel', g.kind === 'race' ? 'Sky Race' : g.kind === 'daily' ? 'Daily' : g.kind === 'weekly' ? 'Weekly' : g.kind === 'stage' ? PROJECTS[g.project || 'stadium'].stages[g.stage].name : (g.bp ? g.bp.name : 'Floors'));
   $('gaugeBar').hidden = !goal;
   if (goal) {
     $('gaugeFill').style.setProperty('--c', styleColor(floorStyle(g)));
@@ -149,8 +149,8 @@ function updateHubHud() {
   setText('income', `${fmtK(City.rate)}/h`);
   $('matChip').hidden = skillLevel() < ECON.renoLevel;
   setText('hubMat', fmtK(Math.floor(save.materials)));
-  const pl = A.power ? A.powerUse / A.power : 0, wl = A.water ? A.waterUse / A.water : 0, load = Math.max(pl, wl);
-  setText('gridLbl', pl >= wl ? 'Power' : 'Water'); setText('grid', `${Math.round(load * 100)}%`);
+  const load = A.load[A.worstUtil];
+  setText('gridLbl', UTIL_NAMES[A.worstUtil]); setText('grid', `${Math.round(load * 100)}%`);
   $('grid').className = load > 1 ? 'bad' : load > 0.85 ? 'warn' : '';
   const tr = A.commute / Math.max(1, A.roadCap);
   setText('traffic', tr < 0.6 ? 'Light' : tr < 1 ? 'Busy' : 'Jammed');
@@ -189,8 +189,9 @@ function nextGoal() {
   if (contractsReady()) return `A contract is complete. <b>Tap Jobs</b> to claim it.`;
   if (save.bank >= 1 && save.bank >= incomeCap() * 0.99) return `Income storage is <b>full</b>. Collect it so your city keeps earning.`;
   if (save.bank >= 50) return `Your city has earned <b>${fmt(save.bank)}</b> coins. Tap <b>Collect</b>.`;
-  const short = A.powerUse > A.power ? ['Power', 'power', 'a <b>Power Plant</b>', 'power'] : A.waterUse > A.water ? ['Water', 'water', 'a <b>Water Tower</b>', 'tower'] : null;
-  if (short) return save.level >= PLACEABLES[short[3]].level ? `<b>${short[0]} shortage</b>: buildings are emptying. Place ${short[2]} on a free lot.` : `The old grid is running out of ${short[1]}. ${short[2]} unlocks at level ${PLACEABLES[short[3]].level}.`;
+  const FIX = { power: ['power', 'a <b>Power Plant</b>', 'power'], water: ['water', 'a <b>Water Tower</b>', 'tower'], waste: ['waste handling', 'a <b>Landfill</b>', 'dump'], data: ['connectivity', 'a <b>Cell Tower</b>', 'cell'] };
+  const su = A.load[A.worstUtil] > 1 ? A.worstUtil : null, short = su && FIX[su];
+  if (short) return save.level >= PLACEABLES[short[2]].level ? `<b>${UTIL_NAMES[su]} shortage</b>: buildings are emptying. Place ${short[1]} on a free lot.` : `The old grid is running out of ${short[0]}. ${short[1]} unlocks at level ${PLACEABLES[short[2]].level}.`;
   const unfinished = buildingsList().find(([, b]) => !b.done);
   if (unfinished) return `<b>${BLUEPRINTS[unfinished[1].bp].name}</b> is unfinished. Tap it to continue building.`;
   if (A.congestion > 0.2) return save.level >= PLACEABLES.bus.level ? '<b>Traffic jams</b> are cutting income. Place a <b>Bus Stop</b> or other transit.' : 'Streets are getting jammed. Transit unlocks at level 5.';
@@ -238,14 +239,12 @@ function updateLabels(show) {
     if (e2.textContent !== txt) e2.textContent = txt;
     place(e2, lot.x, b.xs.length * H * S + 3, lot.z);
   }
-  {
-    const el = labelEl('p:stadium', 'dlabel'), n = stadiumStage();
-    if (!show) el.hidden = true;
-    else {
-      const html = `${STADIUM.name}<small>${save.level < FEATURES.stadium ? `Level ${FEATURES.stadium}` : stadiumDone() ? 'Open' : `Stage ${n + 1} of ${STADIUM.stages.length}`}</small>`;
-      if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
-      place(el, STADIUM.centre.x, 2, STADIUM.island.z1 + 2);
-    }
+  for (const P of Object.values(PROJECTS)) {
+    const el = labelEl('p:' + P.id, 'dlabel'), n = projStage(P), lvl = P.stages[0].level;
+    if (!show) { el.hidden = true; continue; }
+    const html = `${P.name}<small>${save.level < lvl ? `Level ${lvl}` : projDone(P) ? 'Open' : `Stage ${n + 1} of ${P.stages.length}`}</small>`;
+    if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
+    place(el, P.centre.x, 2, P.island.z1 + 2);
   }
   for (const key of ['p:pier', 'p:record']) {
     const el = labelEl(key, 'dlabel');
@@ -299,7 +298,7 @@ function bpCard(key, lot, check) {
     <span><b>${esc(bp.name)}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small><small>${esc(bp.blurb)}</small></span>
     <span class="go">${status}</span></button>`;
 }
-const PLACE_COL = { park: '#5c9a45', plaza: '#cbbfa6', bus: '#2f5d8a', tram: '#c8342c', ferry: '#3b7fe0', metro: '#d83a2f', rail: '#b88a5a', power: '#8f7f6d', tower: '#6fa8c8', solar: '#1f3b66', wind: '#e8ebee', waterworks: '#4a8fb0' };
+const PLACE_COL = { park: '#5c9a45', plaza: '#cbbfa6', bus: '#2f5d8a', tram: '#c8342c', ferry: '#3b7fe0', metro: '#d83a2f', rail: '#b88a5a', hsr: '#f2f4f6', power: '#8f7f6d', tower: '#6fa8c8', solar: '#1f3b66', wind: '#e8ebee', waterworks: '#4a8fb0', dump: '#7a6a4a', recycling: '#3f9a5a', cell: '#9aa3ad', datacenter: '#26394f' };
 function placeCard(key, lot) {
   const P = PLACEABLES[key], r = canPlace(key, lot);
   return `<button class="card" type="button" data-place="${key}" aria-disabled="${!r.ok}">
@@ -313,7 +312,7 @@ function lotPills(lot) {
   return `<div class="pills"><span class="${lv > 1.05 ? 'good' : lv < 0.95 ? 'bad' : ''}">Land value ×${lv.toFixed(2)}</span>${lot.water ? '<span class="good">Waterfront</span>' : ''}${DISTRICT_BY_ID[lot.d].maxFloors ? `<span>Max ${DISTRICT_BY_ID[lot.d].maxFloors} floors</span>` : ''}${c.transit ? '<span class="good">Transit</span>' : ''}${SERVICE_ROLES.filter(r => c.svc[r]).map(r => `<span class="good">${SERVICE_NAMES[r]}</span>`).join('')}${c.poll ? '<span class="bad">Polluted</span>' : ''}</div>`;
 }
 const SVC_ROLES = new Set(['edu', 'health', 'safety', 'ent']);
-const UTIL_KEYS = new Set(['power', 'tower', 'solar', 'wind', 'waterworks']);
+const UTIL_KEYS = new Set(['power', 'tower', 'solar', 'wind', 'waterworks', 'dump', 'recycling', 'cell', 'datacenter', 'fusion']);
 // Unlocked first, then the next couple of locked ones, so the list stays short.
 function byLevel(keys, table) {
   const open = keys.filter(k => table[k].level <= save.level).sort((a, b) => table[a].level - table[b].level);
@@ -322,7 +321,7 @@ function byLevel(keys, table) {
 }
 function gridLine() {
   const A = City.A;
-  return `<p class="sub">Power ${fmt(A.powerUse)} of ${fmt(A.power)} used · Water ${fmt(A.waterUse)} of ${fmt(A.water)} used</p>`;
+  return `<p class="sub">Used of supply: power ${fmt(A.powerUse)} / ${fmt(A.power)} · water ${fmt(A.waterUse)} / ${fmt(A.water)} · waste ${fmt(A.wasteUse)} / ${fmt(A.waste)} · data ${fmt(A.dataUse)} / ${fmt(A.data)}</p>`;
 }
 function openLotSheet(lot, tab = 'towers') {
   sheetLot = lot; selectRing(lot);
@@ -419,7 +418,7 @@ function openBuildingSheet(lot, b) {
       <dt>Started</dt><dd>${date}</dd>
     </dl>
     ${b.recoveries && b.recoveries.length ? `<div class="chips">${b.recoveries.slice(-6).map(n => `<span>${esc(n)}</span>`).join('')}</div>` : ''}
-    ${City.A && City.A.util < 0.99 ? `<p class="sub" style="color:var(--danger)">${City.A.powerRatio < City.A.waterRatio ? 'Power' : 'Water'} shortage: people are moving out. Add supply in the Utilities tab of an empty lot.</p>` : ''}
+    ${City.A && City.A.util < 0.99 ? `<p class="sub" style="color:var(--danger)">${UTIL_NAMES[City.A.worstUtil]} shortage: people are moving out. Add supply in the Utilities tab of an empty lot.</p>` : ''}
     ${b.done && skillLevel() >= ECON.renoLevel ? `<h3>Renovate</h3><div class="cards">${RENOVATIONS.map(R => renoCard(lot, b, R)).join('')}</div>` : ''}
     <div class="btns">
       ${!b.done ? `<button class="btn primary" type="button" id="cont" ${cont.ok || cont.matShort ? '' : 'disabled'}>${cont.ok || cont.matShort ? `Continue building · ${fmt(contCost)}${cont.mat ? ` + ${fmt(cont.mat)} materials` : ''}` : esc(cont.reason)}</button>` : ''}
@@ -654,6 +653,7 @@ function showCityInfo() {
     <h3>Infrastructure</h3>
     <dl class="stats">
       <dt>Power</dt><dd>${fmt(A.powerUse)} / ${fmt(A.power)}</dd><dt>Water</dt><dd>${fmt(A.waterUse)} / ${fmt(A.water)}</dd>
+      <dt>Waste handling</dt><dd>${fmt(A.wasteUse)} / ${fmt(A.waste)}</dd><dt>Connectivity</dt><dd>${fmt(A.dataUse)} / ${fmt(A.data)}</dd>
       <dt>Commuters / road and transit capacity</dt><dd>${fmt(A.commute)} / ${fmt(A.roadCap)}</dd>
       <dt>Homes with education</dt><dd>${pct(A.svc.edu)}</dd><dt>Homes with healthcare</dt><dd>${pct(A.svc.health)}</dd><dt>Homes with safety</dt><dd>${pct(A.svc.safety)}</dd>
       <dt>Homes near pollution</dt><dd>${pct(A.pollShare)}</dd><dt>Tourism</dt><dd>${pct(A.tourism)}</dd></dl>
@@ -714,14 +714,14 @@ function showResults(r, sum) {
     note = sum.stale ? 'A new week began during this run, so it was not scored. This week has a new tower.' : sum.tier < 3 ? `Next tier at ${fmt(cfg.tiers[sum.tier])} points. Best this week: ${fmt(sum.best)}.` : `Gold this week. Best: ${fmt(sum.best)}.`;
     primary = ['Try again', () => startWeekly()]; secondary = ['City', () => leaveSession()];
   } else if (r.kind === 'stage') {
-    const st = STADIUM.stages[r.stage];
-    eyebrow = `${STADIUM.name} · stage ${r.stage + 1} of ${STADIUM.stages.length}`; title = r.done ? `${st.name} complete` : 'Stage not finished';
+    const P = PROJECTS[r.project || 'stadium'], st = P.stages[r.stage];
+    eyebrow = `${P.name} · stage ${r.stage + 1} of ${P.stages.length}`; title = r.done ? `${st.name} complete` : 'Stage not finished';
     stars = sum.stars; capLabel = 'points';
     rewards.push(`<span>${ICON.coin}+${fmt(sum.coins)}</span>`);
     if (sum.prestige) rewards.push(`<span>${ICON.prestige}+${fmt(sum.prestige)}</span>`);
-    note = r.done ? (stadiumDone() ? 'The stadium is finished. The crowds are coming.' : `Next: ${STADIUM.stages[r.stage + 1].name} (level ${STADIUM.stages[r.stage + 1].level}).`) : 'The stage is still paid for. Try again for free.';
+    note = r.done ? (projDone(P) ? `${P.name} is finished.` : `Next: ${P.stages[r.stage + 1].name} (level ${P.stages[r.stage + 1].level}).`) : 'The stage is still paid for. Try again for free.';
     primary = ['Back to city', () => leaveSession()];
-    secondary = r.done ? ['See the stadium', () => leaveSession()] : ['Try again', () => startStage()];
+    secondary = r.done ? ['See it in the city', () => leaveSession()] : ['Try again', () => startStage(P)];
   } else {
     const cfg = dailyConfig(r.daily);
     eyebrow = `Daily Challenge · ${cfg.name}`; title = r.done ? 'Challenge cleared' : 'Not this time';
