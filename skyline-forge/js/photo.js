@@ -90,12 +90,26 @@ function capturePhoto(share) {
   if (window.SkylineNative && window.SkylineNative.savePhoto) {
     const where = window.SkylineNative.savePhoto(url, !!share);
     toast(where ? `Saved to ${where}` : 'Could not save the picture', where ? 'good' : '');
-  } else {
-    const a = document.createElement('a');
-    a.href = url; a.download = `SkylineForge_${dayKey()}_${Date.now() % 100000}.png`;
-    document.body.appendChild(a); a.click(); a.remove();
-    toast('Picture saved to your downloads', 'good');
+  } else offerPicture(url, `SkylineForge_${dayKey()}_${Date.now() % 100000}.png`);
+}
+// On the web: through the viewer's save prompt when the page is hosted as a claude.ai artifact
+// (plain download links do nothing there), otherwise an ordinary download link.
+let downloadsNs;
+async function offerPicture(url, name) {
+  if (window.claude && typeof window.claude.use === 'function') {
+    if (downloadsNs === undefined) downloadsNs = await window.claude.use('downloads').catch(() => null);
+    if (downloadsNs) {
+      const bin = atob(url.slice(url.indexOf(',') + 1)), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      try { await downloadsNs.save({ filename: name, data: new Blob([bytes]) }); toast('Picture saved', 'good'); }
+      catch (e) { if (!e || e.code !== 'declined') toast('Could not save the picture here'); }
+      return;
+    }
   }
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Picture saved to your downloads', 'good');
 }
 
 /* ---------------- Input: drag to orbit, pinch or scroll to zoom, two fingers to pan ---------------- */
