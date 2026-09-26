@@ -133,9 +133,6 @@ function updateHubHud() {
   $('lvlRing').setAttribute('stroke-dashoffset', (94.2 * (1 - lp.frac)).toFixed(1));
   setText('lvlNext', lp.next == null ? 'Top level' : `Level ${lp.l + 1} at ${fmtK(lp.next)}`);
   $('lvlBar').style.setProperty('--p', (lp.frac * 100).toFixed(1) + '%');
-  setText('hubPop', fmtK(population()));
-  setText('hubCoins', fmtK(save.coins));
-  setText('hubPrestige', fmtK(save.prestige));
   const bank = Math.floor(save.bank);
   $('collectBtn').hidden = bank < 1;
   setText('collectTxt', `Collect ${fmt(bank)}`);
@@ -154,11 +151,23 @@ function updateHubHud() {
   const gh = nextGoal();
   if (hudCache.goalHtml !== gh) { hudCache.goalHtml = gh; $('goal').innerHTML = gh; }
 }
+// Coins, population and prestige count up instead of jumping.
+const shown = { coins: null, pop: null, prestige: null };
+function animateHubNumbers(dt) {
+  const real = { coins: save.coins, pop: population(), prestige: save.prestige };
+  for (const k of Object.keys(shown)) {
+    if (shown[k] == null || reduceMotion) shown[k] = real[k];
+    const d = real[k] - shown[k];
+    shown[k] = Math.abs(d) < 0.5 ? real[k] : shown[k] + d * Math.min(1, dt * 5);
+  }
+  setText('hubPop', fmtK(shown.pop)); setText('hubCoins', fmtK(shown.coins)); setText('hubPrestige', fmtK(shown.prestige));
+}
 // Always show one clear next step (GDD §11: quickly see progress).
 function nextGoal() {
   const A = City.A;
   if (!buildingsList().length) return 'Tap the glowing lot on <b>Harbor Row</b> to build your first homes.';
   if (contractsReady()) return `A contract is complete. <b>Tap Jobs</b> to claim it.`;
+  if (save.bank >= 1 && save.bank >= incomeCap() * 0.99) return `Income storage is <b>full</b>. Collect it so your city keeps earning.`;
   if (save.bank >= 50) return `Your city has earned <b>${fmt(save.bank)}</b> coins. Tap <b>Collect</b>.`;
   const unfinished = buildingsList().find(([, b]) => !b.done);
   if (unfinished) return `<b>${BLUEPRINTS[unfinished[1].bp].name}</b> is unfinished. Tap it to continue building.`;
@@ -322,7 +331,7 @@ function openBuildingSheet(lot, b) {
     <div style="display:flex;align-items:center;gap:12px">${starsHtml(b.stars || 0)}<span class="sub">${b.done ? `Topped out · ${b.xs.length} floors` : `Unfinished · ${b.xs.length} of ${b.target} floors`}</span></div>
     <div class="pills">${roles}</div>
     <div class="meter" style="--c:var(--stable)" aria-label="Occupancy"><i style="width:${Math.round(occ * 100)}%"></i></div>
-    <p class="sub">${Math.round(occ * 100)}% occupied, heading for ${Math.round((b.target ?? occ) * 100)}%. ${lotPills(lot).replace(/<\/?div[^>]*>/g, '').replace(/<span[^>]*>/g, '').replace(/<\/span>/g, ' · ')}</p>
+    <p class="sub">${Math.round(occ * 100)}% occupied, heading for ${Math.round((b.occT ?? occ) * 100)}%. ${lotPills(lot).replace(/<\/?div[^>]*>/g, '').replace(/<span[^>]*>/g, '').replace(/<\/span>/g, ' · ')}</p>
     <dl class="stats">
       <dt>Construction quality</dt><dd>${Math.round((b.quality || 0) * 100)}%</dd>
       <dt>Perfect floors</dt><dd>${fmt(b.perfects || 0)}</dd>
@@ -374,6 +383,7 @@ function showLevelUps(ups, then) {
   if (!ups.length) { if (then) then(); return; }
   const u = ups[0];
   Sound.levelUp(); vib([20, 30, 20, 30, 60]);
+  if (state === 'hub') fireworks(cam.look.x, 20, cam.look.z - 20, 6);
   openModal(`<div class="lvup panel" style="padding:0;background:none;border:0;backdrop-filter:none">
       <p class="eyebrow">City level</p><div class="num">${u.level}</div>
       <div class="rewards"><span>${ICON.coin}+${fmt(u.reward)}</span></div>
@@ -385,7 +395,7 @@ function showWelcome(info, then) {
   if (info.earned >= 1) lines.push(`Your city earned <b class="coin">${fmt(info.earned)}</b> coins while you were away. Tap <b>Collect</b>.`);
   const nc = contractsReady(); if (nc) lines.push(`${plural(nc, 'contract')} ready to claim.`);
   if (dailyOn() && !dailyCleared()) lines.push(`Today's challenge: <b>${esc(dailyConfig().name)}</b>. Streak: ${dailyStreak()}.`);
-  const fill = buildingsList().filter(([, b]) => b.occ != null && b.target - b.occ > 0.05).length;
+  const fill = buildingsList().filter(([, b]) => b.occ != null && b.occT - b.occ > 0.05).length;
   if (fill) lines.push(`${plural(fill, 'building')} still filling up.`);
   if (!lines.length) { if (then) then(); return; }
   openModal(`${head('Welcome back', `Away for ${fmtDuration(info.away * 1000)}`)}<div class="unlocks">${lines.map(l => `<div><span>${l}</span></div>`).join('')}</div><button class="btn primary" type="button" data-close>Let's build</button>`, null, then);
@@ -421,7 +431,7 @@ function showDaily() {
   const streak = dailyStreak(), E = ECON.daily;
   const days = []; for (let i = 6; i >= 0; i--) { const k = addDays(key, -i); days.push(`<span class="${save.daily.cleared[k] ? 'on' : ''} ${i === 0 ? 'today' : ''}"><i></i>${keyToDate(k).toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2)}</span>`); }
   openModal(`${head(esc(cfg.name), `Daily Challenge · ${keyToDate(key).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`)}
-    <div class="streak">${ICON.flame}<span>${streak}-day streak</span></div>
+    <div class="streak">${ICON.flame}<span>${streak ? `${streak}-day streak` : 'No streak yet'}</span></div>
     <div class="days">${days.join('')}</div>
     <div class="pills"><span class="gold">Build ${cfg.target} floors</span>${cfg.mods.map(m => `<span>${esc(m.name)}</span>`).join('')}</div>
     <ul class="howto">${cfg.mods.map(m => `<li><b>${esc(m.name)}</b><span>${esc(m.desc)}</span></li>`).join('')}</ul>
@@ -584,5 +594,8 @@ function renderTitle() {
     : 'Drop floors from the swinging crane, stack them straight, and build a whole city tower by tower.';
   $('btnPlay').textContent = has ? 'Continue' : 'Play';
   $('btnTitleDaily').disabled = !dailyOn();
-  $('bestLine').textContent = save.race.best ? `Sky Race record: ${save.race.best} floors` : '';
+  const bits = [];
+  if (save.race.best) bits.push(`Sky Race record ${save.race.best} floors`);
+  if (dailyOn()) bits.push(dailyCleared() ? `Daily cleared · ${dailyStreak()}-day streak` : dailyStreak() ? `Daily ready · keep your ${dailyStreak()}-day streak` : 'Daily Challenge ready');
+  $('bestLine').textContent = bits.join(' · ');
 }

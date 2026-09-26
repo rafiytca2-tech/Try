@@ -8,6 +8,7 @@ let state = 'boot';
 let pausedFrames = 0;
 let pendingWelcome = null;
 let lastSession = null;
+let moveIn = null;       // floating "+N residents" over a new tower when we get back to the city
 
 function show(id) { for (const s of ['title', 'pause', 'result']) $(s).hidden = s !== id; }
 
@@ -78,6 +79,12 @@ function enterHub(openNear) {
   state = 'hub';
   $('hub').hidden = false; $('hud').hidden = true;
   recomputeCity(); updateHubHud(); flushToasts();
+  if (moveIn) {
+    const m = moveIn; moveIn = null;
+    popupAt(m.text, m.lot.x, m.h + 6, m.lot.z, 'bonus');
+    if (m.done) setTimeout(() => popupAt('Moving in', m.lot.x, m.h + 14, m.lot.z, 'info'), 250);
+    burst(m.lot.x, m.h, m.lot.z, 30, '#ffd76a', 6, 6, 1.2, 1.4, true);
+  }
   if (save.ftue === 0 && !buildingsList().length) { showFirstRun(); return; }
   const ups = checkLevelUp();
   const after = () => {
@@ -126,7 +133,13 @@ function startDaily() {
 function onSessionEnd(r) {
   bus.emit('session', r);
   let sum;
-  if (r.kind === 'city') { sum = completeBuild(r); if (save.ftue === 1) save.ftue = 2; }
+  if (r.kind === 'city') {
+    sum = completeBuild(r); if (save.ftue === 1) save.ftue = 2;
+    if (!sum.kept && r.xs.length) {
+      const roles = Object.entries(sum.caps).filter(([, v]) => v > 0);
+      moveIn = { lot: LOT_BY_ID[r.site.id], text: roles.length === 1 ? `+${fmt(roles[0][1])} ${ROLE_NAMES[roles[0][0]]}` : `+${fmt(sum.cap)} capacity`, done: r.done, h: r.xs.length * H * S };
+    }
+  }
   else if (r.kind === 'race') { sum = recordRace(r); if (sum.record) TowerField.rebuild(); }
   else sum = recordDaily(r);
   checkPopAchievements(); checkPopContracts();
@@ -401,6 +414,7 @@ function frame(now) {
   }
   if (todTimer >= 60) { todTimer = 0; if (save.settings.tod === 'auto' && currentTod() !== todName) applyTimeOfDay(); }
   updateLabels(state === 'hub');
+  if (state === 'hub') animateHubNumbers(dt);
   if (state === 'hub' && $('sheet').hidden && !buildingsList().length) { selectRing(LOT_BY_ID['harbor-C2']); ring.material.opacity = 0.55 + 0.45 * Math.sin(now / 180); }
   else ring.material.opacity = 0.9;
 

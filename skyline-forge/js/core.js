@@ -91,8 +91,8 @@ function migrateV2(d) {
   const olds = Array.isArray(d.city) ? d.city.filter(b => b && map[b.type] && b.floors > 0) : [];
   const spots = ['C1', 'C2', 'C3', 'B1', 'B2', 'B3', 'A1', 'A2', 'A3'];
   olds.slice(0, spots.length).forEach((b, i) => {
-    const bp = map[b.type], n = Math.max(1, Math.min(+b.floors || 1, 100));
-    s.lots['harbor-' + spots[i]] = { bp, xs: Array(n).fill(0), target: n, done: !!b.done, cap: +b.residents || n * 15, quality: 0.8, stars: b.done ? 1 : 0, perfects: 0, combo: 0, power: 0, strongest: 1, recoveries: [], date: Date.now(), migrated: true };
+    const bp = map[b.type], full = { flats: 8, market: 10, office: 16, luxury: 30 }[bp], n = Math.max(1, Math.min(+b.floors || 1, full));
+    s.lots['harbor-' + spots[i]] = { bp, xs: Array(n).fill(0), target: full, done: n >= full, cap: +b.residents || n * 15, quality: 0.8, stars: n >= full ? 1 : 0, perfects: 0, combo: 0, power: 0, strongest: 1, recoveries: [], date: Date.now(), migrated: true };
   });
   if (olds.length) { s.ftue = 2; s.freeFlats = false; }
   return s;
@@ -105,6 +105,8 @@ function loadSave() {
       if (d && d.v === 3) {
         const s = defaultSave();
         for (const k of Object.keys(s)) if (k in d) s[k] = (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) ? Object.assign(s[k], d[k]) : d[k];
+        // Repair: a building's floor target is a whole number of floors.
+        for (const b of Object.values(s.lots)) if (b && b.bp && BLUEPRINTS[b.bp] && !(Number.isInteger(b.target) && b.target >= 1)) b.target = BLUEPRINTS[b.bp].floors;
         save = s;
         return 'loaded';
       }

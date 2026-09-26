@@ -84,8 +84,8 @@ function recomputeCity() {
     const c = capsOf(b), tot = capTotal(c) || 1;
     let t = 0; for (const [r, v] of Object.entries(c)) t += (roleT[r] ?? 0.6) * v / tot;
     const lvf = clamp(0.9 + 0.25 * (City.lv[lot.id] - 1), 0.9, 1.15);
-    b.target = clamp(t * lvf, 0.2, 1);
-    if (b.occ == null) b.occ = b.target * ECON.newOccShare;
+    b.occT = clamp(t * lvf, 0.2, 1);                 // target occupancy (b.target is the floor target)
+    if (b.occ == null) b.occ = b.occT * ECON.newOccShare;
   }
   City.A = A;
   measureCity();
@@ -114,7 +114,7 @@ const incomeCap = () => Math.max(50, City.rate * ECON.incomeCapHours);
 function tickCity(dtSec) {
   if (!City.A) recomputeCity();
   const k = 1 - Math.exp(-dtSec / (ECON.occTauMin * 60));
-  for (const [, b] of buildingsList()) if (b.target != null) b.occ += (b.target - b.occ) * k;
+  for (const [, b] of buildingsList()) if (b.occT != null) b.occ += (b.occT - b.occ) * k;
   measureCity();
   save.bank = Math.min(incomeCap(), save.bank + City.rate * dtSec / 3600);
 }
