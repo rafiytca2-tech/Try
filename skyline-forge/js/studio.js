@@ -6,7 +6,7 @@
  * ==================================================================== */
 
 const customKey = id => 'custom-' + id;
-const studioOn = () => save.level >= FEATURES.studio;
+const studioOn = () => skillLevel() >= FEATURES.studio;
 function registerCustoms() {
   for (const d of save.custom) BLUEPRINTS[customKey(d.id)] = deriveBlueprint(d);
   // A building whose blueprint has vanished (a damaged save) is dropped rather than crashing the city.

@@ -7,7 +7,7 @@
  * ==================================================================== */
 
 const STADIUM = {
-  name: 'Harbor Stadium',
+  get name() { return regionNow().id === 'harbor' ? 'Harbor Stadium' : `${regionNow().name} Stadium`; },
   site: { id: 'stadium', x: 124, z: 116, pier: true, stadium: true },
   centre: { x: 178, z: 124 },
   island: { x0: 90, x1: 218, z0: 90, z1: 160 },
@@ -91,14 +91,15 @@ const STADIUM_PARTS = [
       const a = k / 28 * Math.PI * 2, m = new T.Mesh(new T.BoxGeometry(1.4, 0.5, 0.9), lampMat);
       m.position.set(Math.cos(a) * 22, 28.2, Math.sin(a) * 22); m.lookAt(0, 0, 0); g.add(m);
     }
-    const sign = new T.Mesh(new T.BoxGeometry(18, 3, 0.4), new T.MeshStandardMaterial({ map: (() => { const c = canvasOf(512, 96), x = c.getContext('2d'); rect(x, '#11161f', 0, 0, 512, 96); x.fillStyle = '#ffc21a'; x.font = 'bold 58px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('HARBOR STADIUM', 256, 50); return tex(c); })(), emissive: new T.Color('#ffffff'), emissiveIntensity: 0.25 }));
+    const sign = new T.Mesh(new T.BoxGeometry(18, 3, 0.4), new T.MeshStandardMaterial({ map: (() => { const c = canvasOf(512, 96), x = c.getContext('2d'); rect(x, '#11161f', 0, 0, 512, 96); x.fillStyle = '#ffc21a'; x.font = 'bold 58px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(STADIUM.name.toUpperCase(), 256, 50); return tex(c); })(), emissive: new T.Color('#ffffff'), emissiveIntensity: 0.25 }));
     sign.position.set(0, 11, 34.2); g.add(sign);
     return g;
   },
 ];
 const stadiumMeshes = [];
-function rebuildStadium() {
+function rebuildStadium(fresh) {
   const n = stadiumStage();
+  if (fresh) while (stadiumMeshes.length) stadiumRoot.remove(stadiumMeshes.pop());
   while (stadiumMeshes.length < n) { const m = STADIUM_PARTS[stadiumMeshes.length](); stadiumRoot.add(m); stadiumMeshes.push(m); }
   while (stadiumMeshes.length > n) stadiumRoot.remove(stadiumMeshes.pop());
 }

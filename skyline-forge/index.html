@@ -38,6 +38,11 @@ body{
   overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
 }
 body.big{font-size:18px}
+/* High contrast: solid panels, brighter secondary text, stronger outlines and labels. */
+body.hc{--glass:rgba(4,7,12,.94);--glass-strong:rgba(2,4,8,.98);--muted:#e3e8ee;--line:rgba(255,255,255,.55);--danger:#ff9d4d;--moving:#ffe066}
+body.hc .glass,body.hc .card,body.hc .btn{border-width:2px}
+body.hc .dlabel,body.hc .tlabel{background:rgba(0,0,0,.82);padding:3px 8px;border-radius:8px;text-shadow:none}
+body.hc .pop{text-shadow:0 0 3px #000,0 0 6px #000,0 2px 0 #000}
 #stage{position:fixed;inset:0;overflow:hidden;background:#0b1118;touch-action:none}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block}
 #fx,#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -184,6 +189,29 @@ button{font:inherit;color:inherit}
 .spill i{font-style:normal;color:var(--accent);font-size:16px}
 .spill small{font:600 13px var(--f-cond);color:var(--muted);letter-spacing:.04em}
 .spill.bonus small{color:var(--stable)}
+.photo{position:absolute;inset:0;pointer-events:none}
+.photo button{pointer-events:auto}
+.photo .ptop,.photo .pbar,.photo .pshoot,.photo .phint{transition:opacity .25s}
+.photo.bare .ptop,.photo.bare .pbar,.photo.bare .pshoot,.photo.bare .phint{opacity:0;pointer-events:none}
+.photo.bare button{pointer-events:none}
+.ptop{position:absolute;left:12px;top:calc(var(--top) + 10px);display:flex;align-items:center;gap:10px}
+.ptitle{font:700 18px var(--f-cond);letter-spacing:.14em;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.phint{position:absolute;left:12px;right:12px;top:calc(var(--top) + 66px);margin:0;text-align:center;font:500 13px var(--f-body);color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,0,0,.85)}
+.pbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--bot) + 112px);display:flex;gap:5px;padding:6px;border-radius:16px;max-width:calc(100% - 24px);box-sizing:border-box}
+.pbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:70px;min-height:48px;padding:5px 8px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--ink);cursor:pointer;box-sizing:border-box}
+.pbtn small{font:600 11px var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pbtn b{font:700 16px var(--f-cond);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.ghostbtn{visibility:hidden}
+.pshoot{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--bot) + 26px);display:flex;align-items:center;gap:18px}
+.shutter{width:72px;height:72px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.22);cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.45)}
+.shutter:active{transform:scale(.94);background:rgba(255,255,255,.6)}
+.flash{position:absolute;inset:0;background:#fff;pointer-events:none;opacity:0}
+.flash.go{animation:flash .45s ease-out}
+.fade{position:absolute;inset:0;background:#05080d;pointer-events:none;opacity:0;transition:opacity .45s}
+.fade.in{opacity:1;pointer-events:auto}
+.fade.out{opacity:0;transition-duration:1.1s}
+@keyframes flash{0%{opacity:.85}100%{opacity:0}}
+@media (max-width:400px){.pbtn{min-width:60px;padding:5px 5px}.pbtn b{font-size:14px}}
 .ovkey{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:12px;font:600 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .ovkey b{color:var(--ink)}
 .ovkey i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--a),var(--b),var(--c))}
@@ -383,6 +411,21 @@ select option{color:#111}
     </div>
   </div>
 
+  <!-- Photo mode -->
+  <div class="photo" id="photo" hidden>
+    <div class="ptop"><button class="icon-btn glass" id="pExit" type="button" aria-label="Leave photo mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2"/></svg></button><span class="ptitle">Photo mode</span></div>
+    <p class="phint">Drag to orbit · pinch or scroll to zoom · two fingers to pan · tap to hide the controls</p>
+    <div class="pbar glass">
+      <button class="pbtn" type="button" data-p="tod"><small>Time</small><b>Day</b></button>
+      <button class="pbtn" type="button" data-p="wx"><small>Weather</small><b>Clear</b></button>
+      <button class="pbtn" type="button" data-p="lens"><small>Lens</small><b>35mm</b></button>
+      <button class="pbtn" type="button" data-p="filter"><small>Filter</small><b>Natural</b></button>
+    </div>
+    <div class="pshoot"><span class="pbtn ghostbtn" aria-hidden="true"></span><button class="shutter" id="pShot" type="button" aria-label="Take a picture"></button><button class="pbtn glass" id="pShare" type="button" hidden><small>Save &amp;</small><b>Share</b></button></div>
+  </div>
+  <div class="flash" id="flash" hidden></div>
+  <div class="fade" id="fade" hidden></div>
+
   <!-- Construction HUD -->
   <div class="hud" id="hud" hidden>
     <div class="stab glass" id="stab" data-level="0" role="status" aria-live="polite">
@@ -491,6 +534,8 @@ select option{color:#111}
 <script src="js/events.js"></script>
 <script src="js/stadium.js"></script>
 <script src="js/studio.js"></script>
+<script src="js/photo.js"></script>
+<script src="js/regions.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

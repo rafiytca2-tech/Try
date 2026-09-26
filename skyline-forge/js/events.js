@@ -24,7 +24,7 @@ function weatherMods() { const id = weatherNow(); return Object.assign({ weather
 
 /* ---------------- City events ---------------- */
 function eventAt(ms) {
-  if (save.level < EVENT_LEVEL) return null;
+  if (skillLevel() < EVENT_LEVEL) return null;
   const slot = Math.floor(ms / (EVENT_HOURS * 3600e3)), n = EVENTS.length, epoch = Math.floor(slot / n);
   const order = EVENTS.map((e, i) => i), rng = mulberry32(hashStr('ev:' + epoch));
   for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }

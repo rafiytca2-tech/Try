@@ -230,6 +230,29 @@ const RENOVATIONS = [
 const RANKS = [[1, 'Hamlet'], [3, 'Village'], [5, 'Town'], [8, 'City'], [12, 'Big City'], [16, 'Metropolis'], [21, 'Megacity'], [26, 'Global City']];
 const rankFor = level => { let r = RANKS[0][1]; for (const [l, n] of RANKS) if (level >= l) r = n; return r; };
 
+/* ---- Regions (GDD §11): more cities in other climates. Coins, materials, skills, blueprints,
+   trophies and designs are shared; each city has its own lots, level and income. Every city you
+   own adds regional trade income to all of them. ---- */
+const REGIONS = [
+  { id: 'harbor', name: 'Harbor City',    climate: 'Temperate coast', unlock: 1,  cost: 0,
+    trait: 'Where your story starts. Four seasons, a busy harbour.', mods: {},
+    look: { grass: ['#6c9a4c', '#5f8c42', '#7eab58'], paving: '#dedad2', street: '#4b4f55', leaf: '#4f7d3f', city: '#ffffff', roof: '#8d9096', water: null, horizon: null, trees: 'round' } },
+  { id: 'tropic', name: 'Coral Bay',      climate: 'Tropical island', unlock: 12, cost: 40000,
+    trait: 'Tourism +25% and hotels +25%. Warm seas, sudden tropical storms.', mods: { tourism: 0.25, cap: { hot: 0.25 } },
+    weather: { clear: 38, cloudy: 12, wind: 10, rain: 18, fog: 2, storm: 16, snow: 0 },
+    look: { grass: ['#58b04a', '#4a9c3e', '#6cc45a'], paving: '#ece2c8', street: '#55585c', leaf: '#3aa04a', city: '#fff4ea', roof: '#c9b8a0', water: '#138a9c', horizon: '#ffe0b8', trees: 'palm' } },
+  { id: 'desert', name: 'Mirage Springs', climate: 'Desert oasis',    unlock: 16, cost: 100000,
+    trait: 'Solar power ×1.8, but water supplies give only 60%. Clear, hot skies.', mods: { solar: 1.8, water: 0.6, lv: 0.1 },
+    weather: { clear: 62, cloudy: 6, wind: 22, rain: 2, fog: 0, storm: 4, snow: 0 },
+    look: { grass: ['#b9a36a', '#a8925c', '#c9b47a'], paving: '#e6d2ae', street: '#6a5f52', leaf: '#7d8f4a', city: '#ffe6c8', roof: '#c9a878', water: '#2a8fa8', horizon: '#f6d7a6', trees: 'palm' } },
+  { id: 'north',  name: 'Fjordheim',      climate: 'Northern fjord',  unlock: 20, cost: 220000,
+    trait: 'Heating doubles power use, but wind turbines give ×1.6 and offices +15%. Snow most days.', mods: { heat: 2, wind: 1.6, cap: { off: 0.15 } },
+    weather: { clear: 18, cloudy: 22, wind: 16, rain: 0, fog: 10, storm: 4, snow: 30 },
+    look: { grass: ['#e8eef2', '#d6e0e6', '#f4f8fa'], paving: '#e9edf0', street: '#5c6168', leaf: '#2f5a3a', city: '#dfe8f4', roof: '#f2f5f8', water: '#0f3a52', horizon: '#dfe9f2', trees: 'pine' } },
+];
+const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
+const TRADE_BONUS = 0.05;          // income for every other city you own
+
 /* ---- City levels: population needed for each level (index 0 = level 1). ---- */
 const LEVELS = [0, 40, 150, 350, 650, 1000, 1500, 2100, 2800, 3600, 4500, 5600, 6800, 8200, 9800,
   11600, 13600, 15800, 18200, 21000, 24000, 27500, 31500, 36000, 41000, 47000, 54000, 62000, 71000, 81000];
@@ -361,6 +384,9 @@ const ACHIEVEMENTS = [
   { id: 'clean',     name: 'Clean Energy',       desc: 'Run solar and wind power together.', pr: 8 },
   { id: 'metro',     name: 'Underground',        desc: 'Open a Metro Station.', pr: 6 },
   { id: 'event',     name: 'Opportunist',        desc: 'Earn bonus coins from a city event.', pr: 4 },
+  { id: 'photo1',    name: 'Say Cheese',         desc: 'Take a picture in Photo mode.', pr: 3 },
+  { id: 'region2',   name: 'Sister City',        desc: 'Found a city in a second region.', pr: 20 },
+  { id: 'region4',   name: 'World Builder',      desc: 'Build a city in every region.', pr: 60 },
 ];
 
 /* ---- Cosmetics: crane paint, unlocked by prestige. ---- */

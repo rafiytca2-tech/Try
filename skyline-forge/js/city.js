@@ -7,6 +7,10 @@
 
 const City = { A: null, lv: {}, rate: 0 };
 const cityLevel = () => save.level;
+// Skills and modes follow the best city you've built anywhere, so a new region never takes them away.
+const skillLevel = () => Math.max(save.level, save.peak || 1);
+const regionMods = () => (typeof regionNow === 'function' ? regionNow().mods : {}) || {};
+const ownedCities = () => 1 + Object.keys(save.regions || {}).filter(k => k !== save.region && save.regions[k]).length;
 function levelForPop(p) { let l = 1; while (l < MAX_LEVEL && p >= LEVELS[l]) l++; return l; }
 const buildingAt = id => { const b = save.lots[id]; return b && b.bp ? b : null; };
 const placeAt = id => { const b = save.lots[id]; return b && b.place ? b.place : null; };
@@ -36,7 +40,7 @@ function lotContext() {
   }
   for (const lot of LOTS) {
     const c = { svc: {}, poll: 0, transit: 0, parks: 0 };
-    let v = DISTRICT_BY_ID[lot.d].lv + (lot.water ? 0.1 : 0);
+    let v = DISTRICT_BY_ID[lot.d].lv + (lot.water ? 0.1 : 0) + (regionMods().lv || 0);
     for (const o of src.park) if (o.id !== lot.id && c.parks < 2 && lotDist(lot, o) <= PLACEABLES.park.radius) { c.parks++; v += PLACEABLES.park.lv; }
     for (const o of src.plaza) if (o.id !== lot.id && lotDist(lot, o) <= PLACEABLES.plaza.radius) { v += PLACEABLES.plaza.lv; break; }
     for (const [o, P] of src.transit) if (lotDist(lot, o) <= P.radius) c.transit = Math.max(c.transit, P.lv);
@@ -57,8 +61,9 @@ const landValue = lot => (City.ctx && City.ctx[lot.id] ? City.ctx[lot.id].lv : D
 
 /* ---------------- The simulation ---------------- */
 function recomputeCity() {
+  const RM = regionMods();
   const A = { Rcap: 0, Ccap: 0, Ocap: 0, Icap: 0, Gcap: 0, Vcap: 0, Svc: 0, Ecap: 0, parks: 0, plazas: 0, landmarks: 0, arenas: 0, covered: 0, buildings: 0,
-    waterHotels: 0, floors: 0, power: UTIL.basePower, water: UTIL.baseWater, powerUse: 0, waterUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
+    waterHotels: 0, floors: 0, power: UTIL.basePower, water: Math.round(UTIL.baseWater * (RM.water || 1)), powerUse: 0, waterUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
     svc: { health: 0, edu: 0, safety: 0 }, extraTourism: 0 };
   const ctx = City.ctx = lotContext();
   const list = buildingsList();
@@ -69,7 +74,8 @@ function recomputeCity() {
     const P = PLACEABLES[p];
     if (p === 'park') A.parks++;
     if (p === 'plaza') A.plazas++;
-    A.power += P.power || 0; A.water += P.water || 0; A.roadCap += P.cap || 0; A.extraTourism += P.tourism || 0;
+    A.power += Math.round((P.power || 0) * (p === 'solar' ? RM.solar || 1 : p === 'wind' ? RM.wind || 1 : 1));
+    A.water += Math.round((P.water || 0) * (RM.water || 1)); A.roadCap += P.cap || 0; A.extraTourism += P.tourism || 0;
   }
   let oldTownTourism = 0, resCovered = 0, resTotal = 0;
   for (const [lot, b] of list) {
@@ -96,6 +102,7 @@ function recomputeCity() {
     }
   }
   for (const role of SERVICE_ROLES) A.svc[role] = resTotal ? A.svc[role] / resTotal : 0;
+  A.powerUse = Math.round(A.powerUse * (RM.heat || 1));             // northern cities heat every floor
   A.pollShare = resTotal ? A.polluted / resTotal : 0;
   // Utilities: a shortage empties buildings (GDD §6 Utilities).
   A.powerRatio = A.powerUse ? Math.min(1, A.power / A.powerUse) : 1;
@@ -108,7 +115,7 @@ function recomputeCity() {
   A.shopRatio = A.Rcap > 0 ? A.Ccap / (0.25 * A.Rcap) : 1;
   const stad = typeof stadiumDone === 'function' && stadiumDone();
   A.stadium = stad;
-  A.tourism = Math.min(1, 0.3 + (stad ? 0.25 : 0.03 * save.stadium.stage) + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
+  A.tourism = Math.min(1, 0.3 + (RM.tourism || 0) + (stad ? 0.25 : 0.03 * save.stadium.stage) + 0.15 * A.landmarks + 0.05 * A.plazas + 0.1 * Math.min(2, A.waterHotels) + oldTownTourism + 0.1 * Math.min(2, A.arenas) + A.extraTourism + 0.02 * Math.min(5, A.lights));
   // Traffic: commuters vs road and transit capacity (GDD §9).
   A.commute = 0.9 * Math.min(jobs, W);
   A.congestion = Math.max(0, A.commute / A.roadCap - 1);
@@ -170,7 +177,7 @@ function measureCity() {
   const ev = eventNow();
   A.matRate = indOut / ECON.materialsPerCap * ((ev && ev.matRate) || 1);
   City.rate = (eventInc('res') * (0.25 * P + 0.125 * rich) + eventInc('jobs') * 0.3 * filled + eventInc('guests') * 0.8 * guests + eventInc('visitors') * 0.5 * visitors)
-    * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion));
+    * (0.7 + 0.5 * A.happy) * A.meanLV * (1 - 0.1 * Math.min(1, A.congestion)) * (1 + TRADE_BONUS * (ownedCities() - 1));
 }
 const population = () => (City.A ? Math.round(City.A.pop) : 0);
 const incomeCap = () => Math.max(50, City.rate * ECON.incomeCapHours);
@@ -221,9 +228,11 @@ function checkLevelUp() {
   const ups = [];
   while (save.level < target) {
     save.level++;
-    const reward = ECON.levelReward(save.level);
+    const reward = ECON.levelReward(save.level), newPeak = save.level > (save.peak || 1);
     addCoins(reward);
-    ups.push({ level: save.level, reward, unlocks: unlocksAt(save.level) });
+    // Features you already have from another city aren't announced again.
+    ups.push({ level: save.level, reward, unlocks: unlocksAt(save.level).filter(u => u.type !== 'feature' || newPeak) });
+    save.peak = Math.max(save.peak || 1, save.level);
     bus.emit('level', save.level);
   }
   if (ups.length) persist();
@@ -311,7 +320,7 @@ function completeBuild(r) {
   const prev = buildingAt(lot.id), cont = !!(prev && !prev.done && prev.bp === r.bp && r.xs.length > prev.xs.length && r.xs.slice(0, prev.xs.length).every((x, i) => Math.abs(x - prev.xs[i]) < 0.2));
   const ev = eventNow(), evCap = (ev && ev.cap && ev.cap[bp.role]) || 0;
   const bonus = 1 + ((d.bonus && (d.bonus[r.bp] || 0)) || 0) + ((d.bonus && (d.bonus[bp.role] || 0)) || 0) + FORGE.specialBonus * r.specialPerfects
-    + ECON.masteryBonus * Math.max(0, masteryTier(r.bp)) + evCap;
+    + ECON.masteryBonus * Math.max(0, masteryTier(r.bp)) + evCap + ((regionMods().cap && regionMods().cap[bp.role]) || 0);
   const caps = {};
   for (const [role, v] of Object.entries(r.caps)) caps[role] = Math.round(v * bonus);
   if (cont) for (const [role, v] of Object.entries(capsOf(prev))) caps[role] = (caps[role] || 0) + v;
@@ -384,7 +393,7 @@ function renoCost(b, R) { return Math.round(BLUEPRINTS[b.bp].cost * R.cost / 10)
 function canRenovate(lot, id) {
   const b = buildingAt(lot.id), R = RENOVATIONS.find(x => x.id === id);
   if (!b || !R) return { ok: false, reason: 'Nothing to renovate' };
-  if (save.level < ECON.renoLevel) return { ok: false, reason: `City level ${ECON.renoLevel}`, locked: true };
+  if (skillLevel() < ECON.renoLevel) return { ok: false, reason: `City level ${ECON.renoLevel}`, locked: true };
   if (!b.done) return { ok: false, reason: 'Top it out first' };
   if (b.reno && b.reno[id]) return { ok: false, reason: 'Done', done: true };
   const cost = renoCost(b, R);

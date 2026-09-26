@@ -23,12 +23,12 @@ function makeContract() {
   const rng = mulberry32(hashStr(`contract:${save.created}:${n}`));
   const active = new Set(save.contracts.slots.filter(c => c && !c.empty).map(c => c.tpl));
   const ctx = { level: save.level, bps: unlockedBlueprints(), raceBest: save.race.best, pop: population() };
-  const pool = CONTRACTS.filter(t => t.min <= save.level && !active.has(t.id) && (t.id !== 'topout' || ctx.bps.length));
+  const pool = CONTRACTS.filter(t => t.min <= skillLevel() && !active.has(t.id) && (t.id !== 'topout' || ctx.bps.length));
   let total = pool.reduce((s, t) => s + t.w, 0), r = rng() * total, tpl = pool[0];
   for (const t of pool) { r -= t.w; if (r <= 0) { tpl = t; break; } }
   return Object.assign({ tpl: tpl.id, progress: 0, done: false, claimed: false }, tpl.make(rng, ctx));
 }
-function contractsOn() { return save.level >= FEATURES.contracts; }
+function contractsOn() { return skillLevel() >= FEATURES.contracts; }
 function ensureContracts() {
   if (!contractsOn()) return;
   const slots = save.contracts.slots, now = Date.now();
@@ -87,7 +87,7 @@ function replaceContract(i) {
 const contractsReady = () => (contractsOn() ? save.contracts.slots.filter(c => c && !c.empty && c.done).length : 0);
 
 /* ---------------- Daily challenge (same seed for everyone each day) ---------------- */
-function dailyOn() { return save.level >= FEATURES.daily; }
+function dailyOn() { return skillLevel() >= FEATURES.daily; }
 function dailyConfig(key = dayKey()) {
   const rng = mulberry32(hashStr('daily:' + key));
   const style = pick(rng, ['blue', 'red', 'green', 'gold', 'violet', 'teal']);
@@ -141,7 +141,7 @@ function weekKey(d = new Date()) {
   return `${t.getUTCFullYear()}-W${String(Math.ceil(((t - y0) / 864e5 + 1) / 7)).padStart(2, '0')}`;
 }
 function weekEndsIn() { const d = new Date(), end = new Date(d); end.setHours(24, 0, 0, 0); end.setDate(end.getDate() + (7 - (d.getDay() || 7))); return end - d; }
-const weeklyOn = () => save.level >= FEATURES.weekly;
+const weeklyOn = () => skillLevel() >= FEATURES.weekly;
 function weeklyConfig(key = weekKey()) {
   const rng = mulberry32(hashStr('weekly:' + key));
   const style = pick(rng, ['navy', 'teal', 'orange', 'violet', 'brick', 'sky', 'obsidian', 'gold']);
@@ -225,6 +225,8 @@ bus.on('district', n => { if (n >= 3) unlockAch('district3'); if (n >= DISTRICTS
 bus.on('daily', streak => { if (streak >= 3) unlockAch('daily3'); if (streak >= 7) unlockAch('daily7'); if (streak >= 30) unlockAch('daily30'); });
 bus.on('contract', n => { if (n >= 10) unlockAch('contract10'); });
 bus.on('stadium', n => { unlockAch('stage1'); if (n >= STADIUM.stages.length) unlockAch('stadium'); });
+bus.on('photo', () => unlockAch('photo1'));
+bus.on('region', n => { if (n >= 2) unlockAch('region2'); if (n >= REGIONS.length) unlockAch('region4'); });
 bus.on('weekly', tier => { if (tier >= 3) unlockAch('weekly1'); });
 bus.on('renovate', () => { if ((save.stats.renos || 0) >= 5) unlockAch('reno5'); });
 bus.on('build', ev => {

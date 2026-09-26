@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
         callIfPresent(s, "setMediaPlaybackRequiresUserGesture", false);   // API 17+
 
         web.setWebChromeClient(new WebChromeClient());
+        web.addJavascriptInterface(new PhotoBridge(this), "SkylineNative");   // Photo Mode: save and share
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {

@@ -99,7 +99,9 @@ const Sound = {
 const Music = {
   next: 0, step: 0, spb: 60 / 96 / 4, lv: { perc: 0, bass: 0, arp: 0 }, target: { perc: 0, bass: 0, arp: 0 }, timer: 0,
   start() { if (this.timer) return; this.next = Sound.ctx.currentTime + 0.1; this.timer = setInterval(() => this.tick(), 60); },
-  setChain(c) { this.target = { perc: c >= 2 ? 1 : 0, bass: c >= 4 ? 1 : 0, arp: c >= 7 ? 1 : 0 }; },
+  setChain(c) { this.spb = 60 / 96 / 4; this.target = { perc: c >= 2 ? 1 : 0, bass: c >= 4 ? 1 : 0, arp: c >= 7 ? 1 : 0 }; },
+  // In the city the music grows with it: a pulse from level 5, a bass line from 9, a lead from 14, and a touch faster.
+  setCity(l) { this.spb = 60 / (84 + Math.min(24, l)) / 4; this.target = { perc: l >= 5 ? 0.45 : 0, bass: l >= 9 ? 0.55 : 0, arp: l >= 14 ? 0.35 : 0 }; },
   tick() {
     const c = Sound.ctx;
     if (!c || c.state !== 'running' || !save.settings.music || document.hidden) { if (c) this.next = c.currentTime + 0.1; return; }

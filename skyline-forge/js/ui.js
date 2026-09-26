@@ -146,7 +146,7 @@ function updateHubHud() {
   }
   setText('happy', `${Math.round(A.happy * 100)}%`);
   setText('income', `${fmtK(City.rate)}/h`);
-  $('matChip').hidden = save.level < ECON.renoLevel;
+  $('matChip').hidden = skillLevel() < ECON.renoLevel;
   setText('hubMat', fmtK(Math.floor(save.materials)));
   const pl = A.power ? A.powerUse / A.power : 0, wl = A.water ? A.waterUse / A.water : 0, load = Math.max(pl, wl);
   setText('gridLbl', pl >= wl ? 'Power' : 'Water'); setText('grid', `${Math.round(load * 100)}%`);
@@ -419,7 +419,7 @@ function openBuildingSheet(lot, b) {
     </dl>
     ${b.recoveries && b.recoveries.length ? `<div class="chips">${b.recoveries.slice(-6).map(n => `<span>${esc(n)}</span>`).join('')}</div>` : ''}
     ${City.A && City.A.util < 0.99 ? `<p class="sub" style="color:var(--danger)">${City.A.powerRatio < City.A.waterRatio ? 'Power' : 'Water'} shortage: people are moving out. Add supply in the Utilities tab of an empty lot.</p>` : ''}
-    ${b.done && save.level >= ECON.renoLevel ? `<h3>Renovate</h3><div class="cards">${RENOVATIONS.map(R => renoCard(lot, b, R)).join('')}</div>` : ''}
+    ${b.done && skillLevel() >= ECON.renoLevel ? `<h3>Renovate</h3><div class="cards">${RENOVATIONS.map(R => renoCard(lot, b, R)).join('')}</div>` : ''}
     <div class="btns">
       ${!b.done ? `<button class="btn primary" type="button" id="cont" ${cont.ok || cont.matShort ? '' : 'disabled'}>${cont.ok || cont.matShort ? `Continue building · ${fmt(contCost)}${cont.mat ? ` + ${fmt(cont.mat)} materials` : ''}` : esc(cont.reason)}</button>` : ''}
       <div class="btn-row"><button class="btn" type="button" id="rebuild">Rebuild</button><button class="btn danger" type="button" id="demo">Demolish (+${fmt(Math.round(bp.cost * ECON.demolishRefund))})</button></div>
@@ -587,18 +587,19 @@ function showSettings(onDone) {
   openModal(`${head('Settings')}
     ${sw('sClassic', 'Classic controls', S2.classic, 'Drop the moment you touch, like the phone original. Turns off hold, Power Drop and recall.')}
     ${sw('sSfx', 'Sound effects', S2.sfx)}${sw('sMusic', 'Music', S2.music)}${sw('sHaptics', 'Vibration', S2.haptics)}
-    ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}
+    ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}${sw('sHc', 'High contrast', S2.contrast, 'Solid panels, brighter text and outlined labels.')}
     <label class="setting">Time of day<select id="sTod"><option value="auto">Match my clock</option><option value="day">Day</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
     <label class="setting">Weather<select id="sWeather"><option value="live">Live weather</option><option value="off">Always clear</option></select></label>
     <label class="setting">Graphics<select id="sQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="battery">Battery saver</option></select></label>
     <div class="btn-row"><button class="btn" type="button" id="sHow">How to play</button><button class="btn" type="button" id="sTipsReset">Replay tips</button></div>
     <button class="btn ghost danger" type="button" id="sReset">Reset all progress</button>
     <button class="btn primary" type="button" data-close>Done</button>`, p => {
-    const map = { sClassic: 'classic', sSfx: 'sfx', sMusic: 'music', sHaptics: 'haptics', sShake: 'shake', sTips: 'tips', sBig: 'bigText' };
+    const map = { sClassic: 'classic', sSfx: 'sfx', sMusic: 'music', sHaptics: 'haptics', sShake: 'shake', sTips: 'tips', sBig: 'bigText', sHc: 'contrast' };
     for (const [id, key] of Object.entries(map)) p.querySelector('#' + id).addEventListener('change', e => {
       save.settings[key] = e.target.checked; persist(); Sound.apply();
       if (key === 'haptics' && e.target.checked) vib(20);
       if (key === 'bigText') document.body.classList.toggle('big', e.target.checked);
+      if (key === 'contrast') document.body.classList.toggle('hc', e.target.checked);
     });
     p.querySelector('#sTod').value = S2.tod; p.querySelector('#sQuality').value = S2.quality; p.querySelector('#sWeather').value = S2.weather;
     p.querySelector('#sWeather').addEventListener('change', e => { save.settings.weather = e.target.value; persist(); });
@@ -640,7 +641,7 @@ function showCityInfo() {
   const A = City.A, lp = levelProgress();
   const next = []; for (let l = save.level + 1; l <= Math.min(MAX_LEVEL, save.level + 3); l++) for (const u of unlocksAt(l)) next.push({ ...u, name: `${u.name} (level ${l})` });
   const pct = v => `${Math.round(v * 100)}%`;
-  const matOn = save.level >= ECON.renoLevel;
+  const matOn = skillLevel() >= ECON.renoLevel;
   openModal(`${head(`${rankFor(lp.l)} · level ${lp.l}`, lp.next == null ? 'Top level reached' : `${fmt(population())} of ${fmt(lp.next)} residents for level ${lp.l + 1}`)}
     <div class="meter"><i style="width:${(lp.frac * 100).toFixed(1)}%"></i></div>
     <dl class="stats">
@@ -759,7 +760,7 @@ function showResults(r, sum) {
 function renderTitle() {
   const has = buildingsList().length;
   $('titleLede').innerHTML = has
-    ? `Population <b>${fmt(population())}</b> · level <b>${save.level}</b>. Your city is waiting.`
+    ? `<b>${esc(regionNow().name)}</b> · ${rankFor(save.level)} of <b>${fmt(population())}</b>, level <b>${save.level}</b>. Your city is waiting.`
     : 'Drop floors from the swinging crane, stack them straight, and build a whole city tower by tower.';
   $('btnPlay').textContent = has ? 'Continue' : 'Play';
   $('btnTitleDaily').disabled = !dailyOn();

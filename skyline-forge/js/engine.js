@@ -39,7 +39,7 @@ function featureOn(name) {
   if (save.settings.classic) return false;
   if (game && game.mods.noHold && (name === 'hold' || name === 'power')) return false;
   if (game && game.mods.noRecall && name === 'recall') return false;
-  return cityLevel() >= FEATURES[name];
+  return skillLevel() >= FEATURES[name];
 }
 function newGame(kind, o = {}) {
   const bp = o.bp ? BLUEPRINTS[o.bp] : null;

@@ -40,8 +40,8 @@ OUT_APK = os.path.join(DIST, 'SkylineForge.apk')
 
 PACKAGE = 'com.skylineforge.game'
 APP_NAME = 'Skyline Forge'
-VERSION_CODE = 5
-VERSION_NAME = '1.0.0'
+VERSION_CODE = 6
+VERSION_NAME = '1.1.0'
 MIN_SDK = 24          # Android 7.0: v2 signatures only (apksig's v1 signer needs JDK 8 internals)
 TARGET_SDK = 34
 
@@ -347,8 +347,13 @@ def main():
 
     log('compiling the WebView wrapper')
     src = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(HERE, 'src')) for f in fs if f.endswith('.java')]
+    # android/stubs adds API 17+ pieces the old Maven stubs lack (@JavascriptInterface). They are
+    # only on the compile classpath and are never dexed, so the device's own classes are used.
+    stubs_src = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(HERE, 'stubs')) for f in fs if f.endswith('.java')]
+    stubs = os.path.join(BUILD, 'stubs'); os.makedirs(stubs)
+    run(['javac', '--release', '8', '-Xlint:-options', '-d', stubs] + stubs_src)
     # The Maven stubs carry only android.*; java.* comes from the JDK's Java 8 API.
-    run(['javac', '--release', '8', '-Xlint:-options', '-cp', jars['android.jar'], '-d', classes] + src)
+    run(['javac', '--release', '8', '-Xlint:-options', '-cp', os.pathsep.join([jars['android.jar'], stubs]), '-d', classes] + src)
     log('dexing')
     dex = os.path.join(BUILD, 'classes.dex')
     run(['java', '-cp', jars['dx.jar'], 'com.android.dx.command.Main', '--dex', f'--min-sdk-version={MIN_SDK}', f'--output={dex}', classes])

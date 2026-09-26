@@ -45,6 +45,10 @@ function stepCamera(dt) {
     cam.pos.y += Math.sin(k * Math.PI) * Math.min(60, flyFrom.pos.distanceTo(goalPose.pos) * 0.15);
     cam.look.lerpVectors(flyFrom.look, goalPose.look, k);
     if (fly.t >= fly.dur) { const f = fly; fly = null; if (f.then) f.then(); }
+  } else if (state === 'photo') {
+    photoCamPose(goalPose);
+    const k = 1 - Math.exp(-12 * dt);
+    cam.pos.lerp(goalPose.pos, k); cam.look.lerp(goalPose.look, k);
   } else if (state === 'hub') {
     hubPose(goalPose);
     const k = 1 - Math.exp(-10 * dt);
@@ -79,6 +83,7 @@ function enterHub(openNear) {
   state = 'hub';
   $('hub').hidden = false; $('hud').hidden = true;
   $('toasts').style.top = '';
+  Music.setCity(save.level);
   recomputeCity(); updateHubHud(); setOverlayUI(); flushToasts();
   if (moveIn) {
     const m = moveIn; moveIn = null;
@@ -307,13 +312,19 @@ stage.addEventListener('pointerdown', e => {
   e.preventDefault();
   try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   if (state === 'hub') { hubDown(e); return; }
+  if (state === 'photo') { photoDown(e); return; }
   input.id = e.pointerId;
   press(e.clientY, e.timeStamp, e.pointerType === 'mouse' ? 'mouse' : 'touch');
 });
-stage.addEventListener('pointermove', e => { if (state === 'hub') hubMove(e); else if (e.pointerId === input.id) move(e.clientY, e.timeStamp); });
-stage.addEventListener('pointerup', e => { if (state === 'hub') hubUp(e); else if (e.pointerId === input.id) release(); });
-stage.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); gesture = null; input.down = false; input.pending = false; if (game) game.charge = null; });
-stage.addEventListener('wheel', e => { if (state !== 'hub' || e.target.closest('.sheet, .modal, .screen')) return; e.preventDefault(); hubCam.d *= Math.exp(e.deltaY * 0.0012); clampHub(); }, { passive: false });
+stage.addEventListener('pointermove', e => { if (state === 'hub') hubMove(e); else if (state === 'photo') photoMove(e); else if (e.pointerId === input.id) move(e.clientY, e.timeStamp); });
+stage.addEventListener('pointerup', e => { if (state === 'hub') hubUp(e); else if (state === 'photo') photoUp(e); else if (e.pointerId === input.id) release(); });
+stage.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); photoPointers.delete(e.pointerId); gesture = null; photo.drag = null; input.down = false; input.pending = false; if (game) game.charge = null; });
+stage.addEventListener('wheel', e => {
+  if (e.target.closest('.sheet, .modal, .screen')) return;
+  if (state === 'photo') { e.preventDefault(); photo.dist = clamp(photo.dist * Math.exp(e.deltaY * 0.0012), 12, 900); return; }
+  if (state !== 'hub') return;
+  e.preventDefault(); hubCam.d *= Math.exp(e.deltaY * 0.0012); clampHub();
+}, { passive: false });
 $('scrim').addEventListener('click', closeSheet);
 $('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
 
@@ -324,6 +335,7 @@ window.addEventListener('keydown', e => {
     if (!$('sheet').hidden) { closeSheet(); return; }
   }
   if (!$('modal').hidden || !$('sheet').hidden) return;
+  if (state === 'photo') { if (photoKey(k)) e.preventDefault(); return; }
   if (state === 'play') {
     if (k === ' ' || k === 'Enter') { e.preventDefault(); if (!e.repeat) press(0, e.timeStamp, 'key'); }
     else if (k === 'ArrowDown') {
@@ -376,8 +388,13 @@ click('btnTrophies', () => showTrophies());
 click('btnMap', cycleOverlay);
 click('evPill', showToday); click('wxPill', showToday);
 $('gridBox').parentElement.addEventListener('click', () => { Sound.click(); showCityInfo(); });
-click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
-  bind(p, '#mInfo', showCityInfo); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());
+click('pExit', exitPhoto);
+click('pShot', () => capturePhoto(false));
+click('pShare', () => capturePhoto(true));
+$('pShare').hidden = !(window.SkylineNative && window.SkylineNative.savePhoto);
+for (const b of $('photo').querySelectorAll('[data-p]')) b.addEventListener('click', () => { Sound.click(); photoCycle(b.dataset.p); });
+click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn primary" type="button" id="mPhoto">Photo mode</button><button class="btn" type="button" id="mRegions">Regions${skillLevel() >= REGIONS[1].unlock ? '' : ` · level ${REGIONS[1].unlock}`}</button><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
+  bind(p, '#mInfo', showCityInfo); bind(p, '#mPhoto', enterPhoto); bind(p, '#mRegions', showRegions); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());
   bind(p, '#mTitle', () => { $('modal').hidden = true; modalClose = null; persistNow(); toTitle(); });
 }));
 $('lvlChip').addEventListener('click', () => { Sound.click(); showCityInfo(); });
@@ -393,6 +410,7 @@ $('goal').addEventListener('click', () => {
 window.skylineBack = () => {
   if (!$('modal').hidden) { closeModal(); return; }
   if (!$('sheet').hidden) { closeSheet(); return; }
+  if (state === 'photo') { exitPhoto(); return; }
   if (state === 'play') pause();
   else if (state === 'pause') resume();
   else if (state === 'result') leaveSession();
@@ -402,7 +420,7 @@ window.skylineBack = () => {
 
 /* ---------------- Main loop (fixed 120 Hz steps, like the classic) ---------------- */
 const STEP = 1 / 120;
-let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0, lastEventId, lastWeather = null;
+let last = performance.now(), acc = 0, hubTimer = 0, slowTimer = 0, todTimer = 0, ambTimer = 8, lastEventId, lastWeather = null;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -426,7 +444,7 @@ function frame(now) {
     aimSun(game.site.x, Math.max(0, cam.look.y - 12), game.site.z, 60);
     floodlight.intensity = todName === 'night' ? 2.2 : todName === 'sunset' ? 0.8 : 0;
     floodlight.position.set(game.site.x - 14, top + 30, game.site.z + 30); floodlight.target.position.set(game.site.x, top * 0.6, game.site.z);
-  } else { aimSun(cam.look.x, 0, cam.look.z, Math.min(260, 60 + hubCam.d * 0.55)); floodlight.intensity = 0; }
+  } else { aimSun(cam.look.x, 0, cam.look.z, Math.min(260, 60 + (state === 'photo' ? photo.dist : hubCam.d) * 0.55)); floodlight.intensity = 0; }
   Sound.setWind(state === 'pause' ? 0 : Math.min(1, (state === 'play' ? Math.min(1, alt / 200) : 0.12) * (0.6 + 0.4 * wxVis.wind)));
   if (Sound.ctx) Sound.setAmbience(state === 'hub' ? clamp(0.25 + population() / 20000, 0.25, 1) * clamp(1.4 - hubCam.d / 400, 0.2, 1) : 0);
   updateWeather(dt, now / 1000);
@@ -453,6 +471,16 @@ function frame(now) {
     lastWeather = wx;
     persist();
   }
+  // Harbour sounds while you look at the city: gulls near the water, now and then the ferry's horn.
+  if (state === 'hub' && Sound.ctx && save.settings.sfx) {
+    ambTimer -= dt;
+    if (ambTimer <= 0) {
+      ambTimer = 6 + Math.random() * 12;
+      const nearWater = clamp(1.3 - Math.abs(cam.look.z - 60) / 120, 0, 1) * clamp(1.5 - hubCam.d / 350, 0, 1);
+      if (Math.random() < nearWater) Sound.gull();
+      else if (Math.random() < 0.12) Sound.horn();
+    }
+  }
   if (todTimer >= 60) { todTimer = 0; if (save.settings.tod === 'auto' && currentTod() !== todName) applyTimeOfDay(); }
   updateLabels(state === 'hub');
   if (state === 'hub') animateHubNumbers(dt);
@@ -474,7 +502,9 @@ function frame(now) {
 /* ---------------- Boot ---------------- */
 loadSave();
 registerCustoms();
+if (save.region !== 'harbor') applyRegionLook(regionNow().look);
 document.body.classList.toggle('big', !!save.settings.bigText);
+document.body.classList.toggle('hc', !!save.settings.contrast);
 applyQuality();
 applyTimeOfDay();
 setCranePaint(save.cosmetics.crane);

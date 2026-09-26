@@ -158,27 +158,30 @@ for (let i = -CITY_N; i <= CITY_N; i++) {
     }
   }
 }
-const pavingTex = (() => {
-  const N = 256, c = canvasOf(N, N), g = c.getContext('2d'), r = mulberry32(31);
-  rect(g, '#dedad2', 0, 0, N, N);
+const pavingCanvas = canvasOf(256, 256);
+function paintPaving(base) {
+  const N = 256, c = pavingCanvas, g = c.getContext('2d'), r = mulberry32(31);
+  rect(g, base, 0, 0, N, N);
   g.strokeStyle = 'rgba(0,0,0,.07)'; g.lineWidth = 1;
   for (let s = 0; s < N; s += 8) { g.beginPath(); g.moveTo(s, 0); g.lineTo(s, N); g.moveTo(0, s); g.lineTo(N, s); g.stroke(); }
   for (let i = 0; i < 900; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.08)'; g.fillRect(r() * N, r() * N, 2, 2); }
   g.strokeStyle = '#f4f1ea'; g.lineWidth = 5; g.strokeRect(2.5, 2.5, N - 5, N - 5);       // curb
   g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.strokeRect(5.5, 5.5, N - 11, N - 11);
-  return tex(c);
-})();
-instanced(unitBox, new T.MeshStandardMaterial({ map: pavingTex, roughness: 0.95 }), blocks, b => { vPos.set(b.x, -0.45, b.z); vScale.set(60, 0.35, 60); }).receiveShadow = true;
+}
+paintPaving('#dedad2');
+const pavingTex = tex(pavingCanvas);
+const blockMesh = instanced(unitBox, new T.MeshStandardMaterial({ map: pavingTex, roughness: 0.95 }), blocks, b => { vPos.set(b.x, -0.45, b.z); vScale.set(60, 0.35, 60); });
+blockMesh.receiveShadow = true;
 // Facade windows are computed in world space, so every building shares the same storey rhythm.
-const cityUniforms = { uLit: { value: 0.05 }, uWin: { value: 0.3 }, uSkyTint: { value: new T.Color('#8fbfe8') } };
+const cityUniforms = { uLit: { value: 0.05 }, uWin: { value: 0.3 }, uSkyTint: { value: new T.Color('#8fbfe8') }, uSnow: { value: 0 } };
 const cityMat = new T.MeshStandardMaterial({ roughness: 0.85, metalness: 0.05 });
 cityMat.onBeforeCompile = sh => {
-  sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin;
+  sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin; sh.uniforms.uSnow = cityUniforms.uSnow;
   sh.vertexShader = sh.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec3 vFP;\nvarying vec3 vFN;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 fpw = modelMatrix * instanceMatrix * vec4(position, 1.0);\nvFP = fpw.xyz;\nvFN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);');
   sh.fragmentShader = sh.fragmentShader
-    .replace('#include <common>', '#include <common>\nuniform float uLit;\nuniform float uWin;\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat fWin = 0.0;\nfloat fLit = 0.0;\nfloat fHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
+    .replace('#include <common>', '#include <common>\nuniform float uLit;\nuniform float uWin;\nuniform float uSnow;\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat fWin = 0.0;\nfloat fLit = 0.0;\nfloat fHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
     .replace('#include <color_fragment>', [
       '#include <color_fragment>',
       'if (abs(vFN.y) < 0.5) {',
@@ -191,7 +194,7 @@ cityMat.onBeforeCompile = sh => {
       '  diffuseColor.rgb = mix(diffuseColor.rgb, glass, w * 0.9);',
       '  fWin = w; fLit = w * step(1.0 - uLit, r);',
       '  diffuseColor.rgb *= mix(0.55, 1.0, step(3.6, vFP.y));',
-      '} else { diffuseColor.rgb *= 0.72; }'].join('\n'))
+      '} else { diffuseColor.rgb = mix(diffuseColor.rgb * 0.72, vec3(0.92, 0.94, 0.97), uSnow); }'].join('\n'))
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.16, fWin);')
     .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.8, 0.5) * fLit * uWin;');
 };
@@ -199,12 +202,12 @@ cityMat.customProgramCacheKey = () => 'city-windows-2';
 // Glass curtain wall: full-height glazing with mullions and spandrel bands.
 const glassMat = new T.MeshStandardMaterial({ roughness: 0.25, metalness: 0.12 });
 glassMat.onBeforeCompile = sh => {
-  sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin; sh.uniforms.uSkyTint = cityUniforms.uSkyTint;
+  sh.uniforms.uLit = cityUniforms.uLit; sh.uniforms.uWin = cityUniforms.uWin; sh.uniforms.uSkyTint = cityUniforms.uSkyTint; sh.uniforms.uSnow = cityUniforms.uSnow;
   sh.vertexShader = sh.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec3 vFP;\nvarying vec3 vFN;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 fpw = modelMatrix * instanceMatrix * vec4(position, 1.0);\nvFP = fpw.xyz;\nvFN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);');
   sh.fragmentShader = sh.fragmentShader
-    .replace('#include <common>', '#include <common>\nuniform float uLit;\nuniform float uWin;\nuniform vec3 uSkyTint;\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat gWin = 0.0;\nfloat gLit = 0.0;\nfloat gHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
+    .replace('#include <common>', '#include <common>\nuniform float uLit;\nuniform float uWin;\nuniform float uSnow;\nuniform vec3 uSkyTint;\nvarying vec3 vFP;\nvarying vec3 vFN;\nfloat gWin = 0.0;\nfloat gLit = 0.0;\nfloat gHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }')
     .replace('#include <color_fragment>', [
       '#include <color_fragment>',
       'if (abs(vFN.y) < 0.5) {',
@@ -217,7 +220,7 @@ glassMat.onBeforeCompile = sh => {
       '  diffuseColor.rgb = mix(diffuseColor.rgb * 0.7, glass, w);',
       '  gWin = w; gLit = w * step(1.0 - uLit * 0.8, r);',
       '  diffuseColor.rgb *= mix(0.6, 1.0, step(3.6, vFP.y));',
-      '} else { diffuseColor.rgb *= 0.7; }'].join('\n'))
+      '} else { diffuseColor.rgb = mix(diffuseColor.rgb * 0.7, vec3(0.92, 0.94, 0.97), uSnow); }'].join('\n'))
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.7, 0.12, gWin);')
     .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.86, 0.62) * gLit * uWin + uSkyTint * gWin * 0.22;');
 };
@@ -229,11 +232,18 @@ const steelGrey = new T.MeshStandardMaterial({ color: lin('#b8c0c8'), roughness:
 instanced(new T.ConeGeometry(1, 1, 8).translate(0, 0.5, 0), steelGrey, spires, s => { vPos.set(s.x, s.y - 0.25, s.z); vScale.set(s.r, s.h, s.r); }, true);
 instanced(new T.CylinderGeometry(0.18, 0.35, 1, 6).translate(0, 0.5, 0), steelGrey, antennas, a => { vPos.set(a.x, a.y - 0.25, a.z); vScale.set(1, a.h, 1); });
 instanced(new T.CylinderGeometry(1.4, 1.4, 2.6, 10).translate(0, 1.3 + 1.6, 0), new T.MeshStandardMaterial({ color: lin('#8a6a4a'), roughness: 0.9 }), tanks, t => { vPos.set(t.x, t.y - 0.25, t.z); vScale.setScalar(t.s); }, true);
-instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofBoxes, r => { vPos.set(r.x, r.y - 0.25, r.z); vScale.set(r.w, r.h, r.d); });
+const roofBoxMesh = instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofBoxes, r => { vPos.set(r.x, r.y - 0.25, r.z); vScale.set(r.w, r.h, r.d); });
 const treeTopGeo = new T.IcosahedronGeometry(2.4, 0).translate(0, 4.2, 0), trunkGeo = new T.CylinderGeometry(0.22, 0.3, 2.4, 5).translate(0, 1.2, 0);
+// Region trees: round (temperate), palms (tropics and desert), pines (north).
+const TREE_GEOS = {
+  round: { top: treeTopGeo, trunk: trunkGeo },
+  palm: { top: new T.IcosahedronGeometry(2.7, 0).scale(1, 0.32, 1).translate(0, 6.3, 0), trunk: new T.CylinderGeometry(0.16, 0.28, 6.2, 5).translate(0, 3.1, 0) },
+  pine: { top: new T.ConeGeometry(2.1, 6.4, 7).translate(0, 5, 0), trunk: new T.CylinderGeometry(0.2, 0.28, 2, 5).translate(0, 1, 0) },
+};
+let treeGeos = TREE_GEOS.round;
 const leafMat = new T.MeshStandardMaterial({ color: lin('#4f7d3f'), roughness: 0.9, flatShading: true }), barkMat = new T.MeshStandardMaterial({ color: lin('#5a4634'), roughness: 1 });
-instanced(treeTopGeo, leafMat, trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); }, true);
-instanced(trunkGeo, barkMat, trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
+const treeTopMesh = instanced(treeTopGeo, leafMat, trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); }, true);
+const trunkMesh = instanced(trunkGeo, barkMat, trees, t => { vPos.set(t.x, -0.25, t.z); vScale.setScalar(t.s); });
 
 /* ---------------- Traffic ---------------- */
 const cars = [];
@@ -301,11 +311,13 @@ const padTex = (() => {
   g.strokeStyle = '#e8b93a'; g.lineWidth = 5; g.setLineDash([12, 9]); g.strokeRect(6, 6, 116, 116);
   return tex(c);
 })();
-const grassTex = (() => {
-  const c = canvasOf(64, 64), g = c.getContext('2d'); rect(g, '#6c9a4c', 0, 0, 64, 64);
-  const r = mulberry32(4); for (let i = 0; i < 260; i++) { g.fillStyle = r() < 0.5 ? '#5f8c42' : '#7eab58'; g.fillRect(r() * 64, r() * 64, 2, 2); }
-  return tex(c);
-})();
+const grassCanvas = canvasOf(64, 64);
+function paintGrass([base, dark, light]) {
+  const g = grassCanvas.getContext('2d'); rect(g, base, 0, 0, 64, 64);
+  const r = mulberry32(4); for (let i = 0; i < 260; i++) { g.fillStyle = r() < 0.5 ? dark : light; g.fillRect(r() * 64, r() * 64, 2, 2); }
+}
+paintGrass(['#6c9a4c', '#5f8c42', '#7eab58']);
+const grassTex = tex(grassCanvas);
 const padGeo = new T.BoxGeometry(17, 0.3, 17).translate(0, -0.15, 0);
 const padMats = {
   open: new T.MeshStandardMaterial({ map: padTex, roughness: 0.9 }),
@@ -327,7 +339,7 @@ function buildPlaceable(key) {
     box(2.2, 0.08, 17, '#d9ccb0', 0, 0.1, 0); box(17, 0.08, 2.2, '#d9ccb0', 0, 0.1, 0);
     const r = mulberry32(key.length * 7);
     for (const [x, z] of [[-5, -5], [5, -5], [-5, 5], [5, 5], [-6, 0.5], [6, -0.5]]) {
-      const s = 0.55 + r() * 0.3, t = new T.Mesh(treeTopGeo, leafMat), k = new T.Mesh(trunkGeo, barkMat);
+      const s = 0.55 + r() * 0.3, t = new T.Mesh(treeGeos.top, leafMat), k = new T.Mesh(treeGeos.trunk, barkMat);
       t.scale.setScalar(s); k.scale.setScalar(s); t.position.set(x, 0, z); k.position.set(x, 0, z); t.castShadow = true; g.add(t, k);
     }
   } else if (key === 'plaza') {
@@ -747,4 +759,26 @@ function aimSun(x, y, z, size) {
   const c = sun.shadow.camera;
   if (c.right !== size) { c.left = -size; c.right = size; c.top = size; c.bottom = -size; c.updateProjectionMatrix(); }
   sun.target.position.set(x, y, z); sun.position.set(x, y, z).addScaledVector(sunDir, 300);
+}
+
+/* ---------------- Region looks (GDD §11): the same harbour in another climate ---------------- */
+const regionWater = { col: null };
+todHooks.push(P => { if (regionWater.col) waterMat.uniforms.uDeep.value.lerp(colA.set(regionWater.col), todName === 'night' ? 0.3 : 0.65); });
+function applyRegionLook(L) {
+  paintGrass(L.grass); grassTex.needsUpdate = true;
+  paintPaving(L.paving); pavingTex.needsUpdate = true;
+  leafMat.color.copy(lin(L.leaf));
+  cityMat.color.copy(lin(L.city)); glassMat.color.copy(lin(L.city));
+  roofBoxMesh.material.color.copy(lin(L.roof));
+  cityUniforms.uSnow.value = L.trees === 'pine' ? 0.85 : 0;
+  regionSky.hor = L.horizon; regionWater.col = L.water;
+  // Park blocks in the backdrop take the region's ground colour.
+  blocks.forEach((b, i) => { if (b.c === '#6d8f4e' || b.park) { b.park = true; blockMesh.setColorAt(i, col3.set(L.grass[0]).convertSRGBToLinear()); } });
+  blockMesh.instanceColor.needsUpdate = true;
+  // Trees: swap the shapes, then rebuild the park models so they match.
+  treeGeos = TREE_GEOS[L.trees] || TREE_GEOS.round;
+  treeTopMesh.geometry = treeGeos.top; trunkMesh.geometry = treeGeos.trunk;
+  for (const k of Object.keys(placeTemplates)) delete placeTemplates[k];
+  for (const [id, m] of Object.entries(placeMeshes)) { scene.remove(m); delete placeMeshes[id]; }
+  applyTimeOfDay();
 }

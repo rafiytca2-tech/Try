@@ -33,6 +33,7 @@ const ALT_MIX = [[0, 0], [210, 0.1], [390, 0.45], [540, 0.78], [720, 1]];   // t
 let todName = 'day', fogBoost = 0;
 // Weather's effect on light and sky (events.js eases these toward the current weather).
 const wxVis = { grey: 0, sun: 1, fog: 1, rain: 0, snow: 0, wind: 1, flash: 0 };
+const regionSky = { hor: null };   // a region can warm or cool the horizon (world.js applyRegionLook)
 function currentTod() {
   const pref = save.settings.tod;
   if (pref !== 'auto') return TOD[pref] ? pref : 'day';
@@ -103,6 +104,7 @@ function applySky(alt) {
   const P = TOD[todName], k = altMix(Math.max(0, alt));
   for (const key of ['top', 'mid', 'hor']) {
     skyTmp[key].set(P[key]);
+    if (regionSky.hor && key !== 'top') skyTmp[key].lerp(colA.set(regionSky.hor), (key === 'hor' ? 0.35 : 0.12) * (todName === 'night' ? 0.25 : 1));
     if (wxVis.grey > 0.001) { const c = skyTmp[key], l = (0.3 * c.r + 0.55 * c.g + 0.15 * c.b) * (1 - 0.4 * wxVis.grey); c.lerp(colA.setRGB(l, l * 1.02, l * 1.06), wxVis.grey); }
     skyTmp[key].lerp(colB.set(SPACE[key]), k);
   }

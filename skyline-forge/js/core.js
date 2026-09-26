@@ -85,6 +85,9 @@ function defaultSave() {
     stadium: { stage: 0, parts: {} },            // the Harbor Stadium megaproject
     custom: [],                  // player-made blueprints
     overlay: '',                 // hub map overlay
+    region: 'harbor',            // the city you are in; the others wait in regions{}
+    regions: {},                 // region id -> that city's saved state while you're away
+    peak: 1,                     // highest city level anywhere: your skills and features
   };
 }
 let save = defaultSave();
