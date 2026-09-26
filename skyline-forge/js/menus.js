@@ -6,6 +6,21 @@
  * ==================================================================== */
 
 const imgTag = (src, alt = '') => (src ? `<img src="${src}" alt="${esc(alt)}" draggable="false">` : '');
+// A thumbnail that isn't rendered yet starts empty and is filled in a couple per frame, so a
+// long list opens at once instead of pausing to draw every building first.
+function thumbTag(key, style, alt = '') {
+  const hit = thumbCache[key + '|' + (key.startsWith('place:') ? '' : style || BLUEPRINTS[key].style)];
+  if (hit) return imgTag(hit, alt);
+  if (!thumbPump) thumbPump = requestAnimationFrame(pumpThumbs);
+  return `<img data-tk="${esc(key)}" data-ts="${esc(style || '')}" alt="${esc(alt)}" draggable="false">`;
+}
+let thumbPump = 0;
+function pumpThumbs() {
+  thumbPump = 0;
+  const left = document.querySelectorAll('img[data-tk]');
+  for (let i = 0; i < Math.min(2, left.length); i++) { const el = left[i]; el.src = thumbFor(el.dataset.tk, el.dataset.ts || undefined); el.removeAttribute('data-tk'); }
+  if (left.length > 2) thumbPump = requestAnimationFrame(pumpThumbs);
+}
 const tabsHtml = (list, cur) => `<div class="tabs" role="tablist">${list.map(([k, n, ic]) => `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${k === cur}">${ic ? ICON[ic] : ''}${n}</button>`).join('')}</div>`;
 const coinAmt = n => `<span class="coin">${ICON.coin}</span> ${fmt(n)}`;
 const pct = v => `${Math.round(v * 100)}%`;
@@ -72,9 +87,11 @@ function regionInfo(R) {
   if (here) return { cls: 'here', pop: population(), level: save.level, stars: cityStars(save), label: 'You are here', act: 'Go to city' };
   if (away) return { cls: '', pop: away.pop || 0, level: away.level, stars: cityStars(away), label: 'Travel', act: `Travel · ${fmt(awayBank(away))} waiting` };
   if (f.locked) return { cls: 'locked', locked: true, label: `Unlock at Lv. ${R.unlock}`, act: `Opens at city level ${R.unlock}` };
-  return { cls: 'new', label: fmtK(R.cost), act: f.ok ? `Found for ${fmt(R.cost)}` : f.reason, can: f.ok };
+  return { cls: 'new', label: fmtK(R.cost), act: !f.ok ? f.reason : foundArmed === R.id ? `Tap again: found for ${fmt(R.cost)}` : `Found for ${fmt(R.cost)}`, can: f.ok };
 }
+let foundArmed = null;                                // founding costs a lot, so it takes a second tap
 function showWorldMap(sel = save.region) {
+  if (foundArmed !== sel) foundArmed = null;
   const W = 360, Hh = 540;
   const route = REGIONS.map(R => WPOS[R.id] || [180, 280]).map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
   const waves = []; for (let i = 0; i < 26; i++) { const x = (i * 97) % 340 + 10, y = (i * 61) % 520 + 10; waves.push(`<path d="M${x} ${y}q5 -4 10 0q5 4 10 0" stroke="#fff" stroke-width="2" fill="none" opacity=".45"/>`); }
@@ -105,7 +122,8 @@ function regionAct(id) {
   if (save.regions[id]) { shut(); hubThen(() => regionTransition(() => travelTo(id))); return; }
   const f = canFound(R);
   if (!f.ok) { Sound.deny(); toast(f.locked ? `${R.name} opens when any of your cities reaches level ${R.unlock}` : f.reason); return; }
-  shut(); hubThen(() => regionTransition(() => { foundRegion(id); toast(`Welcome to ${R.name}. Your first permit is free.`, 'good'); }));
+  if (foundArmed !== id) { foundArmed = id; showWorldMap(id); return; }
+  foundArmed = null; shut(); hubThen(() => regionTransition(() => { foundRegion(id); toast(`Welcome to ${R.name}. Your first permit is free.`, 'good'); }));
 }
 
 /* ---------------- Build list and the building info card ---------------- */
@@ -124,7 +142,7 @@ function bpRow(key, lot, check) {
   const cost = check.cost ?? permitCost(key), mat = check.mat ?? matCost(key);
   const lockTxt = bp.contract && !save.bpUnlocks[key] ? 'Contract' : `Lv. ${bp.level}`;
   return `<div class="row ${locked ? 'locked' : ''}" role="button" tabindex="0" data-info="${key}">
-    <span class="thumb">${imgTag(thumbFor(key, chosenStyle(key)), bp.name)}</span>
+    <span class="thumb">${thumbTag(key, chosenStyle(key), bp.name)}</span>
     <span><b>${esc(bp.name)}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small>
       <span class="cost">${ICON.coin}${cost ? fmt(cost) : 'Free'}${mat ? ` ${ICON.mat}${fmt(mat)}` : ''}</span>
       ${!locked && !check.ok ? `<small style="color:#c0392b">${esc(check.reason)}</small>` : ''}</span>
@@ -133,7 +151,7 @@ function bpRow(key, lot, check) {
 function placeRow(key, lot) {
   const P = PLACEABLES[key], r = canPlace(key, lot), locked = P.level > save.level;
   return `<div class="row ${locked ? 'locked' : ''}" data-pinfo="${key}">
-    <span class="thumb">${imgTag(thumbFor('place:' + key), P.name)}</span>
+    <span class="thumb">${thumbTag('place:' + key, '', P.name)}</span>
     <span><b>${esc(P.name)}</b><small>${esc(P.blurb)}</small><span class="cost">${ICON.coin}${fmt(P.cost)}</span>${!locked && !r.ok ? `<small style="color:#c0392b">${esc(r.reason)}</small>` : ''}</span>
     ${locked ? `<span class="lock">${ICON.lock}Lv. ${P.level}</span>` : `<button class="btn go small act" type="button" data-place="${key}" ${r.ok ? '' : 'aria-disabled="true"'}>Place</button>`}</div>`;
 }
@@ -155,7 +173,7 @@ function showBpInfo(key, keys, lot, back) {
   const needs = (bp.needs || []).map(n => n === 'parkOrWater' ? 'a park or the waterfront' : NEED_TEXT[n]).join(' + ');
   const html = `${head(esc(bp.name), `${ROLE_LABEL[bp.role]}${bp.unique ? ' · one per city' : ''}${bp.contract ? ' · contract exclusive' : ''}`)}
     <div class="info">
-      <div class="hero">${imgTag(thumbFor(key, cur), bp.name)}${keys.length > 1 ? `<button class="nav l" type="button" data-step="-1" aria-label="Previous">‹</button><button class="nav r" type="button" data-step="1" aria-label="Next">›</button>` : ''}</div>
+      <div class="hero">${thumbTag(key, cur, bp.name)}${keys.length > 1 ? `<button class="nav l" type="button" data-step="-1" aria-label="Previous">‹</button><button class="nav r" type="button" data-step="1" aria-label="Next">›</button>` : ''}</div>
       <div class="facts">${starsHtml(m.stars || 0)}
         ${fact('floors', 'Floors', bp.floors)}${fact('people', 'Base capacity', `≈${fmt(estimate(key))}`)}
         <div class="fact">${ICON.star}<span>Difficulty${starsHtml(difficulty(bp))}</span></div>
@@ -165,7 +183,7 @@ function showBpInfo(key, keys, lot, back) {
     <p class="lede">${esc(bp.blurb || '')}${needs ? ` Needs ${esc(needs)} nearby.` : ''}${bp.phases ? ` Built in ${bp.phases.length} phases: ${bp.phases.map(p => p[1]).join(', ')}.` : ''}</p>
     ${m.built ? `<p class="sub">Topped out ${plural(m.built, 'time')}${tier > 0 ? ` · +${Math.round(tier * ECON.masteryBonus * 100)}% capacity` : ''}</p>` : ''}
     ${vars ? `<div><p class="sub">Facades (top out ${MASTERY_TIERS[1]} and ${MASTERY_TIERS[2]} times to unlock more)</p><span class="variants">${vars}</span></div>` : ''}
-    ${keys.length > 1 ? `<div class="strip">${keys.map(k => { const b2 = BLUEPRINTS[k], lk = b2.level > save.level || (b2.contract && !save.bpUnlocks[k]); return `<button type="button" class="${k === key ? 'on' : ''} ${lk ? 'locked' : ''}" data-pick="${k}" aria-label="${esc(b2.name)}">${imgTag(thumbFor(k, chosenStyle(k)))}</button>`; }).join('')}</div>` : ''}
+    ${keys.length > 1 ? `<div class="strip">${keys.map(k => { const b2 = BLUEPRINTS[k], lk = b2.level > save.level || (b2.contract && !save.bpUnlocks[k]); return `<button type="button" class="${k === key ? 'on' : ''} ${lk ? 'locked' : ''}" data-pick="${k}" aria-label="${esc(b2.name)}">${thumbTag(k, chosenStyle(k))}</button>`; }).join('')}</div>` : ''}
     ${lot ? `<button class="btn go" type="button" id="iBuild" ${check.ok || check.matShort ? '' : 'disabled'}>${check.ok || check.matShort ? `Build here` : esc(check.reason)}</button>`
     : `<button class="btn go" type="button" id="iBuild" ${locked ? 'disabled' : ''}>${locked ? (bp.contract && !save.bpUnlocks[key] ? 'Earn it from a contract' : `Unlocks at level ${bp.level}`) : 'Find a lot to build'}</button>`}`;
   const mount = p => {
@@ -188,7 +206,7 @@ function showBpInfo(key, keys, lot, back) {
 function showPlaceInfo(key, lot) {
   const P = PLACEABLES[key], r = lot ? canPlace(key, lot) : null;
   const html = `${head(esc(P.name), UTIL_KEYS.has(key) ? 'Utility' : P.transit ? 'Transit' : 'Park & plaza')}
-    <div class="info"><div class="hero">${imgTag(thumbFor('place:' + key), P.name)}</div>
+    <div class="info"><div class="hero">${thumbTag('place:' + key, '', P.name)}</div>
     <div class="facts">${P.radius ? `<div class="fact">${ICON.land}<span>Reach<b>${P.radius} m</b></span></div>` : ''}${P.lv ? `<div class="fact">${ICON.income}<span>Land value<b>+${Math.round(P.lv * 100)}%</b></span></div>` : ''}
       ${['power', 'water', 'waste', 'data'].filter(u => P[u]).map(u => `<div class="fact">${ICON.util}<span>${UTIL_NAMES[u]}<b>+${fmt(P[u])}</b></span></div>`).join('')}
       <div class="fact">${ICON.coin}<span>Cost<b>${fmt(P.cost)}</b></span></div><div class="fact">${ICON.lock}<span>Unlocks<b>Level ${P.level}</b></span></div></div></div>
@@ -264,7 +282,7 @@ function showMissions(tab = 'daily') {
       rows.push(`<div class="row ${dailyCleared() ? 'done' : ''}" style="cursor:default"><span class="ric">${ICON.calendar}</span><span><b>Daily Challenge: ${esc(cfg.name)}</b><small>Build ${cfg.target} floors · ${dailyStreak() ? `${dailyStreak()}-day streak` : 'start a streak'}</small></span><button class="btn small ${dailyCleared() ? '' : 'go'}" type="button" id="mDaily">${dailyCleared() ? 'Again' : 'Go'}</button></div>`);
     }
     const st = loginState();
-    const chests = LOGIN_REWARDS.map((R, k) => { const got = k < st.day || (st.claimedToday && k === st.day - 1), ready = st.ready && k === st.day;
+    const chests = LOGIN_REWARDS.map((R, k) => { const got = k < st.day || (st.claimedToday && st.day === 0), ready = st.ready && k === st.day;
       return `<button class="chest ${got ? 'got' : ''} ${ready ? 'ready' : ''}" type="button" ${ready ? 'id="mChest"' : 'disabled'}>${ICON[k === 6 ? 'gift' : 'chest']}${k + 1}<small>${R.p && !R.c ? `${R.p} ✦` : R.m && !R.c ? `${R.m} mat.` : fmtK(Math.round((R.c || 0) * loginUnit()))}</small></button>`; }).join('');
     body = `<div class="cards">${rows.join('')}</div>
       <div class="whitebox" style="background:rgba(0,30,90,.3);border-color:rgba(255,255,255,.3);color:#fff"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0;color:#fff;text-shadow:var(--outline)">Daily Reward</h3><span class="sub" style="display:flex;align-items:center;gap:4px">${ICON.clock.replace('viewBox', 'width="18" height="18" viewBox')}${st.ready ? 'Ready now' : fmtDuration(msToMidnight())}</span></div><div class="chests">${chests}</div><p class="sub" style="margin-top:8px">Come back every day: miss one and the chests start again.</p></div>`;
@@ -305,7 +323,7 @@ function showEvents() {
   if (weeklyOn()) {
     const cfg = weeklyConfig(), w = weeklyState(), gold = WEEKLY_TIERS[2];
     cards.push(`<div class="evcard"><span class="ribbon">Skyscraper Challenge</span>
-      <div class="art">${['residence', 'spire', 'office'].map(k => imgTag(thumbFor(k, cfg.style))).join('')}</div>
+      <div class="art">${['residence', 'spire', 'office'].map(k => thumbTag(k, cfg.style)).join('')}</div>
       <div class="evrow"><span><b>${esc(cfg.name)}</b><small>Top out a ${cfg.target}-floor tower in ${WEATHER[cfg.weather].name.toLowerCase()} weather. Gold at ${fmt(cfg.tiers[2])} points.</small><small style="margin-top:4px">${timer(weekEndsIn())} &nbsp;Rewards: ${ICON.coin.replace('viewBox', 'width="16" height="16" viewBox')} ${fmt(gold[1])} · ${gold[2]} ✦${w.tiers ? ` · ${WEEKLY_TIERS[w.tiers - 1][0]} earned` : ''}</small></span><button class="btn go" type="button" id="eWeekly">Play</button></div></div>`);
   } else cards.push(`<div class="evcard" style="filter:grayscale(.5)"><span class="ribbon">Skyscraper Challenge</span><div class="evrow"><span><b>Weekly Challenge</b><small>A long tower with its own weather and crane, bronze to gold every week.</small></span><span class="timer">${ICON.lock.replace('viewBox', 'width="18" height="18" viewBox')}Lv. ${FEATURES.weekly}</span></div></div>`);
   if (dailyOn()) { const cfg = dailyConfig(); cards.push(`<div class="evcard green"><div class="evrow"><span><b>${ICON.calendar.replace('viewBox', 'width="26" height="26" style="vertical-align:-6px" viewBox')} Daily: ${esc(cfg.name)}</b><small>${cfg.mods.map(m => esc(m.name)).join(' · ') || 'Classic rules'} · build ${cfg.target} floors${dailyStreak() ? ` · ${dailyStreak()}-day streak` : ''}</small><small style="margin-top:4px">${timer(msToMidnight())}</small></span><button class="btn ${dailyCleared() ? '' : 'go'}" type="button" id="eDaily">${dailyCleared() ? 'Again' : 'Play'}</button></div></div>`); }
@@ -325,8 +343,8 @@ const showToday = showEvents;
 
 /* ---------------- City stats ---------------- */
 function trendOf(k, v) {
-  const t = save.trend;
-  if (!t || t.region !== save.region || t.key !== dayKey() || !t[k]) return '';
+  const t = save.trend[save.region];
+  if (!t || t.key !== dayKey() || !t[k]) return '';
   const d = (v - t[k]) / Math.max(1e-6, Math.abs(t[k]));
   if (Math.abs(d) < 0.001) return '';
   return `<em class="${d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${(d * 100).toFixed(1)}% today</em>`;
@@ -334,7 +352,8 @@ function trendOf(k, v) {
 // Called from the city tick: remember the city as it was at the start of the day.
 function trackTrend() {
   const A = City.A; if (!A) return;
-  if (save.trend.key !== dayKey() || save.trend.region !== save.region) save.trend = { key: dayKey(), region: save.region, pop: A.pop, rate: City.rate, jobs: A.filled, happy: A.happy };
+  const t = save.trend[save.region];
+  if (!t || t.key !== dayKey()) save.trend[save.region] = { key: dayKey(), pop: A.pop, rate: City.rate, jobs: A.filled, happy: A.happy };
 }
 function tallestKey() { let best = null, n = 0; for (const [, b] of buildingsList()) if (b.done && b.xs.length > n) { n = b.xs.length; best = b; } return best; }
 function showCityInfo(tab = 'overview') {
@@ -344,7 +363,7 @@ function showCityInfo(tab = 'overview') {
     const tb = tallestKey(), [sg, sm] = cityStars();
     const next = []; for (let l = save.level + 1; l <= Math.min(MAX_LEVEL, save.level + 3); l++) for (const u of unlocksAt(l)) next.push({ ...u, name: `${u.name} (level ${l})` });
     const D = [['Homes', 'res', A.demand.R, 'var(--res)'], ['Shops', 'com', A.demand.C, 'var(--com)'], ['Offices', 'off', A.demand.O, 'var(--off)'], ['Industry', 'ind', A.demand.I || 0, 'var(--ind)']];
-    body = `<div class="whitebox citycard"><span class="thumb">${imgTag(thumbFor(tb ? tb.bp : 'flats', tb ? tb.style || chosenStyle(tb.bp) : undefined))}</span>
+    body = `<div class="whitebox citycard"><span class="thumb">${thumbTag(tb ? tb.bp : 'flats', tb ? tb.style || chosenStyle(tb.bp) : undefined)}</span>
         <span><b>${esc(regionNow().name)}</b><small style="display:block;color:var(--card-muted)">City level ${lp.l} · ${rankFor(lp.l)}${lp.next == null ? '' : ` · ${fmt(population())} of ${fmt(lp.next)} for level ${lp.l + 1}`}</small>
         <span class="starbar">${ICON.star}<span class="meter"><i style="width:${sm ? Math.round(sg / sm * 100) : 0}%"></i></span>${sg}/${sm}</span></span></div>
       <div class="tiles">
@@ -430,13 +449,13 @@ function showCollection(tab = 'buildings') {
     keys = Object.keys(PLACEABLES).sort((a, b) => PLACEABLES[a].level - PLACEABLES[b].level);
     const placed = new Set(Object.values(save.lots).filter(b => b && b.place).map(b => b.place));
     cells = keys.map(k => { const P = PLACEABLES[k], lk = P.level > save.level;
-      return `<button class="gcell ${lk ? 'locked' : ''}" type="button" data-pk="${k}"><span class="thumb">${imgTag(thumbFor('place:' + k))}</span>${lk ? ICON.lock.replace('<svg', '<svg class="lk"') : ''}<b>${esc(P.name)}</b><small>${lk ? `Lv. ${P.level}` : placed.has(k) ? 'In your city' : 'Unlocked'}</small></button>`; });
+      return `<button class="gcell ${lk ? 'locked' : ''}" type="button" data-pk="${k}"><span class="thumb">${thumbTag('place:' + k)}</span>${lk ? ICON.lock.replace('<svg', '<svg class="lk"') : ''}<b>${esc(P.name)}</b><small>${lk ? `Lv. ${P.level}` : placed.has(k) ? 'In your city' : 'Unlocked'}</small></button>`; });
   } else {
     const special = k => bpTab(k) === 'special';
     keys = BP_KEYS.filter(k => (tab === 'landmarks') === special(k)).sort((a, b) => BLUEPRINTS[a].level - BLUEPRINTS[b].level);
     if (tab === 'buildings') keys = keys.concat(save.custom.map(d => customKey(d.id)).filter(k => BLUEPRINTS[k]));
     cells = keys.map(k => { const bp = BLUEPRINTS[k], m = save.mastery[k] || { built: 0, stars: 0 }, lk = bp.level > save.level || (bp.contract && !save.bpUnlocks[k]);
-      return `<button class="gcell ${lk ? 'locked' : ''}" type="button" data-ck="${k}"><span class="thumb">${imgTag(thumbFor(k, chosenStyle(k)))}</span>${lk ? ICON.lock.replace('<svg', '<svg class="lk"') : ''}<b>${esc(bp.name)}</b>${lk ? `<small>${bp.contract && !save.bpUnlocks[k] ? 'Contract' : `Lv. ${bp.level}`}</small>` : starsHtml(m.stars || 0)}</button>`; });
+      return `<button class="gcell ${lk ? 'locked' : ''}" type="button" data-ck="${k}"><span class="thumb">${thumbTag(k, chosenStyle(k))}</span>${lk ? ICON.lock.replace('<svg', '<svg class="lk"') : ''}<b>${esc(bp.name)}</b>${lk ? `<small>${bp.contract && !save.bpUnlocks[k] ? 'Contract' : `Lv. ${bp.level}`}</small>` : starsHtml(m.stars || 0)}</button>`; });
   }
   const got = tab === 'places' ? keys.filter(k => PLACEABLES[k].level <= save.level).length : keys.filter(k => (save.mastery[k] || {}).built).length;
   const T = [['buildings', 'Buildings', 'buildings'], ['landmarks', 'Landmarks', 'special'], ['places', 'Places', 'map']];

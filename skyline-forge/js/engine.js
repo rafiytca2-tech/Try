@@ -270,8 +270,9 @@ function settle(g, b, dx) {
     if (s.amp < 1.5) s.phase = dx > 0 ? 0 : Math.PI;   // start swinging toward the heavy side
     s.target = Math.min(CFG.sway.max, s.target + Math.abs(dx) * CFG.sway.gain * E);
   }
-  // Momentum: a floor that lands moving sideways pushes the whole tower.
-  if (n > 0 && b.vx) { s.target = Math.min(CFG.sway.max, s.target + Math.abs(b.vx) * FORGE.collapse.kick * E); if (s.amp < 1.5) s.phase = b.vx > 0 ? 0 : Math.PI; }
+  // Momentum: a floor that lands moving sideways pushes the whole tower (a Perfect or a settling
+  // drop is clean enough not to).
+  if (n > 0 && b.vx && !perfect && !settled) { s.target = Math.min(CFG.sway.max, s.target + Math.abs(b.vx) * FORGE.collapse.kick); if (s.amp < 1.5) s.phase = b.vx > 0 ? 0 : Math.PI; }
   s.target = Math.max(s.target, g.mods.wind);
   if (g.danger) { g.danger.placed++; if (perfect && b.power > 1) g.danger.power = true; }
 
@@ -368,9 +369,9 @@ function checkStructure(g, dt) {
     const m = (C.grip * W / 2 - Math.abs(lat)) / (C.grip * W / 2);
     if (m < worst) { worst = m; wk = k; wlat = lat; }
   }
-  if (g.startFloors === 0) {                              // the whole tower on its slab
-    const lat = (sumX + g.tower[0].x) / n + ((sumH + H / 2) / n) * ta;
-    const m = (CFG.slabHalf - Math.abs(lat)) / CFG.slabHalf;
+  if (g.startFloors === 0) {                              // the whole tower on its slab and footings
+    const lat = (sumX + g.tower[0].x) / n + ((sumH + H / 2) / n) * ta, edge = CFG.slabHalf + W / 2;
+    const m = (edge - Math.abs(lat)) / edge;
     if (m < worst) { worst = m; wk = -1; wlat = lat; }
   }
   S.k = wk; S.m = worst; S.lat = wlat;
@@ -379,12 +380,12 @@ function checkStructure(g, dt) {
     S.strain += dt * (1 + 6 * -worst);                  // the further past the edge, the faster it goes
     if (S.strain > C.hold) { collapseAt(g, wk, Math.sign(wlat) || 1); return; }
   } else S.strain = Math.max(0, S.strain - dt * 0.8);
-  // Telegraph: creaks, dust at the weak joint and a shiver, faster as it gets worse.
+  // Telegraph: creaks and dust at the weak joint, and a shiver once it is critical.
   if (S.level >= 2 && wk >= 0) {
     S.creak -= dt;
     if (S.creak <= 0) {
-      S.creak = S.level === 3 ? 0.45 : 0.9;
-      Sound.creak(S.level === 3 ? 1 : 0.6); vib(S.level === 3 ? [10, 30, 10, 30, 10] : [8, 40, 8]);
+      S.creak = S.level === 3 ? 0.45 : 2.2;
+      Sound.creak(S.level === 3 ? 1 : 0.5); if (S.level === 3) vib([10, 30, 10, 30, 10]);
       const j = toWorld(g, g.tower[wk].x + Math.sign(wlat) * W / 2, -(wk + 1) * H, swayAngle(g));
       dust(j.x, j.y, 6, 3);
       showTip('balance');
@@ -393,7 +394,7 @@ function checkStructure(g, dt) {
 }
 function collapseAt(g, k, sgn) {
   const n = g.tower.length, a = swayAngle(g), first = k + 1;
-  const pivot = k >= 0 ? toWorld(g, g.tower[k].x + sgn * W / 2, -(k + 1) * H, a) : { x: sgn * CFG.slabHalf, y: 0 };
+  const pivot = k >= 0 ? toWorld(g, g.tower[k].x + sgn * W / 2, -(k + 1) * H, a) : { x: sgn * (CFG.slabHalf + W / 2), y: 0 };
   const pieces = [];
   for (let i = first; i < n; i++) pieces.push({ f: g.tower[i], c: toWorld(g, g.tower[i].x, -(i * H + H / 2), a), i });
   const hCom = pieces.reduce((s, p) => s + (pivot.y - p.c.y), 0) / pieces.length;
@@ -428,6 +429,8 @@ function collapseAt(g, k, sgn) {
   g.lives = full ? 0 : g.lives - 1;
   g.ratings.Collapse = (g.ratings.Collapse || 0) + 1;
   if (g.lives <= 0) { if (!g.ending) g.ending = { t: 1.8 }; setTimeout(() => Sound.over(), 700); }
+  // The floor waiting on the hook was made for the old height (it may have been the roof).
+  if (g.hook.has && g.hookMesh) { siteRoot.remove(g.hookMesh); g.hookMesh = makeModule(floorStyle(g), nextKind(g), roofStyleOf(g.bp, g.style)); siteRoot.add(g.hookMesh); }
   updateBuildHud();
 }
 // The GDD's recovery ladder: how bad it got, how long you fought it, and how you finished it.

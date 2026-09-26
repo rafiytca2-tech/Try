@@ -242,7 +242,7 @@ function nextGoal() {
 function nextGoalText() {
   const A = City.A, B = text => ({ text, build: true });
   if (!buildingsList().length) return { text: 'Tap the glowing lot on <b>Harbor Row</b> to build your first homes.', build: LOT_BY_ID['harbor-C2'] };
-  if (contractsReady()) return `A contract is complete. <b>Tap Jobs</b> to claim it.`;
+  if (contractsReady()) return `A mission is complete. Tap <b>Missions</b> to claim it.`;
   if (save.bank >= 1 && save.bank >= incomeCap() * 0.99) return `Income storage is <b>full</b>. Collect it so your city keeps earning.`;
   if (save.bank >= 50) return `Your city has earned <b>${fmt(save.bank)}</b> coins. Tap <b>Collect</b>.`;
   const FIX = { power: ['power', 'a <b>Power Plant</b>', 'power'], water: ['water', 'a <b>Water Tower</b>', 'tower'], waste: ['waste handling', 'a <b>Landfill</b>', 'dump'], data: ['connectivity', 'a <b>Cell Tower</b>', 'cell'] };
@@ -259,7 +259,7 @@ function nextGoalText() {
   if (A.demand.R > 0.3) return B('Jobs are going unfilled. Build more <b>homes</b>.');
   if (dailyOn() && !dailyCleared()) return "Today's <b>Daily Challenge</b> is waiting.";
   const open = LOTS.filter(l => save.districts[l.d] && !save.lots[l.id]).length;
-  if (!open) { const d = DISTRICTS.find(x => !save.districts[x.id]); if (d) return d.level <= save.level ? `Room to grow: buy <b>${d.name}</b> for ${fmt(d.cost)} coins.` : `<b>${d.name}</b> opens at city level ${d.level}.`; }
+  if (!open) { const d = DISTRICTS.filter(x => !save.districts[x.id]).sort((a, b) => a.level - b.level || a.cost - b.cost)[0]; if (d) return d.level <= save.level ? `Room to grow: buy <b>${d.name}</b> for ${fmt(d.cost)} coins.` : `<b>${d.name}</b> opens at city level ${d.level}.`; }
   if (A.happy < 0.6 && save.level >= PLACEABLES.park.level) return 'Happiness is low. A <b>Park</b> raises it and nearby land value.';
   return B(`Beat your Sky Race record of <b>${save.race.best}</b> floors, or tap an empty lot to build.`);
 }
@@ -334,8 +334,7 @@ function openModal(html, onMount, onClose) {
   $('modalPanel').innerHTML = html; m.hidden = false; $('modalPanel').scrollTop = 0;
   modalClose = onClose || null;
   if (onMount) onMount($('modalPanel'));
-  const x = $('modalPanel').querySelector('[data-close]');
-  if (x) x.addEventListener('click', closeModal);
+  for (const x of $('modalPanel').querySelectorAll('[data-close]')) x.addEventListener('click', closeModal);
   const b = $('modalPanel').querySelector('.btn.primary, .btn');
   if (b && !touchDevice) b.focus({ preventScroll: true });
 }
@@ -353,7 +352,7 @@ function estimate(key) { const bp = typeof key === 'string' ? BLUEPRINTS[key] : 
 function lotTitle(lot) { return `${DISTRICT_BY_ID[lot.d].name} · ${lot.row}${lot.col}`; }
 function lotPills(lot) {
   const lv = City.lv[lot.id] || 1, c = (City.ctx && City.ctx[lot.id]) || { svc: {}, poll: 0, transit: 0 };
-  return `<div class="pills"><span class="${lv > 1.05 ? 'good' : lv < 0.95 ? 'bad' : ''}">Land value ×${lv.toFixed(2)}</span>${lot.water ? '<span class="good">Waterfront</span>' : ''}${DISTRICT_BY_ID[lot.d].maxFloors ? `<span>Max ${DISTRICT_BY_ID[lot.d].maxFloors} floors</span>` : ''}${c.transit ? '<span class="good">Transit</span>' : ''}${SERVICE_ROLES.filter(r => c.svc[r]).map(r => `<span class="good">${SERVICE_NAMES[r]}</span>`).join('')}${c.poll ? '<span class="bad">Polluted</span>' : ''}</div>`;
+  return `<div class="pills"><span class="${lv > 1.05 ? 'good' : lv < 0.95 ? 'bad' : ''}">Land value ×${lv.toFixed(2)}</span>${isWater(lot) ? '<span class="good">Waterfront</span>' : ''}${DISTRICT_BY_ID[lot.d].maxFloors ? `<span>Max ${DISTRICT_BY_ID[lot.d].maxFloors} floors</span>` : ''}${c.transit ? '<span class="good">Transit</span>' : ''}${SERVICE_ROLES.filter(r => c.svc[r]).map(r => `<span class="good">${SERVICE_NAMES[r]}</span>`).join('')}${c.poll ? '<span class="bad">Polluted</span>' : ''}</div>`;
 }
 const SVC_ROLES = new Set(['edu', 'health', 'safety', 'ent']);
 const UTIL_KEYS = new Set(['power', 'tower', 'solar', 'wind', 'waterworks', 'dump', 'recycling', 'cell', 'datacenter', 'fusion']);
@@ -444,7 +443,7 @@ function openBuildingSheet(lot, b) {
   const roles = Object.entries(caps).filter(([, v]) => v > 0).map(([r, v]) => `<span>${fmt(v * occ)} / ${fmt(v)} ${ROLE_NAMES[r]}</span>`).join('');
   const date = new Date(b.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const cont = !b.done ? canBuild(b.bp, lot, { cont: true }) : null;
-  openSheet(`${head(bp.name, `${lotTitle(lot)} · ${ROLE_LABEL[bp.role]}`)}
+  openSheet(`${head(esc(bp.name), `${lotTitle(lot)} · ${ROLE_LABEL[bp.role]}`)}
     <div class="whitebox citycard"><span class="thumb">${imgTag(thumbFor(b.bp, b.style || chosenStyle(b.bp)), bp.name)}</span><span>${starsHtml(b.stars || 0)}<small style="display:block;color:var(--card-muted);font-weight:800">${b.done ? `Topped out · ${b.xs.length} floors` : bp.phases ? `${b.xs.length} of ${bp.floors} floors · next phase: ${(nextPhase(bp, b.xs.length) || [0, ''])[1]}` : `Unfinished · ${b.xs.length} of ${b.target} floors`}</small></span></div>
     ${bp.phases ? `<div class="chips">${bp.phases.map(p => `<span style="${b.xs.length >= p[0] ? '' : 'opacity:.45'}">${esc(p[1])}</span>`).join('')}</div>` : ''}
     <div class="pills">${roles}</div>

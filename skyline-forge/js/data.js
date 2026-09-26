@@ -403,11 +403,13 @@ const CONTRACTS = [
   { id: 'weather',  min: 3, w: 1, make: () => ({ type: 'weather', target: 1, text: 'Top out a building in wind, rain, fog or a storm', coins: 420, prestige: 6 }) },
   { id: 'transit',  min: 5, w: 1, make: () => ({ type: 'transit', target: 1, text: 'Open a new transit stop', coins: 500, prestige: 4 }) },
   // Clients with constraints (GDD §10): where, what, and how well.
-  { id: 'district', min: 4, w: 2, make: (r, c) => { const own = c.districts.filter(id => id !== 'harbor'), d = own.length ? pick(r, own) : 'harbor', role = pick(r, ['res', 'com', 'off']);
+  { id: 'district', min: 4, w: 2, make: (r, c) => {
+      const own = c.districts.filter(id => id !== 'harbor'), d = own.length ? pick(r, own) : 'harbor', mf = DISTRICT_BY_ID[d].maxFloors;
+      const fits = ['res', 'com', 'off'].filter(ro => c.bps.some(k => BLUEPRINTS[k].role === ro && (!mf || BLUEPRINTS[k].floors <= mf))), role = pick(r, fits.length ? fits : ['res']);
       return { type: 'district', d, role, target: 1, text: `Top out a ${ROLE_LABEL[role].toLowerCase()} building in ${DISTRICT_BY_ID[d].name}`, coins: 460, prestige: 6 }; } },
   { id: 'transitHome', min: 6, w: 1, make: () => ({ type: 'transitHome', target: 1, text: 'Top out homes on a lot served by transit', coins: 540, prestige: 6 }) },
   { id: 'waterHotel', min: 9, w: 1, make: () => ({ type: 'waterHotel', target: 1, text: 'Top out a waterfront hotel with 85%+ quality', coins: 950, prestige: 8 }) },
-  { id: 'tall',     min: 6, w: 1, make: r => { const f = pick(r, [20, 30]); return { type: 'tall', f, target: 1, text: `Top out a ${f}+ floor tower without a collapse`, coins: 32 * f, prestige: 7 }; } },
+  { id: 'tall',     min: 6, w: 1, make: (r, c) => { const top = Math.max(20, ...c.bps.filter(k => !BLUEPRINTS[k].phases).map(k => BLUEPRINTS[k].floors)), f = pick(r, [20, 30].filter(x => x <= top)); return { type: 'tall', f, target: 1, text: `Top out a ${f}+ floor tower without a collapse`, coins: 32 * f, prestige: 7 }; } },
 ];
 
 /* ---- Achievements: each pays prestige once. ---- */

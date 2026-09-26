@@ -305,6 +305,7 @@ function canBuild(key, lot, opts = {}) {
   if (d.maxFloors && bp.floors > d.maxFloors) return { ok: false, reason: `Max ${d.maxFloors} floors here`, cost };
   const here = save.lots[lot.id];
   if (here && here.place) return { ok: false, reason: 'Lot in use', cost };
+  if (bp.phases && !opts.cont && here && here.bp) return { ok: false, reason: 'Demolish the old tower first', cost };   // a phase can't beat a finished tower
   if (bp.unique && !opts.cont) for (const [l2, b] of buildingsList()) if (b.bp === key && l2.id !== lot.id) return { ok: false, reason: 'One per city', cost };
   if (!opts.cont) {
     const missing = needsMet(key, lot);

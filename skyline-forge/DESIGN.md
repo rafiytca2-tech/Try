@@ -40,8 +40,8 @@ Classic pixels, y down, 1 px = 0.15 m in 3D.
 - **Swing**: reach 40 px → 72 px (+0.6 per floor) and speed 2.3 → 3.8 rad/s (+0.03 per floor).
   The rope hangs still until the first floor is in view, then builds up its swing over 1.1 s.
 - **Drop**: the gap is covered in 0.36 s. The floor keeps 20% of the swing's sideways speed, so
-  you lead the drop a little; on landing it slides a few pixels with that speed and kicks the
-  tower's sway by `|vx| · 0.12 · E`.
+  you lead the drop a little. On landing it slides a few pixels with that speed and, unless it
+  was a Perfect or a settling Power Drop, kicks the tower's sway by `|vx| · 0.12`.
 - **Landing**:
   - |dx| ≤ 5 px is a Perfect;
   - |dx| ≤ 20 px sticks;
@@ -97,12 +97,12 @@ gestures off.
 - **Collapse** (physics, not a rule): after every step the engine checks each joint. For the
   floors above joint k it takes their centre of mass, plus the lean the current sway gives it
   (`height · tan(sway angle)`), and compares it with the joint's grip, `1.25 · W / 2`. A new
-  tower is also checked against its foundation slab. When the centre of mass passes the edge,
+  tower is also checked as a whole against its slab and footings (half-width 52 + 20 px). When the centre of mass passes the edge,
   strain builds (faster the further out it is); after 0.3 s the tower breaks at that joint and
   everything above topples as one piece to that side, like a felled tree, costing a life;
   if the whole tower leaves its slab, the session ends.
   Floors from earlier sessions count as anchored. The engine telegraphs it first: the joint
-  glows, creaks and sheds dust, the phone shivers and the stability readout turns Critical, and a
+  glows, creaks and sheds dust, the stability readout turns Critical and the phone shivers, and a
   tip suggests counterbalancing on the other side. A collapse is recorded in the report.
 
 ### Scoring (GDD §4)

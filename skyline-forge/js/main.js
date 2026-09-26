@@ -92,7 +92,7 @@ function enterHub(openNear) {
     if (m.done) setTimeout(() => popupAt('Moving in', m.lot.x, m.h + 14, m.lot.z, 'info'), 250);
     burst(m.lot.x, m.h, m.lot.z, 30, '#ffd76a', 6, 6, 1.2, 1.4, true);
   }
-  if (save.ftue === 0 && !buildingsList().length) { showFirstRun(); return; }
+  if (save.ftue === 0 && !buildingsList().length) { afterHub = null; showFirstRun(); return; }
   const ups = checkLevelUp();
   const after = () => {
     ensureContracts(); updateHubHud();
@@ -319,7 +319,7 @@ function hubUp(e) {
 
 const stage = $('stage');
 stage.addEventListener('pointerdown', e => {
-  if (e.target.closest('button, .screen, .sheet, .modal, .scrim, .hub-top, .rail, .hub-bottom, .collect, label, select')) return;
+  if (e.target.closest('button, .screen, .sheet, .modal, .scrim, .hub-top, .rail, .hub-bottom, .collect, .navbar, .buildhere, label, select')) return;
   if (e.button > 0 && !(state === 'hub' && e.button === 2)) return;
   e.preventDefault();
   try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }

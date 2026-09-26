@@ -16,7 +16,8 @@ bus.on('recovery', () => { save.stats.recoveries++; });
 
 /* ---------------- Contracts ---------------- */
 function unlockedBlueprints() {
-  return BP_KEYS.filter(k => BLUEPRINTS[k].level <= save.level && !(BLUEPRINTS[k].unique && buildingsList().some(([, b]) => b.bp === k && b.done)));
+  // What a contract may ask you to top out: unlocked, earned if it's a contract reward, not the phased Arcology.
+  return BP_KEYS.filter(k => { const bp = BLUEPRINTS[k]; return bp.level <= save.level && !(bp.contract && !save.bpUnlocks[k]) && !bp.phases && !(bp.unique && buildingsList().some(([, b]) => b.bp === k && b.done)); });
 }
 function makeContract() {
   const n = ++save.contracts.made;
