@@ -49,34 +49,7 @@ function travelTo(id) {
   return true;
 }
 
-/* ---------------- The region map ---------------- */
-function showRegions() {
-  const cards = REGIONS.map(R => {
-    const here = R.id === save.region, away = save.regions[R.id], f = canFound(R);
-    let status, sub;
-    if (here) { status = 'You are here'; sub = `${fmt(population())} residents · level ${save.level}`; }
-    else if (away) { status = 'Travel'; sub = `${fmt(away.pop || 0)} residents · level ${away.level} · ${fmt(awayBank(away))} coins waiting`; }
-    else if (f.locked) { status = `Level ${R.unlock}`; sub = R.climate; }
-    else { status = f.ok ? `Found · ${fmtK(R.cost)}` : esc(f.reason); sub = `${R.climate} · founding costs ${fmt(R.cost)} coins`; }
-    const col = R.look.grass[0];
-    return `<button class="card ${here ? 'done' : ''}" type="button" data-region="${R.id}" aria-disabled="${here || (!away && !f.ok)}">
-      <i class="sw" style="--c:${col}"></i><span><b>${esc(R.name)}</b><small>${esc(sub)}</small><small>${esc(R.trait)}</small></span><span class="go">${status}</span></button>`;
-  }).join('');
-  const n = ownedCities();
-  openModal(`${head('Regions', `${n} of ${REGIONS.length} cities · trade adds +${Math.round(TRADE_BONUS * (n - 1) * 100)}% income everywhere`)}
-    <p class="lede">Found new cities in other climates. Your coins, materials, skills, designs and trophies travel with you; each city has its own lots, level and income, and <b>every city you own adds ${Math.round(TRADE_BONUS * 100)}% trade income to all of them</b>.</p>
-    <div class="cards">${cards}</div>`, p => {
-    bind(p, '[data-region]', el => {
-      const id = el.dataset.region, R = REGION_BY_ID[id];
-      if (id === save.region) return;
-      if (save.regions[id]) { closeModal(); regionTransition(() => travelTo(id)); return; }
-      const f = canFound(R);
-      if (!f.ok) { Sound.deny(); toast(f.locked ? `${R.name} opens when any of your cities reaches level ${R.unlock}` : f.reason); return; }
-      if (el.dataset.arm) { closeModal(); regionTransition(() => { foundRegion(id); toast(`Welcome to ${R.name}. Your first permit is free.`, 'good'); }); }
-      else { el.dataset.arm = 1; el.querySelector('.go').textContent = 'Tap again to found'; }
-    });
-  });
-}
+// The map itself lives in menus.js (showWorldMap).
 // Fade to black, swap cities, and fly in over the new harbour.
 function regionTransition(fn) {
   const f = $('fade');

@@ -152,6 +152,7 @@ function recomputeCity() {
     R: A.Rcap || jobs ? clamp((jobs - W) / Math.max(W, 50), -1, 1) : 1,
     C: clamp((0.25 * A.Rcap - A.Ccap) / Math.max(0.25 * A.Rcap, 30), -1, 1),
     O: clamp((W - jobs) / Math.max(W, 50), -1, 1),
+    I: clamp((0.12 * A.Rcap - A.Icap) / Math.max(0.12 * A.Rcap, 30), -1, 1),   // factories for materials, roughly one job in eight
   };
   // Target occupancy per building.
   const roleT = {

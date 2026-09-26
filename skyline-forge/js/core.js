@@ -90,6 +90,10 @@ function defaultSave() {
     region: 'harbor',            // the city you are in; the others wait in regions{}
     regions: {},                 // region id -> that city's saved state while you're away
     peak: 1,                     // highest city level anywhere: your skills and features
+    profile: { name: 'Builder' },
+    login: { last: '', day: 0 },                 // daily login chests: last claim day and the next chest (0..6)
+    trend: { key: '', pop: 0, rate: 0, jobs: 0, happy: 0 },   // the city at the start of today, for the +% readouts
+    shop: { deal: '' },                          // the day the daily deal was bought
   };
 }
 let save = defaultSave();

@@ -7,18 +7,16 @@ Maven Central and npm and is cached in android/.cache/:
   * android.jar stubs (com.google.android:android)      -> compile the WebView wrapper
   * dx (com.jakewharton.android.repackaged:dalvik-dx)   -> .class to classes.dex
   * apksig (com.android.tools.build:apksig)             -> APK Signature Scheme v1 + v2
-  * three.js r128 and the Barlow fonts from npm         -> bundled so the game runs offline
+  * three.js r128 from npm                              -> bundled so the game runs offline
+    (the game's two fonts are already embedded in index.html)
 
 The binary AndroidManifest.xml and resources.arsc are written by the encoders below.
 
     python3 skyline-forge/android/build_apk.py            # -> skyline-forge/android/dist/SkylineForge.apk
 """
-import base64
 import hashlib
 import io
-import json
 import os
-import re
 import shutil
 import struct
 import subprocess
@@ -40,8 +38,8 @@ OUT_APK = os.path.join(DIST, 'SkylineForge.apk')
 
 PACKAGE = 'com.skylineforge.game'
 APP_NAME = 'Skyline Forge'
-VERSION_CODE = 6
-VERSION_NAME = '1.1.0'
+VERSION_CODE = 7
+VERSION_NAME = '1.2.0'
 MIN_SDK = 24          # Android 7.0: v2 signatures only (apksig's v1 signer needs JDK 8 internals)
 TARGET_SDK = 34
 
@@ -59,7 +57,6 @@ DEPS = {
 }
 THREE_TGZ = 'https://registry.npmjs.org/three/-/three-0.128.0.tgz'
 THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
-FONTS = [('barlow-condensed', 'Barlow Condensed', (500, 600, 700)), ('barlow', 'Barlow', (400, 500, 600))]
 
 
 def log(msg):
@@ -277,31 +274,9 @@ def icon_png(size=192):
 
 
 # ---------------------------------------------------------------- offline web assets
-def npm_tarball(pkg):
-    meta = json.load(urllib.request.urlopen(f'https://registry.npmjs.org/{pkg.replace("/", "%2f")}', timeout=60))
-    ver = meta['dist-tags']['latest']
-    return meta['versions'][ver]['dist']['tarball'], ver
-
-
-def font_css():
-    rules = []
-    for pkg, family, weights in FONTS:
-        url, ver = npm_tarball(f'@fontsource/{pkg}')
-        tgz = fetch(url, os.path.join(CACHE, f'fontsource-{pkg}-{ver}.tgz'))
-        with tarfile.open(tgz) as t:
-            for w in weights:
-                data = t.extractfile(f'package/files/{pkg}-latin-{w}-normal.woff2').read()
-                b64 = base64.b64encode(data).decode()
-                rules.append(f'@font-face{{font-family:"{family}";font-style:normal;font-weight:{w};font-display:swap;'
-                             f'src:url(data:font/woff2;base64,{b64}) format("woff2")}}')
-    return '\n'.join(rules)
-
-
 def game_assets():
     html = bundle(GAME)
     html = html.replace(THREE_CDN, 'three.min.js')
-    html = re.sub(r'<link rel="preconnect"[^>]*>\n', '', html)
-    html = re.sub(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com[^>]*>\n', '<style>\n' + font_css() + '\n</style>\n', html)
     if 'cdnjs.cloudflare.com' in html or 'fonts.googleapis.com' in html:
         sys.exit('game still references the network; update the rewrite rules in build_apk.py')
     tgz = fetch(THREE_TGZ, os.path.join(CACHE, 'three-0.128.0.tgz'))

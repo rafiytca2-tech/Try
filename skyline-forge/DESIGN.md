@@ -1,12 +1,14 @@
-# Skyline Forge 1.1: design spec
+# Skyline Forge 1.2: design spec
 
 This is how the *Skyline Forge Master Game Design Document* (GDD) is realised in the shipping
 game. The GDD sets the direction. This file sets the systems and the numbers. All tuning lives in
 `js/data.js`, so every value below can be changed in one place.
 
 The one fixed rule: **the construction feel is the classic Skyline Stack engine**. The rope,
-swing, drop, 40 × 46 blocks, Perfect tolerance, tip-off rules, rigid sway and camera framing come
-from the 2D original unchanged. Everything else is built around it.
+drop, 40 × 46 blocks, Perfect tolerance, tip-off rules and rigid sway come from the 2D original.
+Version 1.2 changes the classic in four places, all asked for in play-testing: the rope hangs
+still until the first floor is in view, swings wider, a dropped floor keeps a little of the
+swing's momentum, and a badly balanced tower can now collapse.
 
 ## 1. Core loop (GDD §1)
 
@@ -23,9 +25,10 @@ BUILD a tower on a lot ─► residents / jobs move in ─► population grows, 
   it, with its own leans and offsets, and it shows in the background of later builds.
 - **Strategy**: power, water, services, pollution, traffic and materials make *where* and *what*
   you build matter, without adding any new controls to construction.
-- **Meta**: contracts, city events, live weather, a daily and a weekly challenge, the Sky Race
-  record, a stadium megaproject, mastery facades, a Blueprint Studio, regions, achievements and
-  cosmetics. These give short- and long-term reasons to come back.
+- **Meta**: missions (contracts), a daily chest track, city events, live weather, a daily and a
+  weekly challenge, the Sky Race record, the stadium and airport megaprojects, the 250-floor
+  Arcology, mastery facades, a Blueprint Studio, six regions, achievements, a coin shop and a
+  collection. These give short- and long-term reasons to come back.
 
 ## 2. Construction (GDD §2–4)
 
@@ -34,8 +37,11 @@ BUILD a tower on a lot ─► residents / jobs move in ─► population grows, 
 Classic pixels, y down, 1 px = 0.15 m in 3D.
 
 - **Block**: 40 × 46 px (6 × 6.9 × 6 m).
-- **Swing**: reach 30 px → 62 px (+0.6 per floor) and speed 2.3 → 3.8 rad/s (+0.03 per floor).
-- **Drop**: straight down. The gap is covered in 0.36 s.
+- **Swing**: reach 40 px → 72 px (+0.6 per floor) and speed 2.3 → 3.8 rad/s (+0.03 per floor).
+  The rope hangs still until the first floor is in view, then builds up its swing over 1.1 s.
+- **Drop**: the gap is covered in 0.36 s. The floor keeps 20% of the swing's sideways speed, so
+  you lead the drop a little; on landing it slides a few pixels with that speed and kicks the
+  tower's sway by `|vx| · 0.12 · E`.
 - **Landing**:
   - |dx| ≤ 5 px is a Perfect;
   - |dx| ≤ 20 px sticks;
@@ -46,7 +52,8 @@ Classic pixels, y down, 1 px = 0.15 m in 3D.
   - A Perfect keeps 45% of it.
   - Short towers can only tilt 0.06 rad.
 - **Lives**: 3 misses end a session.
-- **Camera**: the tower top sits 58% down the screen. The intro shows the crane first.
+- **Camera**: the tower top sits 58% down the screen. The intro shows the crane first. From the
+  5th floor the camera eases back, up to 40% further by the 40th, so the city stays in view.
 
 ### Forge layer (GDD §2)
 
@@ -87,9 +94,16 @@ gestures off.
   | Impossible Recovery | Critical at ≥ 95% sway on a 20+ floor tower | 600 | 8 |
   | Legendary Recovery | Impossible + a Power Perfect during the episode | 1200 | 15 |
 
-- Partial and full collapse are not used. The classic tip-off and three-miss rule keep failure
-  readable and recoverable, and an unfinished tower can be continued later (GDD §3:
-  "bad placement should not automatically end a run").
+- **Collapse** (physics, not a rule): after every step the engine checks each joint. For the
+  floors above joint k it takes their centre of mass, plus the lean the current sway gives it
+  (`height · tan(sway angle)`), and compares it with the joint's grip, `1.25 · W / 2`. A new
+  tower is also checked against its foundation slab. When the centre of mass passes the edge,
+  strain builds (faster the further out it is); after 0.3 s the tower breaks at that joint and
+  everything above topples as one piece to that side, like a felled tree, costing a life;
+  if the whole tower leaves its slab, the session ends.
+  Floors from earlier sessions count as anchored. The engine telegraphs it first: the joint
+  glows, creaks and sheds dust, the phone shivers and the stability readout turns Critical, and a
+  tip suggests counterbalancing on the other side. A collapse is recorded in the report.
 
 ### Scoring (GDD §4)
 
@@ -130,13 +144,31 @@ gestures off.
 | Tech Campus | High-paying office | 24 | 14 | 9,000 | 60 | 2.9 | Education |
 | Skyline Spire | Landmark (one per city) | 60 | 16 | 15,000 | 150 | 4.0 | none |
 | Forge Megatower | Mixed use: retail, office, residential, crown | 100 | 20 | 40,000 | 400 | 5.0 | none |
+| City Museum | Landmark-style entertainment, one per city, tourism | 10 | 7 | 2,600 | 15 | 2.0 | none |
+| Mega Mall | Commercial, one per city | 16 | 9 | 4,500 | 30 | 2.6 | Residential |
+| Convention Centre | Entertainment, one per city | 12 | 11 | 6,000 | 40 | 2.4 | a hotel |
+| Opera House | Entertainment, one per city, land value +0.15 within 100 m | 14 | 12 | 8,000 | 60 | 2.6 | none |
+| Artist Lofts | Residential, contract reward | 12 | 6 | 1,400 | 10 | 1.9 | none |
+| Boutique Hotel | Hospitality, contract reward | 14 | 8 | 2,600 | 20 | 2.9 | none |
+| Green HQ | Office, Garden Floor every 6, contract reward | 30 | 12 | 9,000 | 60 | 3.0 | none |
+| Sky Club | Entertainment, contract reward, one per city | 26 | 14 | 12,000 | 80 | 3.2 | none |
+| Forge Arcology | Mixed use in 7 phases, one per city | 250 | 24 | 150,000 | 1,200 | 5.5 | none |
+| Vertical Farm | Clean industry, Grow Floor every 5, happiness | 30 | 25 | 30,000 | 150 | 3.0 | none |
 
 - The first four keep the classic City Bloxx colours (blue, red, green, gold) and neighbour
   rules. "Nearby" means another building within 36 m, so the same block or across one street.
 - **Unfinished towers** keep the floors they have, count toward the city at their current size,
   and can be continued later for half the permit (and half the materials).
 - **Mastery** (GDD §7): topping a blueprint out 2 and 5 times unlocks two facade variants, chosen
-  in Trophies › Mastery, and +2% capacity per tier. Skill still decides the building.
+  on the blueprint's card in the Collection, and +2% capacity per tier. Skill still decides the
+  building.
+- **Contract blueprints**: Lofts, Boutique Hotel, Green HQ and Sky Club can't be bought; a
+  contract that names one unlocks it when claimed.
+- **The Forge Arcology** is built phase by phase over many sessions: Foundation (25 floors),
+  Core (80), Lower City (130), Sky Bridge (150), Upper City (210), Crown (240) and Spire (250).
+  Each session aims for the end of the next phase, which ends with its own banner and rewards;
+  the permit and materials are paid once and every later phase is free. Its seven sections wear
+  their own facades, and the roof is a stepped crown with a glowing halo and a needle.
 - **Blueprint Studio** (level 14): the player picks a function (homes, shops, offices, hotel or
   mixed use), 12–100 floors, any facade, a special floor and its spacing, and a roof. The game
   derives the rest:
@@ -165,6 +197,9 @@ gestures off.
   | University Hill | 12 | 20,000 | 1.20 | Education +30%, and schools reach 50% further |
   | Financial District | 13 | 40,000 | 1.40 | Corporate HQ +25% |
   | Uptown | 15 | 60,000 | 1.35 | Residential +20% |
+  | Suburbs | 6 | 6,000 | 0.95 | Max 12 floors, homes +25%, +150 road capacity |
+  | Entertainment District | 10 | 30,000 | 1.20 | Arenas and landmarks +35%, shops +15%, tourism +20% |
+  | Floating Quarter | 25 | 250,000 | 1.40 | Future era, on pontoons: every lot waterfront, homes and offices +20% |
 
 - **Placeables** take a lot and appear instantly, with no crane:
 
@@ -182,8 +217,15 @@ gestures off.
   | Metro Station | 12 | 5,000 | Transit within 110 m (+0.25), capacity +900 |
   | Wind Turbines | 12 | 4,200 | +240 clean power |
   | Rail Station | 15 | 9,000 | Transit within 140 m (+0.25), capacity +1,500, tourism |
+  | Landfill | 5 | 700 | +160 waste handling, pollutes nearby lots |
+  | Cell Tower | 6 | 900 | +180 connectivity |
+  | Recycling Centre | 11 | 3,800 | +420 clean waste handling |
+  | Data Centre | 13 | 6,000 | +600 connectivity |
+  | High-Speed Rail | 18 | 16,000 | Transit within 200 m (+0.30), capacity +2,500, tourism |
+  | Autonomous Transit Hub | 26 | 28,000 | Maglev and driverless pods: transit within 240 m (+0.30), capacity +4,000 |
+  | Fusion Plant | 27 | 40,000 | +2,500 clean power |
 
-- **Map overlays** (the Map button): land value, service coverage, pollution and transit,
+- **Map overlays** (the Layers button): land value, service coverage, pollution and transit,
   drawn as coloured tiles on your lots.
 - **Buildings are permanent memories** (GDD §5): they keep their exact floor offsets, history,
   facade and renovations. **Rebuild** replaces a tower only if the new one is better, and
@@ -203,9 +245,10 @@ change, `tickCity()` advances time.
   landmark + facade renovation (+ the region's bonus). Minimum 0.5.
 - **Capacities**: residential, commercial, office, industrial, hotel guests, services,
   entertainment and landmark visitors, each × occupancy.
-- **Utilities**: every floor uses 1 power and 1 water (industry, landmarks and mixed use 2
-  power). The old grid supplies 80 of each. `util = min(power, water supply / use)`; a shortage
-  scales every building's target occupancy by `0.5 + 0.5·util` and costs happiness.
+- **Utilities**: every floor uses 1 power, 1 water, 1 waste handling and 1 connectivity
+  (industry, landmarks and mixed use 2 power; offices 2 connectivity). The old grid supplies 80
+  of each. `util` is the worst of the four supply / use ratios; a shortage scales every
+  building's target occupancy by `0.5 + 0.5·util` and costs happiness.
 - **Jobs and workers**: `W = 0.5·Rcap`; jobs = shops + offices + industry + 0.3·hotel + 0.5·
   services + 0.4·entertainment.
 - **Traffic** (GDD §9): commuters `0.9·min(jobs, W)` against road capacity (300 + 60 per district
@@ -263,7 +306,13 @@ change, `tickCity()` advances time.
   | 14 | Tech Campus, **Blueprint Studio**, stadium stage 5 |
   | 15 | Rail Station, Uptown |
   | 16 | Skyline Spire, **Mirage Springs** region, stadium stage 6 |
+  | 15–19 | **Harbor Airport** stages: Runway, Terminal (16), Control Tower (18), First Flights (19); High-Speed Rail (18) |
   | 20 | Forge Megatower, **Fjordheim** region |
+  | 22 | **Highpeak** region |
+  | 24 | Forge Arcology |
+  | 25 | Vertical Farm, Floating Quarter, **Pearl Atoll** region |
+  | 26 | Autonomous Transit Hub |
+  | 27 | Fusion Plant |
 
 - **Ranks**: Hamlet, Village (3), Town (5), City (8), Big City (12), Metropolis (16), Megacity
   (21), Global City (26).
@@ -278,13 +327,19 @@ change, `tickCity()` advances time.
   | Coral Bay | 12 | 40,000 | tourism +25%, hotels +25% | rain and tropical storms |
   | Mirage Springs | 16 | 100,000 | solar ×1.8, water supply ×0.6, land value +0.1 | clear, windy |
   | Fjordheim | 20 | 220,000 | heating doubles power use, wind ×1.6, offices +15% | snow, fog |
+  | Highpeak | 22 | 320,000 | land value +0.15, tourism +15%, wind ×1.3, permits +20% | wind, fog, snow |
+  | Pearl Atoll | 25 | 450,000 | every lot waterfront, hotels +40%, tourism +30%, materials ×2 | rain, storms |
 
 ## 7. Retention (GDD §10, §15)
 
-- **Contracts**: 3 slots drawn from templates tuned to your level (top out a blueprint, quality,
-  Perfects, combo, Power Perfects, hold, recoveries, Sky Race height, population, parks, the daily
-  challenge, renovations, building in bad weather, new transit). A claimed slot refills after 15
-  minutes; swapping costs 50 coins.
+- **Missions** (contracts): 3 slots drawn from templates tuned to your level (top out a
+  blueprint, quality, Perfects, combo, Power Perfects, hold, recoveries, Sky Race height,
+  population, parks, the daily challenge, renovations, building in bad weather, new transit, a
+  role in a named district, homes served by transit, a waterfront hotel at 85% quality, a tall
+  tower with no collapse). From level 6 some pay a contract-only blueprint as well. A claimed
+  slot refills after 15 minutes; swapping costs 50 coins. **Go** takes you to a good lot for it.
+- **Daily chests**: seven chests, one a day (coins scaled by level, materials, prestige; the
+  seventh holds all three). Missing a day starts the track again.
 - **City events** (level 3): one runs at a time, a new one every 3 hours, the same for everyone.
   Housing Boom, Corporate Expansion, Tourism Festival, Market Week, Championship Final,
   Construction Contest, Steel Delivery and Tech Conference: capacity bonuses on new builds,
@@ -302,7 +357,12 @@ change, `tickCity()` advances time.
   (foundations, lower stands, upper stands, roof masts, ring roof, floodlights), each with its
   own modifiers and a visible new part. A paid stage can be retried free. Finished, it adds
   tourism, happiness and visitor income, and lights up at night.
+- **Harbor Airport**: a second island with four crane stages (runway, terminal, control tower,
+  first flights). Finished, it brings visitors and tourism, and planes take off every minute.
 - **Sky Race**: the classic endless game. Your best run stands as the Record Tower.
+- **Shop**: a daily materials deal at 40% off, a crate that fills your store, material packs and
+  crane paint. Everything costs coins or prestige earned by playing; there are no real-money
+  purchases.
 - **Achievements**: 45, each paying prestige. **Cosmetics**: crane paint by prestige, facade
   variants by mastery. **Photo mode** turns your city into pictures worth sharing.
 - **Welcome back**: income earned while away, ready contracts and today's challenge.
@@ -324,15 +384,31 @@ change, `tickCity()` advances time.
 - **Photo mode**: free orbit camera, time, weather, lens (18–100 mm) and filters, hidden UI and
   capture up to 4K. In the Android app pictures go to Pictures/Skyline Forge and can be shared
   (Android 10+); older phones keep them in the app's own pictures folder.
-- **Accessibility**: reduced motion, camera shake, vibration, larger text, high contrast, and
-  stability shown with shape and text as well as colour.
+- **Photo mode** has depth of field: Soft or Strong blur, autofocused on the middle of the frame.
+- **City camera**: drag to pan, pinch or scroll to zoom, two-finger twist (or right-drag) to
+  rotate the city; the compass turns it back to north.
+- **Interface** (1.2): a bright mobile-game look after the art sheet: blue framed panels with a
+  yellow back button, white cards, chunky yellow, green and blue buttons, and the Lilita One and
+  Nunito fonts embedded so the app looks the same offline. The title screen has Play, a side
+  menu (Map, Buildings, Missions, Events) and a bottom bar (Shop, City, Collection); the city has
+  a bottom bar (Shop, Collection, Missions, Events, City) and a rail (World, Layers, Photo,
+  Menu). Every building and placeable has a small 3D thumbnail, rendered once from its real
+  modules and cached. Screens: a world map with the region islands, stars and locks; the build
+  list by category with thumbnails and a Build button; a building card to page through (floors,
+  capacity, difficulty, land value, cost, facades); missions with daily chests; events with
+  countdowns; city stats (overview tiles with today's change, demand for homes, shops, offices
+  and industry, people, economy, happiness, records); the shop; and the collection, with locked
+  buildings as silhouettes. District labels show their stars (3 per lot), and a Build Here!
+  bubble points at the lot the next goal suggests.
+- **Accessibility**: reduced motion, camera shake, vibration, larger text, high contrast, a
+  left-handed layout that mirrors the controls, and stability shown with shape and text as well
+  as colour.
 
 ## 9. Not in this version
 
 These need a server or a different kind of game: multiplayer, friend visits, shared
-megaprojects and global leaderboards (§15); a full agent traffic simulation (§9); the future
-era (§11). The weekly challenge is fair and identical for everyone, but its scores stay on the
-device.
+megaprojects, cloud saves and global leaderboards (§15); a full agent traffic simulation (§9).
+The weekly challenge is fair and identical for everyone, but its scores stay on the device.
 
 ## 10. Architecture
 
@@ -348,11 +424,12 @@ js/engine.js      the classic engine + Forge layer, session modes, modifiers, 3D
 js/city.js        simulation, economy, levels, unlocks, placement and renovation rules
 js/meta.js        contracts, daily and weekly challenges, Sky Race record, achievements, cosmetics
 js/events.js      weather and city event schedules, rain, snow and lightning
-js/stadium.js     the stadium megaproject: island, model, stages and sheet
+js/stadium.js     the stadium and airport megaprojects: islands, models, stages and sheets
 js/studio.js      Blueprint Studio: custom designs and the elevation preview
 js/photo.js       Photo mode
-js/regions.js     regions: founding, travel, the region map
-js/ui.js          HUD, screens, sheets, modals, tips
+js/regions.js     regions: founding and travel
+js/ui.js          HUD, icons, labels, the build sheet, modals, settings, results, tips
+js/menus.js       world map, building card, missions and chests, events, city stats, shop, collection
 js/main.js        state machine, cameras, input, main loop
 bundle.py         inlines the scripts into one HTML file (APK asset and web artifact)
 ```

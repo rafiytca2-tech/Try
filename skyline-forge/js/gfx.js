@@ -465,7 +465,7 @@ function thumbFor(key, style) {
   K.sc.add(g);
   if (place) g.add(placeableModel(key.slice(6)));
   else {
-    const F = bp.floors, n = F <= 8 ? F : Math.min(16, Math.round(4 + Math.sqrt(F) * 1.3));
+    const F = bp.floors, n = F <= 4 ? F : Math.min(8, Math.round(2 + Math.sqrt(F) * 0.8));   // a short, chunky stand-in for the whole tower
     for (let i = 0; i < n; i++) {
       const fi = n === 1 ? 0 : Math.round(i / (n - 1) * (F - 1));
       const kind = i === 0 ? 'foundation' : i === n - 1 ? 'roof' : isSpecial(bp, fi) ? 'special' : 'floor';

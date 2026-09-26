@@ -184,7 +184,7 @@ function updateHubHud() {
   const A = City.A || recomputeCity();
   const lp = levelProgress();
   setText('lvlNum', String(lp.l));
-  $('lvlRing').setAttribute('stroke-dashoffset', (94.2 * (1 - lp.frac)).toFixed(1));
+  $('lvlRing').setAttribute('stroke-dashoffset', (81.7 * (1 - lp.frac)).toFixed(1));
   setText('lvlNext', lp.next == null ? 'Top level' : `Level ${lp.l + 1} at ${fmtK(lp.next)}`);
   $('lvlBar').style.setProperty('--p', (lp.frac * 100).toFixed(1) + '%');
   const bank = Math.floor(save.bank);
@@ -212,12 +212,11 @@ function updateHubHud() {
   if (hudCache.ev !== evHtml) { hudCache.ev = evHtml; $('evPill').innerHTML = evHtml; }
   const wxHtml = `<i>${wx.icon}</i>${wx.name}${wx.bonus ? `<small>+${Math.round(wx.bonus * 100)}% coins</small>` : ''}`;
   if (hudCache.wx !== wxHtml) { hudCache.wx = wxHtml; $('wxPill').innerHTML = wxHtml; $('wxPill').classList.toggle('bonus', !!wx.bonus); }
-  const nc = contractsReady();
+  // Missions: finished contracts, today's chest and unseen achievements. Events: today's challenge.
+  const nc = contractsReady() + (loginReady() ? 1 : 0) + (Object.keys(save.ach).length > (save.seenAch || 0) ? 1 : 0);
   $('badgeContracts').hidden = !nc; setText('badgeContracts', String(nc));
-  $('btnContracts').style.opacity = contractsOn() ? '' : '0.55';
   $('badgeDaily').hidden = !(dailyOn() && !dailyCleared());
-  $('badgeTrophies').hidden = Object.keys(save.ach).length <= (save.seenAch || 0);
-  $('btnDaily').style.opacity = dailyOn() ? '' : '0.55';
+  $('badgeTrophies').hidden = true;
   const gh = nextGoal();
   if (hudCache.goalHtml !== gh) { hudCache.goalHtml = gh; $('goal').innerHTML = gh; }
 }
@@ -233,9 +232,16 @@ function animateHubNumbers(dt) {
   setText('hubPop', fmtK(shown.pop)); setText('hubCoins', fmtK(shown.coins)); setText('hubPrestige', fmtK(shown.prestige));
 }
 // Always show one clear next step (GDD §11: quickly see progress).
+let goalLot = null;                                   // where the Build Here bubble points, when the next step is a new building
 function nextGoal() {
-  const A = City.A;
-  if (!buildingsList().length) return 'Tap the glowing lot on <b>Harbor Row</b> to build your first homes.';
+  goalLot = null;
+  const g = nextGoalText();
+  if (g.build) goalLot = g.build === true ? bestEmptyLot() : g.build;
+  return g.text || g;
+}
+function nextGoalText() {
+  const A = City.A, B = text => ({ text, build: true });
+  if (!buildingsList().length) return { text: 'Tap the glowing lot on <b>Harbor Row</b> to build your first homes.', build: LOT_BY_ID['harbor-C2'] };
   if (contractsReady()) return `A contract is complete. <b>Tap Jobs</b> to claim it.`;
   if (save.bank >= 1 && save.bank >= incomeCap() * 0.99) return `Income storage is <b>full</b>. Collect it so your city keeps earning.`;
   if (save.bank >= 50) return `Your city has earned <b>${fmt(save.bank)}</b> coins. Tap <b>Collect</b>.`;
@@ -246,16 +252,16 @@ function nextGoal() {
   if (unfinished) return `<b>${BLUEPRINTS[unfinished[1].bp].name}</b> is unfinished. Tap it to continue building.`;
   if (A.congestion > 0.2) return save.level >= PLACEABLES.bus.level ? '<b>Traffic jams</b> are cutting income. Place a <b>Bus Stop</b> or other transit.' : 'Streets are getting jammed. Transit unlocks at level 5.';
   if (A.pollShare > 0.3) return '<b>Pollution</b> is hurting homes. Keep factories away from housing, or move them to the Dockyards.';
-  if (save.level >= BLUEPRINTS.school.level && A.Rcap > 400 && A.svc.edu < 0.4) return 'Families want a <b>school</b>. Build a Harbor School near homes.';
-  if (save.level >= BLUEPRINTS.clinic.level && A.Rcap > 600 && A.svc.health < 0.4) return 'Residents need <b>healthcare</b>. Build a Neighbourhood Clinic near homes.';
-  if (A.demand.C > 0.3 && save.level >= BLUEPRINTS.market.level) return 'Residents want shops. Build a <b>Corner Market</b> next to your homes.';
-  if (A.demand.O > 0.3 && save.level >= BLUEPRINTS.office.level) return 'Residents need jobs. Build an <b>Office Tower</b> near homes and shops.';
-  if (A.demand.R > 0.3) return 'Jobs are going unfilled. Build more <b>homes</b>.';
+  if (save.level >= BLUEPRINTS.school.level && A.Rcap > 400 && A.svc.edu < 0.4) return B('Families want a <b>school</b>. Build a Harbor School near homes.');
+  if (save.level >= BLUEPRINTS.clinic.level && A.Rcap > 600 && A.svc.health < 0.4) return B('Residents need <b>healthcare</b>. Build a Neighbourhood Clinic near homes.');
+  if (A.demand.C > 0.3 && save.level >= BLUEPRINTS.market.level) return B('Residents want shops. Build a <b>Corner Market</b> next to your homes.');
+  if (A.demand.O > 0.3 && save.level >= BLUEPRINTS.office.level) return B('Residents need jobs. Build an <b>Office Tower</b> near homes and shops.');
+  if (A.demand.R > 0.3) return B('Jobs are going unfilled. Build more <b>homes</b>.');
   if (dailyOn() && !dailyCleared()) return "Today's <b>Daily Challenge</b> is waiting.";
   const open = LOTS.filter(l => save.districts[l.d] && !save.lots[l.id]).length;
   if (!open) { const d = DISTRICTS.find(x => !save.districts[x.id]); if (d) return d.level <= save.level ? `Room to grow: buy <b>${d.name}</b> for ${fmt(d.cost)} coins.` : `<b>${d.name}</b> opens at city level ${d.level}.`; }
   if (A.happy < 0.6 && save.level >= PLACEABLES.park.level) return 'Happiness is low. A <b>Park</b> raises it and nearby land value.';
-  return `Beat your Sky Race record of <b>${save.race.best}</b> floors, or tap an empty lot to build.`;
+  return B(`Beat your Sky Race record of <b>${save.race.best}</b> floors, or tap an empty lot to build.`);
 }
 // District and tower labels that follow the city camera.
 const labelEls = {};
@@ -275,9 +281,9 @@ function updateLabels(show) {
   for (const d of DISTRICTS) {
     const el = labelEl('d:' + d.id, 'dlabel');
     if (!show) { el.hidden = true; continue; }
-    const owned = save.districts[d.id];
-    const html = owned ? esc(d.name) : `${esc(d.name)}<small>${d.level > save.level ? `Level ${d.level}` : `${fmt(d.cost)} coins`}</small>`;
-    if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; el.classList.toggle('locked', !owned); }
+    const owned = save.districts[d.id], [sg, sm] = owned ? starsIn(save.lots, d.id) : [0, 0];
+    const html = owned ? `${esc(d.name)}<small>${ICON.star}${sg}/${sm}</small>` : `${esc(d.name)}<small>${d.level > save.level ? `${ICON.lock}Lv. ${d.level}` : `${ICON.coin}${fmt(d.cost)}`}</small>`;
+    if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; el.classList.toggle('locked', !owned); el.classList.toggle('star', !!owned); }
     const o = districtCentre(d);
     place(el, o.x, 0.5, d.pos ? o.z + (owned ? 38 : 0) : owned ? 38 : 0);
   }
@@ -290,6 +296,9 @@ function updateLabels(show) {
     if (e2.textContent !== txt) e2.textContent = txt;
     place(e2, lot.x, b.xs.length * H * S + 3, lot.z);
   }
+  const bh = labelEl('buildhere', 'buildhere'), gl = show && $('sheet').hidden && $('modal').hidden && goalLot && !save.lots[goalLot.id] ? goalLot : null;
+  if (!bh.dataset.init) { bh.dataset.init = 1; bh.innerHTML = `<b>Build Here!</b><i></i>${ICON.hand}`; bh.addEventListener('click', () => { const l = LOT_BY_ID[bh.dataset.lot]; if (l) { Sound.click(); openLotSheet(l); } }); }
+  if (!gl) bh.hidden = true; else { bh.dataset.lot = gl.id; place(bh, gl.x, 2, gl.z); }
   for (const P of Object.values(PROJECTS)) {
     const el = labelEl('p:' + P.id, 'dlabel'), n = projStage(P), lvl = P.stages[0].level;
     if (!show) { el.hidden = true; continue; }
@@ -335,28 +344,12 @@ function closeModal() {
   $('modal').hidden = true;
   const fn = modalClose; modalClose = null;
   if (fn) fn();
+  if (state === 'title' && $('modal').hidden) renderTitle();         // coins or chests may have changed
 }
-const head = (title, sub) => `<div class="head"><div><h2>${title}</h2>${sub ? `<p class="sub">${sub}</p>` : ''}</div><button class="x" type="button" data-close aria-label="Close">✕</button></div>`;
+const head = (title, sub) => `<div class="head"><button class="x" type="button" data-close aria-label="Back">${ICON.back}</button><div><h2>${title}</h2>${sub ? `<p class="sub">${sub}</p>` : ''}</div><span class="hx"></span></div>`;
 function bind(root, sel, fn) { for (const el of root.querySelectorAll(sel)) el.addEventListener('click', e => { Sound.click(); fn(el, e); }); }
 
 function estimate(key) { const bp = typeof key === 'string' ? BLUEPRINTS[key] : key; return Math.round(bp.floors * 20 * bp.mult / 10) * 10; }
-function bpCard(key, lot, check) {
-  const bp = BLUEPRINTS[key];
-  const cost = check.cost ?? permitCost(key), mat = check.mat ?? matCost(key);
-  const status = check.ok ? (cost ? `Build ${coinTxt(cost)}` : 'Build · Free') + (mat ? `<br>${matTxt(mat)}` : '') : esc(check.reason);
-  return `<button class="card" type="button" data-bp="${key}" aria-disabled="${!check.ok}">
-    <i class="sw" style="--c:${styleColor(chosenStyle(key))}"></i>
-    <span><b>${esc(bp.name)}</b><small>${ROLE_LABEL[bp.role]} · ${bp.floors} floors · ≈${fmt(estimate(key))} ${ROLE_NAMES[bp.role].split(' ')[0]}</small><small>${esc(bp.blurb)}</small></span>
-    <span class="go">${status}</span></button>`;
-}
-const PLACE_COL = { park: '#5c9a45', plaza: '#cbbfa6', bus: '#2f5d8a', tram: '#c8342c', ferry: '#3b7fe0', metro: '#d83a2f', rail: '#b88a5a', hsr: '#f2f4f6', power: '#8f7f6d', tower: '#6fa8c8', solar: '#1f3b66', wind: '#e8ebee', waterworks: '#4a8fb0', dump: '#7a6a4a', recycling: '#3f9a5a', cell: '#9aa3ad', datacenter: '#26394f', maglev: '#39c7ff', fusion: '#b07cff' };
-function placeCard(key, lot) {
-  const P = PLACEABLES[key], r = canPlace(key, lot);
-  return `<button class="card" type="button" data-place="${key}" aria-disabled="${!r.ok}">
-    <i class="sw" style="--c:${PLACE_COL[key] || '#888'}"></i>
-    <span><b>${P.name}</b><small>${esc(P.blurb)}</small></span>
-    <span class="go">${r.ok ? `Place ${coinTxt(P.cost)}` : esc(r.reason)}</span></button>`;
-}
 function lotTitle(lot) { return `${DISTRICT_BY_ID[lot.d].name} · ${lot.row}${lot.col}`; }
 function lotPills(lot) {
   const lv = City.lv[lot.id] || 1, c = (City.ctx && City.ctx[lot.id]) || { svc: {}, poll: 0, transit: 0 };
@@ -374,7 +367,7 @@ function gridLine() {
   const A = City.A;
   return `<p class="sub">Used of supply: power ${fmt(A.powerUse)} / ${fmt(A.power)} · water ${fmt(A.waterUse)} / ${fmt(A.water)} · waste ${fmt(A.wasteUse)} / ${fmt(A.waste)} · data ${fmt(A.dataUse)} / ${fmt(A.data)}</p>`;
 }
-function openLotSheet(lot, tab = 'towers') {
+function openLotSheet(lot, tab = 'homes') {
   sheetLot = lot; selectRing(lot);
   const d = DISTRICT_BY_ID[lot.d], b = save.lots[lot.id];
   if (!save.districts[lot.d]) {
@@ -399,38 +392,36 @@ function openLotSheet(lot, tab = 'towers') {
   }
   if (b && b.bp && tab !== 'rebuild') { openBuildingSheet(lot, b); return; }
   const rebuild = tab === 'rebuild';
-  const TABS = [['towers', 'Towers'], ['services', 'Services'], ['places', 'Parks &amp; transit'], ['utility', 'Utilities']].concat(studioOn() ? [['studio', 'Studio']] : []);
-  const tabs = rebuild ? '' : `<div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${n}</button>`).join('')}</div>`;
-  let list, extra = '';
+  if (tab === 'towers') tab = 'homes';
+  const TABS = BUILD_TABS.concat(studioOn() ? [['studio', 'Studio', 'studio']] : []);
+  let list, extra = '', keys = [];
   if (tab === 'studio') {
-    list = save.custom.map(d => bpCard(customKey(d.id), lot, canBuild(customKey(d.id), lot))).join('');
+    keys = save.custom.map(d => customKey(d.id)).filter(k => BLUEPRINTS[k]);
+    list = keys.map(k => bpRow(k, lot, canBuild(k, lot))).join('');
     extra = `<p class="sub">Your own designs (${save.custom.length} of ${STUDIO.max}).</p><div class="btn-row"><button class="btn" type="button" id="stNew" ${save.custom.length >= STUDIO.max ? 'disabled' : ''}>New design</button><button class="btn" type="button" id="stEdit" ${save.custom.length ? '' : 'disabled'}>Edit designs</button></div>`;
   } else if (tab === 'places' || tab === 'utility') {
-    list = byLevel(Object.keys(PLACEABLES).filter(k => UTIL_KEYS.has(k) === (tab === 'utility')), PLACEABLES).map(k => placeCard(k, lot)).join('');
+    list = byLevel(Object.keys(PLACEABLES).filter(k => UTIL_KEYS.has(k) === (tab === 'utility')), PLACEABLES).map(k => placeRow(k, lot)).join('');
     if (tab === 'utility') extra = gridLine();
   } else {
-    const keys = rebuild ? BP_KEYS.slice() : BP_KEYS.filter(k => SVC_ROLES.has(BLUEPRINTS[k].role) === (tab === 'services'));
-    list = byLevel(keys, BLUEPRINTS).map(k => bpCard(k, lot, canBuild(k, lot))).join('');
+    keys = byLevel(rebuild ? BP_KEYS.slice() : tabKeys(tab), BLUEPRINTS);
+    if (!rebuild) keys = keys.concat(tabKeys(tab).filter(k => BLUEPRINTS[k].contract && !keys.includes(k) && save.bpUnlocks[k]));
+    list = keys.map(k => bpRow(k, lot, canBuild(k, lot))).join('');
   }
-  openSheet(`${head(rebuild ? 'Rebuild' : 'Empty lot', lotTitle(lot))}${lotPills(lot)}${rebuild ? '<p class="lede">The new tower replaces the old one only if it is better (finished beats unfinished, then more capacity).</p>' : ''}${tabs}${extra}<div class="cards">${list || '<p class="sub">Nothing here yet. Keep growing your city.</p>'}</div>`, s => {
+  const lv = City.lv[lot.id] || 1;
+  openSheet(`${head(rebuild ? 'Rebuild' : 'Build', lotTitle(lot))}
+    <div class="pills"><span class="${lv > 1.05 ? 'good' : lv < 0.95 ? 'bad' : 'gold'}">Land value ${Math.round(lv * 100)}%${lv > 1.05 ? ' ▲' : lv < 0.95 ? ' ▼' : ''}</span>${lotPills(lot).replace(/^<div class="pills"><span[^>]*>[^<]*<\/span>/, '').replace(/<\/div>$/, '')}</div>
+    ${rebuild ? '<p class="lede">The new tower replaces the old one only if it is better (finished beats unfinished, then more capacity).</p>' : tabsHtml(TABS, tab)}${extra}
+    <div class="cards">${list || '<p class="sub">Nothing here yet. Keep growing your city.</p>'}</div>`, s => {
     s.querySelector('[data-close]').addEventListener('click', closeSheet);
     bind(s, '[data-tab]', el => openLotSheet(lot, el.dataset.tab));
     bind(s, '#stNew', () => showStudio(null, () => openLotSheet(lot, 'studio')));
     bind(s, '#stEdit', () => openModal(`${head('Your designs')}<div class="cards">${save.custom.map(d => `<button class="card" type="button" data-edit="${d.id}"><i class="sw" style="--c:${styleColor(d.style)}"></i><span><b>${esc(d.name)}</b><small>${d.floors} floors · ${STUDIO.roles[d.role].name}${customInUse(d.id) ? ' · standing in your city' : ''}</small></span><span class="go">${customInUse(d.id) ? 'View' : 'Edit'}</span></button>`).join('')}</div>`, p => {
       bind(p, '[data-edit]', el => showStudio(el.dataset.edit, () => openLotSheet(lot, 'studio')));
     }));
-    bind(s, '[data-bp]', el => {
-      const key = el.dataset.bp, c = canBuild(key, lot);
-      if (!c.ok && c.matShort) { offerMaterials(c.matShort, c.cost, () => { closeSheet(); startCityBuild(lot, key, false); }); return; }
-      if (!c.ok) { Sound.deny(); toast(c.reason); return; }
-      closeSheet(); startCityBuild(lot, key, false);
-    });
-    bind(s, '[data-place]', el => {
-      const key = el.dataset.place, r = canPlace(key, lot);
-      if (!r.ok) { Sound.deny(); toast(r.reason); return; }
-      placeItem(key, lot); Sound.place(); rebuildLots(); burst(lot.x, 2, lot.z, 30, '#d9cfbd', 6, 3, 1.2, 3, false);
-      closeSheet(); updateHubHud(); afterCityChange();
-    });
+    bind(s, '[data-bp]', (el, e) => { e.stopPropagation(); tryBuild(el.dataset.bp, lot); });
+    bind(s, '[data-place]', (el, e) => { e.stopPropagation(); doPlace(el.dataset.place, lot); });
+    bind(s, '[data-info]', el => showBpInfo(el.dataset.info, keys, lot, rebuild ? () => openLotSheet(lot, 'rebuild') : null));
+    bind(s, '[data-pinfo]', el => showPlaceInfo(el.dataset.pinfo, lot));
   });
 }
 // Short on materials: offer to buy the difference, then carry on.
@@ -454,7 +445,7 @@ function openBuildingSheet(lot, b) {
   const date = new Date(b.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const cont = !b.done ? canBuild(b.bp, lot, { cont: true }) : null;
   openSheet(`${head(bp.name, `${lotTitle(lot)} · ${ROLE_LABEL[bp.role]}`)}
-    <div style="display:flex;align-items:center;gap:12px">${starsHtml(b.stars || 0)}<span class="sub">${b.done ? `Topped out · ${b.xs.length} floors` : bp.phases ? `${b.xs.length} of ${bp.floors} floors · next phase: ${(nextPhase(bp, b.xs.length) || [0, ''])[1]}` : `Unfinished · ${b.xs.length} of ${b.target} floors`}</span></div>
+    <div class="whitebox citycard"><span class="thumb">${imgTag(thumbFor(b.bp, b.style || chosenStyle(b.bp)), bp.name)}</span><span>${starsHtml(b.stars || 0)}<small style="display:block;color:var(--card-muted);font-weight:800">${b.done ? `Topped out · ${b.xs.length} floors` : bp.phases ? `${b.xs.length} of ${bp.floors} floors · next phase: ${(nextPhase(bp, b.xs.length) || [0, ''])[1]}` : `Unfinished · ${b.xs.length} of ${b.target} floors`}</small></span></div>
     ${bp.phases ? `<div class="chips">${bp.phases.map(p => `<span style="${b.xs.length >= p[0] ? '' : 'opacity:.45'}">${esc(p[1])}</span>`).join('')}</div>` : ''}
     <div class="pills">${roles}</div>
     <div class="meter" style="--c:var(--stable)" aria-label="Occupancy"><i style="width:${Math.round(occ * 100)}%"></i></div>
@@ -550,23 +541,6 @@ function showFirstRun() {
     bind(p, '#first', () => { $('modal').hidden = true; modalClose = null; startCityBuild(LOT_BY_ID['harbor-C2'], 'flats', false); });
   });
 }
-function showContracts() {
-  if (!contractsOn()) { Sound.deny(); toast(`Contracts open at city level ${FEATURES.contracts}`); return; }
-  ensureContracts();
-  const now = Date.now();
-  const cards = save.contracts.slots.map((c, i) => {
-    if (c.empty) return `<div class="card" aria-disabled="true"><i class="sw" style="--c:#555"></i><span><b>New contract</b><small>Arrives in ${fmtDuration(c.readyAt - now)}</small></span><span></span></div>`;
-    const frac = c.target > 1 ? `${c.progress}/${c.target}` : '';
-    return `<div class="card ${c.done ? 'done' : ''}"><i class="sw" style="--c:${c.done ? 'var(--stable)' : 'var(--accent)'}"></i>
-      <span><b>${esc(c.text)}</b><small>Reward: <span class="coin">${fmt(c.coins)}</span> coins · <span class="prestige">+${c.prestige} ✦</span> ${frac ? `· ${frac}` : ''}</small>${c.unlock && BLUEPRINTS[c.unlock] ? `<small style="color:var(--stable)">Unlocks the ${esc(BLUEPRINTS[c.unlock].name)} blueprint</small>` : ''}
-      ${c.target > 1 ? `<span class="meter" style="--c:var(--accent);margin-top:6px;display:block"><i style="width:${Math.round(c.progress / c.target * 100)}%"></i></span>` : ''}</span>
-      ${c.done ? `<button class="btn primary small" type="button" data-claim="${i}">Claim</button>` : `<button class="btn ghost small" type="button" data-swap="${i}" title="Replace for ${ECON.contractReplace} coins">Swap ${ECON.contractReplace}</button>`}</div>`;
-  }).join('');
-  openModal(`${head('Contracts', 'Clients want these built. New ones arrive every 15 minutes.')}<div class="cards">${cards}</div><p class="sub">Completed: ${fmt(save.stats.contracts)}</p>`, p => {
-    bind(p, '[data-claim]', el => { const c = claimContract(+el.dataset.claim); if (c) { toast(`+${fmt(c.coins)} coins · +${c.prestige} ✦`, 'good'); ensureContracts(); showContracts(); updateHubHud(); } });
-    bind(p, '[data-swap]', el => { if (replaceContract(+el.dataset.swap)) { showContracts(); updateHubHud(); } else { Sound.deny(); toast(`You need ${ECON.contractReplace} coins`); } });
-  });
-}
 function showDaily() {
   if (!dailyOn()) { Sound.deny(); toast(`The Daily Challenge opens at city level ${FEATURES.daily}`); return; }
   const cfg = dailyConfig(), key = cfg.key, best = save.daily.best[key] || 0, cleared = save.daily.cleared[key] || 0;
@@ -597,54 +571,28 @@ function showWeekly() {
     bind(p, '#go', () => { $('modal').hidden = true; modalClose = null; startWeekly(); });
   });
 }
-function showTrophies(tab = 'ach') {
-  const tabs = [['ach', 'Achievements'], ['mastery', 'Mastery'], ['crane', 'Crane'], ['stats', 'Records']];
-  let body = '';
-  if (tab === 'ach') {
-    const n = Object.keys(save.ach).length;
-    body = `<p class="sub">${n} of ${ACHIEVEMENTS.length} unlocked</p><div class="ach">${ACHIEVEMENTS.map(a => `<div class="${save.ach[a.id] ? 'on' : ''}"><b>${esc(a.name)}</b><small>${esc(a.desc)}</small><small class="prestige">+${a.pr} ✦</small></div>`).join('')}</div>`;
-  } else if (tab === 'mastery') {
-    body = `<p class="sub">Top out a blueprint again to unlock new facades (at ${MASTERY_TIERS[1]} and ${MASTERY_TIERS[2]}) and +${Math.round(ECON.masteryBonus * 100)}% capacity per tier. Tap a facade to use it on new builds.</p><div class="cards">${BP_KEYS.map(k => { const bp = BLUEPRINTS[k], m = save.mastery[k] || { built: 0, stars: 0 }, locked = bp.level > save.level, tier = masteryTier(k), cur = chosenStyle(k);
-      const vars = (STYLE_VARIANTS[k] || []).map((st, i) => `<button class="vsw ${st === cur ? 'on' : ''}" type="button" data-var="${k}:${st}" aria-disabled="${i > tier}" aria-label="${st} facade${i > tier ? `, top out ${MASTERY_TIERS[i]} times to unlock` : ''}" style="--c:${styleColor(st)}"></button>`).join('');
-      return `<div class="card" aria-disabled="${locked}" style="cursor:default"><i class="sw" style="--c:${styleColor(cur)}"></i><span><b>${bp.name}</b><small>${locked ? `Unlocks at level ${bp.level}` : `Topped out ${plural(m.built, 'time')}${tier > 0 ? ` · +${Math.round(tier * ECON.masteryBonus * 100)}% capacity` : ''}`}</small>${locked ? '' : `<span class="variants">${vars}</span>`}</span>${starsHtml(m.stars)}</div>`; }).join('')}</div>`;
-  } else if (tab === 'crane') {
-    body = `<p class="sub">Prestige unlocks new paint for your crane. You have ${fmt(save.prestige)} ✦.</p><div class="cards">${CRANE_PAINTS.map(p => { const on = paintUnlocked(p), cur = save.cosmetics.crane === p.id;
-      return `<button class="card" type="button" data-paint="${p.id}" aria-disabled="${!on}"><i class="sw" style="--c:${p.color}"></i><span><b>${p.name}</b><small>${on ? 'Unlocked' : `Needs ${p.need} ✦`}</small></span><span class="go">${cur ? 'In use' : on ? 'Use' : ''}</span></button>`; }).join('')}</div>`;
-  } else {
-    const s = save.stats;
-    body = `<dl class="stats">
-      <dt>Sky Race record</dt><dd>${save.race.best} floors</dd><dt>Best Sky Race points</dt><dd>${fmt(save.race.bestPop)}</dd>
-      <dt>Buildings topped out</dt><dd>${fmt(s.toppedOut)}</dd><dt>Three-star buildings</dt><dd>${fmt(s.threeStars)}</dd>
-      <dt>Floors placed</dt><dd>${fmt(s.floors)}</dd><dt>Perfect floors</dt><dd>${fmt(s.perfects)}</dd>
-      <dt>Power Perfects</dt><dd>${fmt(s.powerPerfects)}</dd><dt>Longest combo</dt><dd>×${s.bestCombo}</dd>
-      <dt>Recoveries</dt><dd>${fmt(s.recoveries)}</dd><dt>Daily clears</dt><dd>${fmt(s.dailies)}</dd>
-      <dt>Contracts completed</dt><dd>${fmt(s.contracts)}</dd><dt>Districts owned</dt><dd>${Object.keys(save.districts).length} / ${DISTRICTS.length}</dd></dl>`;
-  }
-  openModal(`${head('Trophies', `${fmt(save.prestige)} prestige ✦`)}<div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}">${n}</button>`).join('')}</div>${body}`, p => {
-    bind(p, '[data-tab]', el => showTrophies(el.dataset.tab));
-    bind(p, '[data-paint]', el => { if (setPaint(el.dataset.paint)) showTrophies('crane'); else Sound.deny(); });
-    bind(p, '[data-var]', el => {
-      const [k, st] = el.dataset.var.split(':');
-      if (el.getAttribute('aria-disabled') === 'true') { Sound.deny(); toast(`Top out ${BLUEPRINTS[k].name} ${MASTERY_TIERS[STYLE_VARIANTS[k].indexOf(st)]} times to unlock`); return; }
-      (save.mastery[k] || (save.mastery[k] = { built: 0, stars: 0 })).style = st; persist(); showTrophies('mastery');
-    });
-  });
-  save.seenAch = Object.keys(save.ach).length; persist();
-  $('badgeTrophies').hidden = true;
-}
 function showSettings(onDone) {
   const S2 = save.settings;
-  const sw = (id, label, on, small) => `<label class="setting"><span>${label}${small ? `<small>${small}</small>` : ''}</span><span class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span></span></span></label>`;
+  const sw = (id, label, on, small, ic) => `<label class="setting"><span>${ic ? ICON[ic].replace('<svg', '<svg class="sic"') : ''}<span>${label}${small ? `<small>${small}</small>` : ''}</span></span><span class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span></span></span></label>`;
+  const sel = (id, ic, label, opts) => `<label class="setting"><span>${ICON[ic].replace('<svg', '<svg class="sic"')}${label}</span><select id="${id}">${opts}</select></label>`;
+  const lp = levelProgress();
   openModal(`${head('Settings')}
-    ${sw('sClassic', 'Classic controls', S2.classic, 'Drop the moment you touch, like the phone original. Turns off hold, Power Drop and recall.')}
-    ${sw('sSfx', 'Sound effects', S2.sfx)}${sw('sMusic', 'Music', S2.music)}${sw('sHaptics', 'Vibration', S2.haptics)}
-    ${sw('sShake', 'Camera shake', S2.shake)}${sw('sTips', 'Tips while building', S2.tips)}${sw('sBig', 'Larger text', S2.bigText)}${sw('sHc', 'High contrast', S2.contrast, 'Solid panels, brighter text and outlined labels.')}${sw('sLefty', 'Left-handed layout', S2.lefty, 'Mirrors the buttons and readouts so your thumb covers less of the view.')}
-    <label class="setting">Time of day<select id="sTod"><option value="auto">Match my clock</option><option value="day">Day</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
-    <label class="setting">Weather<select id="sWeather"><option value="live">Live weather</option><option value="off">Always clear</option></select></label>
-    <label class="setting">Graphics<select id="sQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="battery">Battery saver</option></select></label>
+    <div class="whitebox profile"><span class="ava">${ICON.builder}</span><span style="min-width:0"><b id="pName">${esc(save.profile.name)}</b><small style="display:block;color:var(--card-muted);font-weight:800">Level ${save.level} · ${rankFor(save.level)} · City: ${esc(regionNow().name)}</small><span class="meter" style="display:block;margin-top:4px"><i style="width:${(lp.frac * 100).toFixed(0)}%"></i></span></span><button class="btn small" type="button" id="pEdit" aria-label="Edit name">✎</button></div>
+    ${sw('sSfx', 'Sound effects', S2.sfx, '', 'sfx')}${sw('sMusic', 'Music', S2.music, '', 'music')}${sw('sHaptics', 'Vibration', S2.haptics, '', 'vibe')}
+    ${sw('sClassic', 'Classic controls', S2.classic, 'Drop the moment you touch, like the phone original. Turns off hold, Power Drop and recall.', 'hand2')}
+    ${sw('sShake', 'Camera shake', S2.shake, '', 'camera')}${sw('sTips', 'Tips while building', S2.tips, '', 'info')}${sw('sBig', 'Larger text', S2.bigText, '', 'text')}${sw('sHc', 'High contrast', S2.contrast, 'Solid panels, darker text and outlined labels.', 'eye')}${sw('sLefty', 'Left-handed layout', S2.lefty, 'Mirrors the buttons and readouts so your thumb covers less of the view.', 'hand')}
+    ${sel('sTod', 'sun', 'Time of day', '<option value="auto">Match my clock</option><option value="day">Day</option><option value="sunset">Sunset</option><option value="night">Night</option>')}
+    ${sel('sWeather', 'cloud', 'Weather', '<option value="live">Live weather</option><option value="off">Always clear</option>')}
+    ${sel('sQuality', 'monitor', 'Graphics', '<option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="battery">Battery saver</option>')}
     <div class="btn-row"><button class="btn" type="button" id="sHow">How to play</button><button class="btn" type="button" id="sTipsReset">Replay tips</button></div>
     <button class="btn ghost danger" type="button" id="sReset">Reset all progress</button>
     <button class="btn primary" type="button" data-close>Done</button>`, p => {
+    bind(p, '#pEdit', () => {
+      const b = p.querySelector('#pName'); if (!b) return;
+      const inp = document.createElement('input'); inp.maxLength = 18; inp.value = save.profile.name; inp.setAttribute('aria-label', 'Your name'); b.replaceWith(inp); inp.focus(); inp.select();
+      const done = () => { save.profile.name = inp.value.trim().slice(0, 18) || 'Builder'; persist(); const nb = document.createElement('b'); nb.id = 'pName'; nb.textContent = save.profile.name; inp.replaceWith(nb); };
+      inp.addEventListener('blur', done); inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); e.stopPropagation(); });
+    });
     const map = { sClassic: 'classic', sSfx: 'sfx', sMusic: 'music', sHaptics: 'haptics', sShake: 'shake', sTips: 'tips', sBig: 'bigText', sHc: 'contrast', sLefty: 'lefty' };
     for (const [id, key] of Object.entries(map)) p.querySelector('#' + id).addEventListener('change', e => {
       save.settings[key] = e.target.checked; persist(); Sound.apply();
@@ -678,42 +626,6 @@ function showHowto(onDone) {
     <h3>Your city</h3>
     <p class="lede">Every tower you top out moves people in. Homes need jobs and shops nearby, offices need workers. Watch the <b>R C O</b> demand bars, keep people happy with parks and transit, and collect income when you come back. Population raises your city level and unlocks new blueprints, districts and moves.</p>
     <button class="btn primary" type="button" data-close>Got it</button>`, null, onDone);
-}
-// The city today: this event, the next one, and the weather.
-function showToday() {
-  const ev = eventNow(), nx = eventNext(), wid = weatherNow(), wx = WEATHER[wid], nwx = WEATHER[weatherAt(Date.now() + weatherChangesIn() + 1000)];
-  openModal(`${head('Today in the city', new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }))}
-    ${ev ? `<div class="card" aria-disabled="false" style="cursor:default"><i class="sw" style="--c:var(--accent)"></i><span><b>${ev.icon} ${esc(ev.name)}</b><small>${esc(ev.desc)}</small></span><span class="go">${fmtDuration(eventEndsIn())}<br><small>left</small></span></div>
-    <p class="sub">Next: <b>${esc(nx.name)}</b> in ${fmtDuration(eventEndsIn())}. ${esc(nx.desc)}</p>` : `<p class="lede">City events start at <b>level ${EVENT_LEVEL}</b>: housing booms, festivals, contests and more, a new one every ${EVENT_HOURS} hours.</p>`}
-    <div class="card" style="cursor:default"><i class="sw" style="--c:${wx.bonus ? 'var(--stable)' : '#7fb8ff'}"></i><span><b>${wx.icon} ${wx.name}</b><small>${esc(wx.desc)}</small></span><span class="go">${fmtDuration(weatherChangesIn())}<br><small>left</small></span></div>
-    <p class="sub">Then: ${nwx.icon} ${nwx.name}. Weather only affects city builds, and each build keeps the weather it started in.</p>
-    <button class="btn primary" type="button" data-close>Close</button>`);
-}
-function showCityInfo() {
-  const A = City.A, lp = levelProgress();
-  const next = []; for (let l = save.level + 1; l <= Math.min(MAX_LEVEL, save.level + 3); l++) for (const u of unlocksAt(l)) next.push({ ...u, name: `${u.name} (level ${l})` });
-  const pct = v => `${Math.round(v * 100)}%`;
-  const matOn = skillLevel() >= ECON.renoLevel;
-  openModal(`${head(`${rankFor(lp.l)} · level ${lp.l}`, lp.next == null ? 'Top level reached' : `${fmt(population())} of ${fmt(lp.next)} residents for level ${lp.l + 1}`)}
-    <div class="meter"><i style="width:${(lp.frac * 100).toFixed(1)}%"></i></div>
-    <dl class="stats">
-      <dt>Residents</dt><dd>${fmt(A.pop)}</dd><dt>Jobs filled</dt><dd>${fmt(A.filled)} of ${fmt(A.jobs)}</dd>
-      <dt>Hotel guests</dt><dd>${fmt(A.guests)}</dd><dt>Happiness</dt><dd>${pct(A.happy)}</dd>
-      <dt>Unemployment</dt><dd>${pct(A.unemployment)}</dd><dt>Income</dt><dd>${fmt(City.rate)} coins/hour</dd>
-      <dt>Income storage</dt><dd>up to ${ECON.incomeCapHours} hours</dd></dl>
-    <h3>Infrastructure</h3>
-    <dl class="stats">
-      <dt>Power</dt><dd>${fmt(A.powerUse)} / ${fmt(A.power)}</dd><dt>Water</dt><dd>${fmt(A.waterUse)} / ${fmt(A.water)}</dd>
-      <dt>Waste handling</dt><dd>${fmt(A.wasteUse)} / ${fmt(A.waste)}</dd><dt>Connectivity</dt><dd>${fmt(A.dataUse)} / ${fmt(A.data)}</dd>
-      <dt>Commuters / road and transit capacity</dt><dd>${fmt(A.commute)} / ${fmt(A.roadCap)}</dd>
-      <dt>Homes with education</dt><dd>${pct(A.svc.edu)}</dd><dt>Homes with healthcare</dt><dd>${pct(A.svc.health)}</dd><dt>Homes with safety</dt><dd>${pct(A.svc.safety)}</dd>
-      <dt>Homes near pollution</dt><dd>${pct(A.pollShare)}</dd><dt>Tourism</dt><dd>${pct(A.tourism)}</dd></dl>
-    ${matOn ? `<h3>Materials</h3><dl class="stats"><dt>In store</dt><dd>${fmt(Math.floor(save.materials))} / ${fmt(materialCap())}</dd><dt>Harbor Works output</dt><dd>+${A.matRate.toFixed(1)}/hour</dd><dt>Perfect floors</dt><dd>+${ECON.matPerPerfect} each</dd></dl>
-    <div class="btn-row"><button class="btn" type="button" data-buy="10">Buy 10 · ${fmt(matPrice(10))}</button><button class="btn" type="button" data-buy="50">Buy 50 · ${fmt(matPrice(50))}</button></div>` : ''}
-    ${next.length ? `<h3>Coming up</h3><div class="unlocks">${unlockRows(next)}</div>` : ''}
-    <button class="btn primary" type="button" data-close>Close</button>`, p => {
-    bind(p, '[data-buy]', el => { if (buyMaterials(+el.dataset.buy)) { Sound.coin(2); showCityInfo(); updateHubHud(); } else { Sound.deny(); toast(save.materials >= materialCap() - 1 ? 'Storage is full. Harbor Works add more room.' : 'Not enough coins'); } });
-  });
 }
 /* ---------------- Map overlays ---------------- */
 function setOverlayUI() {
@@ -812,12 +724,16 @@ function showResults(r, sum) {
   show('result');
 }
 function renderTitle() {
-  const has = buildingsList().length;
+  const has = buildingsList().length, lp = levelProgress();
   $('titleLede').innerHTML = has
-    ? `<b>${esc(regionNow().name)}</b> · ${rankFor(save.level)} of <b>${fmt(population())}</b>, level <b>${save.level}</b>. Your city is waiting.`
+    ? `Welcome back, <b>${esc(save.profile.name)}</b>. ${esc(regionNow().name)} is a ${rankFor(save.level).toLowerCase()} of <b>${fmt(population())}</b>.`
     : 'Drop floors from the swinging crane, stack them straight, and build a whole city tower by tower.';
-  $('btnPlay').textContent = has ? 'Continue' : 'Play';
-  $('btnTitleDaily').disabled = !dailyOn();
+  $('tLvl').textContent = String(lp.l);
+  $('tLvlNext').textContent = lp.next == null ? 'Top level' : `Level ${lp.l + 1} at ${fmtK(lp.next)}`;
+  $('tLvlBar').style.setProperty('--p', (lp.frac * 100).toFixed(1) + '%');
+  $('tCoins').textContent = fmtK(save.coins); $('tGems').textContent = fmtK(save.prestige);
+  $('tBadgeM').hidden = !(contractsReady() || loginReady());
+  $('tBadgeE').hidden = !(dailyOn() && !dailyCleared());
   const bits = [];
   if (save.race.best) bits.push(`Sky Race record ${save.race.best} floors`);
   if (dailyOn()) bits.push(dailyCleared() ? `Daily cleared · ${dailyStreak()}-day streak` : dailyStreak() ? `Daily ready · keep your ${dailyStreak()}-day streak` : 'Daily Challenge ready');

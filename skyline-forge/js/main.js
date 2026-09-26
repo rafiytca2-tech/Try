@@ -97,6 +97,7 @@ function enterHub(openNear) {
   const after = () => {
     ensureContracts(); updateHubHud();
     if (openNear) { const lot = nearestEmpty(openNear); if (lot) openLotSheet(lot); }
+    if (afterHub) { const f = afterHub; afterHub = null; f(); }
   };
   if (pendingWelcome) { const w = pendingWelcome; pendingWelcome = null; showWelcome(w, () => showLevelUps(ups, after)); }
   else showLevelUps(ups, after);
@@ -385,19 +386,22 @@ window.addEventListener('resize', () => { layout(); if (game && state !== 'play'
 /* ---------------- Buttons ---------------- */
 const click = (id, fn) => $(id).addEventListener('click', () => { Sound.click(); fn(); });
 click('btnPlay', goToHub);
-click('btnTitleRace', startRace);
-click('btnTitleDaily', () => showDaily());
 click('btnTitleSettings', () => showSettings(renderTitle));
+click('tMap', () => showWorldMap()); click('tBuildings', () => showCollection()); click('tMissions', () => showMissions()); click('tEvents', showEvents);
+click('tShop', () => showShop()); click('tCoinPlus', () => showShop()); click('tCity', goToHub); click('tCollection', () => showCollection());
 click('pauseBtn', pause);
 click('btnResume', resume);
 click('btnRestart', () => { if (lastSession && game && game.kind !== 'city') beginSession(lastSession.kind, lastSession.opts); });
 click('btnPauseSettings', () => showSettings(() => show('pause')));
 click('btnQuit', stopBuilding);
 click('collectBtn', () => { const n = collectIncome(); if (n) { toast(`+${fmt(n)} coins`, 'good'); for (let k = 0; k < 5; k++) setTimeout(() => popupAt(`+${fmt(Math.ceil(n / 5))}`, cam.look.x + (Math.random() - 0.5) * 40, 10 + Math.random() * 10, cam.look.z, 'coinpop'), k * 90); } updateHubHud(); });
-click('btnContracts', showContracts);
-click('btnDaily', showDaily);
-click('btnRace', startRace);
-click('btnTrophies', () => showTrophies());
+click('btnContracts', () => showMissions());
+click('btnEvents', showEvents);
+click('btnCity', () => showCityInfo());
+click('btnShop', () => showShop()); click('coinPlus', () => showShop());
+click('btnCollection', () => showCollection());
+click('btnWorld', () => showWorldMap());
+click('btnPhoto', enterPhoto);
 click('btnMap', cycleOverlay);
 click('compass', () => { yawTo = 0; });
 click('evPill', showToday); click('wxPill', showToday);
@@ -407,10 +411,7 @@ click('pShot', () => capturePhoto(false));
 click('pShare', () => capturePhoto(true));
 $('pShare').hidden = !(window.SkylineNative && window.SkylineNative.canShare && window.SkylineNative.canShare());
 for (const b of $('photo').querySelectorAll('[data-p]')) b.addEventListener('click', () => { Sound.click(); photoCycle(b.dataset.p); });
-click('btnMenu', () => openModal(`${head('Menu')}<div class="btns"><button class="btn primary" type="button" id="mPhoto">Photo mode</button><button class="btn" type="button" id="mRegions">Regions${skillLevel() >= REGIONS[1].unlock ? '' : ` · level ${REGIONS[1].unlock}`}</button><button class="btn" type="button" id="mInfo">City statistics</button><button class="btn" type="button" id="mHow">How to play</button><button class="btn" type="button" id="mSet">Settings</button><button class="btn ghost" type="button" id="mTitle">Title screen</button></div>`, p => {
-  bind(p, '#mInfo', showCityInfo); bind(p, '#mPhoto', enterPhoto); bind(p, '#mRegions', showRegions); bind(p, '#mHow', () => showHowto()); bind(p, '#mSet', () => showSettings());
-  bind(p, '#mTitle', () => { $('modal').hidden = true; modalClose = null; persistNow(); toTitle(); });
-}));
+click('btnMenu', showMenu);
 $('lvlChip').addEventListener('click', () => { Sound.click(); showCityInfo(); });
 $('goal').addEventListener('click', () => {
   Sound.click();
@@ -475,7 +476,7 @@ function frame(now) {
   }
   if (slowTimer >= 2) {
     slowTimer = 0;
-    checkPopAchievements(); checkPopContracts();
+    checkPopAchievements(); checkPopContracts(); trackTrend();
     if (state === 'hub') { ensureContracts(); if ($('modal').hidden) { const ups = checkLevelUp(); if (ups.length) showLevelUps(ups, updateHubHud); } }
     const ev = eventNow(), evId = ev ? ev.id : null;
     if (lastEventId !== undefined && evId !== lastEventId && ev) { toast(`New city event: ${ev.name}`, 'good'); recomputeCity(); }

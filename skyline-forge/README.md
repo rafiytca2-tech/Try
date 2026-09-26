@@ -13,12 +13,16 @@ Android APK wrapper lives in [`android/`](android/).
 
 ## How it plays
 
-- **Construction**: the classic engine, unchanged.
-  - The crane shows first, then the camera pans down to the rope.
-  - The floor swings on the rope and drops straight down.
+- **Construction**: the classic engine, with real balance.
+  - The crane shows first, then the camera pans down. The rope hangs still until the first
+    floor is in view, then starts to swing.
+  - A dropped floor keeps a little of the swing's sideways momentum, so you lead the drop.
   - Within 5 px of centre is a Perfect.
   - A floor whose centre lands past the edge tips off, and three misses end the build.
   - Sloppy floors make the whole tower rock. Perfects calm it.
+  - Stack too far off balance and the tower creaks, glows at its weak joint and then collapses
+    from that joint, depending on where the weight sits and how hard it is swaying.
+  - The camera eases back as the tower grows, so the city stays in view.
 - **The Forge moves**:
 
   | Gesture | Keyboard | Unlocks | Effect |
@@ -36,31 +40,42 @@ Android APK wrapper lives in [`android/`](android/).
 - **The city** (the strategy layer):
   - Tap a lot to build. **Homes**, **shops** and **offices** keep one another busy; watch the
     **R/C/O demand** bars, **happiness**, **power** and **roads** readouts.
-  - Supply **power and water** (plants, towers, solar, wind, water works) or buildings empty.
+  - Supply **power, water, waste handling and connectivity** (plants, solar, wind, fusion, water
+    towers and works, landfills, recycling, cell towers, data centres) or buildings empty.
   - Cover homes with **schools, clinics and fire & police**; keep **factories** (which make
     building materials) away from housing, or out in the Dockyards.
-  - Relieve **traffic** with bus, tram, ferry, metro and rail stops; raise land value with
-    parks and plazas. The **Map** button shows land value, services, pollution and transit.
+  - Relieve **traffic** with bus, tram, ferry, metro, rail, high-speed rail and maglev stops;
+    raise land value with parks, plazas and landmarks. The **Layers** button shows land value,
+    services, pollution and transit.
   - **Renovate** finished towers: facades, amenities, rooftop gardens, solar roofs, lighting.
-  - Buy **ten districts** along the harbour, each with its own trait.
+  - Buy **thirteen districts**, each with its own trait, from the low-rise Suburbs to the
+    Entertainment District and the future-era Floating Quarter on pontoons.
   - Income builds up while you're away, for up to 8 hours. **Collect** it when you return.
 - **Coming back**:
-  - Three **contracts** at a time, refilling every 15 minutes.
+  - Three **missions** (contracts) at a time, refilling every 15 minutes; some pay exclusive
+    blueprints. **Go** takes you straight to a good lot.
+  - Seven **daily chests**, one a day.
   - A rotating **city event** every 3 hours and live **weather** every 2 hours (wind, rain, fog,
     storms, snow) that pays bonus coins for building in it.
   - A seeded **Daily Challenge** with a streak, and a **Weekly Challenge** with bronze, silver
     and gold tiers.
-  - The six-stage **Harbor Stadium** megaproject on its own island.
+  - The six-stage **Harbor Stadium** and the four-stage **Harbor Airport**, each on its own island.
+  - The **Forge Arcology**: a 250-floor vertical city built over seven phases.
   - **Sky Race**, the endless classic mode. Your best run stands as the **Record Tower** on the
     pier.
   - **Achievements**, **mastery facades**, crane paint, a **Blueprint Studio** for your own
-    tower designs, and **Photo mode**.
+    tower designs, **Photo mode** with depth of field, a **Collection** of every building, and a
+    **Shop** that only takes the coins and prestige you earn by playing.
 - **Progression**:
-  - 30 city levels unlock 17 blueprints, from Starter Flats up to the 100-floor Forge Megatower,
+  - 30 city levels unlock 27 blueprints, from Starter Flats up to the 250-floor Forge Arcology,
     plus districts, utilities, transit and services.
-  - **Regions**: found new cities in Coral Bay (tropical), Mirage Springs (desert) and Fjordheim
-    (northern fjord), each with its own rules, weather and look. Every city you own adds trade
-    income to the others.
+  - **Regions**: found new cities in Coral Bay (tropical), Mirage Springs (desert), Fjordheim
+    (northern fjord), Highpeak (mountains) and Pearl Atoll (islands), each with its own rules,
+    weather and look, on the **World Map**. Every city you own adds trade income to the others.
+- **The interface**: a bright mobile-game look, with blue panels, chunky yellow and green
+  buttons, 3D thumbnails of every building, district star ratings and a Build Here! pointer.
+  The title screen has Play, Map, Buildings, Missions and Events, plus Shop, City and
+  Collection; in the city a bottom bar leads to Shop, Collection, Missions, Events and City Stats.
   - New moves unlock in the design document's tutorial order, and never lock again in a new
     region.
 
@@ -68,6 +83,9 @@ Android APK wrapper lives in [`android/`](android/).
 
 - **Pan**: drag.
 - **Zoom**: pinch or scroll.
+- **Rotate**: twist with two fingers, or drag with the right mouse button. The compass turns
+  the city back to north.
+- **Left-handed layout** (Settings) mirrors the buttons and readouts.
 - **Open a lot, building or pier**: tap it.
 - **Keyboard**: arrows pan, `+`/`-` zoom, `Esc` closes sheets and pauses builds.
 - **Photo mode** (Menu): drag to orbit, pinch or scroll to zoom, two fingers to pan, tap to hide
@@ -75,16 +93,17 @@ Android APK wrapper lives in [`android/`](android/).
 
 ## Files
 
-- **`index.html`**: markup and styles.
+- **`index.html`**: markup and styles, with the Lilita One and Nunito fonts (SIL Open Font
+  License 1.1) embedded.
 - **`js/`**: the game, as classic scripts that share one global scope:
   - `core` and `data`: helpers and the tuning tables;
   - `audio` and `gfx`: sound, rendering and textures;
   - `world` and `life`: the city map, the crane, and everything that moves in the city;
   - `engine`: the classic construction engine and the Forge moves;
   - `city` and `meta`: the simulation, economy and reasons to come back;
-  - `events`, `stadium`, `studio`, `photo` and `regions`: weather and events, the stadium
-    megaproject, the Blueprint Studio, Photo mode and regions;
-  - `ui` and `main`: screens and the main loop.
+  - `events`, `stadium`, `studio`, `photo` and `regions`: weather and events, the stadium and
+    airport megaprojects, the Blueprint Studio, Photo mode and regions;
+  - `ui`, `menus` and `main`: the HUD, sheets and menus, and the main loop.
 
   `index.html` runs as is from a web server or `file://`.
 - **`bundle.py`**: inlines the scripts into `dist/skyline-forge.html`, one file for hosting and
@@ -117,8 +136,8 @@ python3 skyline-forge/android/build_apk.py   # needs a JDK 17+ and Python 3
 ```
 
 The build doesn't need the Android SDK:
-- It fetches the Android API stubs, `dx` and `apksig` from Maven Central, and three.js and the
-  Barlow fonts from npm. They're cached in `android/.cache/`.
+- It fetches the Android API stubs, `dx` and `apksig` from Maven Central, and three.js from
+  npm. They're cached in `android/.cache/`. The fonts are already in `index.html`.
 - It compiles the WebView wrapper and writes the binary manifest and resource table itself.
 - It signs with APK Signature Scheme v2 and verifies the result.
 
