@@ -134,7 +134,8 @@ function ropeLength(g) {
 function nextKind(g) {
   const n = g.tower.length;
   if (n === 0) return 'foundation';
-  if (g.target && n === g.target - 1) return 'roof';
+  const top = g.bp && g.bp.phases ? g.bp.floors : g.target;         // a phased tower only gets its roof at the very top
+  if (top && n === top - 1) return 'roof';
   return isSpecial(g.bp, n) ? 'special' : 'floor';
 }
 const floorStyle = g => floorStyleOf(g.bp, g.tower.length, g.style);
@@ -299,9 +300,10 @@ function settle(g, b, dx) {
   if (g.target && g.tower.length >= g.target) {
     g.ending = { t: 1.4, done: true };
     Sound.complete();
-    const t = towerTop(g);
+    const t = towerTop(g), ph = phaseAt(g.bp, g.tower.length);
     fireworks(sx(t.x), sy(t.y), sz());
-    banner('Topped out', g.bp ? g.bp.name : `${g.target} floors`);
+    if (ph && g.tower.length < g.bp.floors) banner('Phase complete', `${g.bp.name}: ${ph[1]}`);
+    else banner('Topped out', g.bp ? g.bp.name : `${g.target} floors`);
     vib([30, 30, 30, 30, 80]);
   } else {
     g.hook.next = true; g.hook.wait = CFG.nextDelay;
@@ -555,7 +557,7 @@ function finishRound(g) {
   const n = g.tower.length;
   onSessionEnd({
     kind: g.kind, site: g.site, bp: g.bpKey, style: g.style, target: g.target, daily: g.daily, weekly: g.weekly, stage: g.stage, project: g.project, mods: g.mods,
-    floors: n, newFloors: n - g.startFloors, done: !!(g.target && n >= g.target),
+    floors: n, newFloors: n - g.startFloors, done: g.bp && g.bp.phases ? n >= g.bp.floors : !!(g.target && n >= g.target), phaseDone: !!(g.target && n >= g.target),
     pts: g.pop, caps: g.caps, quality: g.landed ? g.quality / g.landed : 0, landed: g.landed,
     perfects: g.perfects, maxCombo: g.maxCombo, powerPerfects: g.powerPerfects, bestRisk: g.bestRisk, bestPerfectRisk: g.bestPerfectRisk,
     recoveries: g.recoveries.slice(), recoveryPrestige: g.recoveryPrestige, strongest: g.strongest, peakSway: g.peakSway,

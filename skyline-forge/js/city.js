@@ -10,6 +10,8 @@ const cityLevel = () => save.level;
 // Skills and modes follow the best city you've built anywhere, so a new region never takes them away.
 const skillLevel = () => Math.max(save.level, save.peak || 1);
 const regionMods = () => (typeof regionNow === 'function' ? regionNow().mods : {}) || {};
+// Waterfront: the front row, a floating district, or anywhere on an island region.
+const isWater = lot => !!(lot.water || regionMods().allWater);
 const ownedCities = () => 1 + Object.keys(save.regions || {}).filter(k => k !== save.region && save.regions[k]).length;
 function levelForPop(p) { let l = 1; while (l < MAX_LEVEL && p >= LEVELS[l]) l++; return l; }
 const buildingAt = id => { const b = save.lots[id]; return b && b.bp ? b : null; };
@@ -41,7 +43,7 @@ function lotContext() {
   }
   for (const lot of LOTS) {
     const c = { svc: {}, poll: 0, transit: 0, parks: 0 };
-    let v = DISTRICT_BY_ID[lot.d].lv + (lot.water ? 0.1 : 0) + (regionMods().lv || 0);
+    let v = DISTRICT_BY_ID[lot.d].lv + (isWater(lot) ? 0.1 : 0) + (regionMods().lv || 0);
     for (const o of src.park) if (o.id !== lot.id && c.parks < 2 && lotDist(lot, o) <= PLACEABLES.park.radius) { c.parks++; v += PLACEABLES.park.lv; }
     for (const o of src.plaza) if (o.id !== lot.id && lotDist(lot, o) <= PLACEABLES.plaza.radius) { v += PLACEABLES.plaza.lv; break; }
     for (const [o, P] of src.transit) if (lotDist(lot, o) <= P.radius) c.transit = Math.max(c.transit, P.lv);
@@ -66,7 +68,7 @@ function recomputeCity() {
   const RM = regionMods();
   const A = { Rcap: 0, Ccap: 0, Ocap: 0, Icap: 0, Gcap: 0, Vcap: 0, Svc: 0, Ecap: 0, parks: 0, plazas: 0, landmarks: 0, arenas: 0, covered: 0, buildings: 0,
     waterHotels: 0, floors: 0, power: UTIL.basePower, water: Math.round(UTIL.baseWater * (RM.water || 1)), powerUse: 0, waterUse: 0,
-    waste: UTIL.baseWaste, wasteUse: 0, data: UTIL.baseData, dataUse: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
+    waste: UTIL.baseWaste, wasteUse: 0, data: UTIL.baseData, dataUse: 0, bonusHappy: 0, roadCap: 300, gardens: 0, lights: 0, polluted: 0, industry: 0,
     svc: { health: 0, edu: 0, safety: 0 }, extraTourism: 0 };
   const ctx = City.ctx = lotContext();
   const list = buildingsList();
@@ -99,7 +101,8 @@ function recomputeCity() {
     if (bp.role === 'landmark' && b.done) A.landmarks++;
     if (bp.role === 'ent' && b.done) A.arenas++;
     if (bp.role === 'ind') A.industry++;
-    if ((c.hot || 0) > 0 && lot.water) A.waterHotels++;
+    if ((c.hot || 0) > 0 && isWater(lot)) A.waterHotels++;
+    if (b.done && bp.happy) A.bonusHappy += bp.happy;
     busyDistricts.add(lot.d);
     const cx = ctx[lot.id];
     if (cx.transit > 0) A.covered++;
@@ -142,7 +145,7 @@ function recomputeCity() {
   A.unemployment = unemployment;
   const svcSum = A.svc.health + A.svc.edu + A.svc.safety;
   A.happy = clamp(0.62 + Math.min(0.25, 0.05 * A.parks) + Math.min(0.1, 0.05 * A.plazas) + 0.15 * (A.buildings ? A.covered / A.buildings : 0) + (A.landmarks ? 0.1 : 0)
-    + 0.06 * svcSum + Math.min(0.08, 0.01 * A.gardens) + Math.min(0.08, 0.04 * A.arenas) + (stad ? 0.06 : 0)
+    + 0.06 * svcSum + Math.min(0.08, 0.01 * A.gardens) + Math.min(0.08, 0.04 * A.arenas) + (stad ? 0.06 : 0) + Math.min(0.1, A.bonusHappy)
     - 0.2 * unemployment - 0.1 * shopShort - 0.12 * Math.min(1, A.congestion) - 0.12 * A.pollShare - 0.2 * (1 - A.util), 0.25, 1);
   // Demand bars, -1..1 (GDD §6 Demand)
   A.demand = {
@@ -279,20 +282,22 @@ function chosenStyle(key) {
   const i = v.indexOf(m.style);
   return i >= 0 && i <= masteryTier(key) ? m.style : base;
 }
-function permitCost(key) { return key === 'flats' && save.freeFlats ? 0 : BLUEPRINTS[key].cost; }
+function permitCost(key) { return key === 'flats' && save.freeFlats ? 0 : Math.round(BLUEPRINTS[key].cost * (regionMods().permit || 1)); }
 const NEED_TEXT = { res: 'Residential', com: 'Commercial', off: 'Office', edu: 'a school or university', hot: 'a hotel' };
 function needsMet(key, lot) {
   const bp = BLUEPRINTS[key], missing = [];
   for (const need of bp.needs || []) {
-    if (need === 'parkOrWater') { if (!lot.water && !nearbyHas(lot, b => b.place === 'park')) missing.push('a park nearby or a waterfront lot'); }
+    if (need === 'parkOrWater') { if (!isWater(lot) && !nearbyHas(lot, b => b.place === 'park')) missing.push('a park nearby or a waterfront lot'); }
     else if (!nearbyHas(lot, b => b.bp && hasRole(b, need))) missing.push(NEED_TEXT[need]);
   }
   return missing;
 }
-const matCost = (key, cont) => Math.ceil((BLUEPRINTS[key].mat || 0) * (cont ? ECON.continueFee : 1));
+// A phased project (the Arcology) is paid for once: its later phases continue for free.
+const matCost = (key, cont) => (cont && BLUEPRINTS[key].phases ? 0 : Math.ceil((BLUEPRINTS[key].mat || 0) * (cont ? ECON.continueFee : 1)));
 function canBuild(key, lot, opts = {}) {
   const bp = BLUEPRINTS[key], d = DISTRICT_BY_ID[lot.d];
-  const cost = opts.cont ? Math.round(bp.cost * ECON.continueFee) : permitCost(key), mat = matCost(key, opts.cont);
+  const cost = opts.cont ? (bp.phases ? 0 : Math.round(permitCost(key) * ECON.continueFee)) : permitCost(key), mat = matCost(key, opts.cont);
+  if (bp.contract && !(save.bpUnlocks || {})[key]) return { ok: false, reason: 'Unlocked by a contract', cost, locked: true };
   if (opts.cont) { const b = buildingAt(lot.id); if (!b || b.bp !== key || b.done) return { ok: false, reason: 'Nothing to continue here', cost, mat }; }
   if (!save.districts[lot.d]) return { ok: false, reason: `Buy ${d.name} first`, cost };
   if (bp.level > save.level) return { ok: false, reason: `City level ${bp.level}`, cost, locked: true };
@@ -310,7 +315,7 @@ function canBuild(key, lot, opts = {}) {
   return { ok: true, cost, mat };
 }
 // Materials can always be bought, at a price, so a shortage never walls the player off.
-const matPrice = n => Math.ceil(n * ECON.materialPrice * ((eventNow() && eventNow().matPrice) || 1));
+const matPrice = n => Math.ceil(n * ECON.materialPrice * ((eventNow() && eventNow().matPrice) || 1) * (regionMods().matPrice || 1));
 // Buying for a specific build may go past storage; stocking up may not.
 function buyMaterials(n, forBuild) {
   if (!forBuild) n = Math.min(n, Math.floor(materialCap() - save.materials));
@@ -349,7 +354,7 @@ function completeBuild(r) {
   const quality = cont ? ((prev.quality || 0.8) * (prev.landed || prev.xs.length) + r.quality * r.landed) / Math.max(1, landed) : r.quality;
   const stars = r.done ? (quality >= ECON.stars[1] ? 3 : quality >= ECON.stars[0] ? 2 : 1) : 0;
   const rec = {
-    bp: r.bp, style: cont ? prev.style : r.style, xs: r.xs, target: r.target, done: r.done, caps, cap: capTotal(caps), quality, landed, stars,
+    bp: r.bp, style: cont ? prev.style : r.style, xs: r.xs, target: bp.phases ? bp.floors : r.target, done: r.done, caps, cap: capTotal(caps), quality, landed, stars,
     perfects: r.perfects + (cont ? prev.perfects || 0 : 0), combo: Math.max(r.maxCombo, cont ? prev.combo || 0 : 0),
     power: r.powerPerfects + (cont ? prev.power || 0 : 0), strongest: Math.max(r.strongest, cont ? prev.strongest || 1 : 1),
     recoveries: (cont ? prev.recoveries || [] : []).concat(r.recoveries), specials: r.specialPerfects + (cont ? prev.specials || 0 : 0),
@@ -369,6 +374,9 @@ function completeBuild(r) {
   let coins = Math.round((r.newFloors * E.perFloor * sm + r.perfects * E.perPerfect + r.powerPerfects * E.perPowerPerfect) * (1 + wx.bonus) + eventCoins);
   let prestige = r.recoveryPrestige;
   const firstTop = topped && !(save.mastery[r.bp] && save.mastery[r.bp].built);
+  // A finished phase of a phased project pays its own share on the way up.
+  const phase = bp.phases && r.phaseDone && !topped && !kept ? bp.phases.find(p => p[0] === r.xs.length) : null;
+  if (phase) { coins += Math.round(bp.cost * 0.06); prestige += 12; }
   if (topped) { coins += Math.round(bp.cost * E.completion + stars * bp.floors * E.perStarFloor); prestige += Math.round(stars * bp.floors / 4); }
   addCoins(coins); addPrestige(prestige);
   const salvage = Math.min(materialCap() - save.materials, r.perfects * ECON.matPerPerfect);   // Perfect floors waste nothing
@@ -377,8 +385,10 @@ function completeBuild(r) {
   if (topped) { m.built++; m.stars = Math.max(m.stars, stars); save.stats.toppedOut++; if (stars === 3) save.stats.threeStars++; }
   save.stats.builds++;
   recomputeCity();
-  const out = { coins, wxBonus: wx.bonus, eventCoins, prestige, materials: Math.max(0, Math.floor(salvage)), stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
-  bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects, weather: r.mods && r.mods.weather, eventCoins, tier: masteryTier(r.bp) });
+  const out = { coins, phase: phase ? phase[1] : null, wxBonus: wx.bonus, eventCoins, prestige, materials: Math.max(0, Math.floor(salvage)), stars: topped ? stars : 0, kept, saved: !kept && r.xs.length > 0, cont, caps, cap: rec.cap, quality, firstTop, bonus, prev: kept ? prev : null };
+  const cx = (City.ctx && City.ctx[lot.id]) || { transit: 0 };
+  bus.emit('build', { bp: r.bp, done: topped, stars: topped ? stars : 0, quality, perfects: r.perfects, powerPerfects: r.powerPerfects, weather: r.mods && r.mods.weather, eventCoins, tier: masteryTier(r.bp),
+    role: bp.role, floors: r.xs.length, district: lot.d, transit: cx.transit > 0, water: isWater(lot), collapses: r.collapses || 0, phase: phase ? phase[1] : null });
   persistNow();
   return out;
 }
@@ -389,7 +399,7 @@ function canPlace(key, lot) {
   if (!save.districts[lot.d]) return { ok: false, reason: 'Buy this district first' };
   if (P.level > save.level) return { ok: false, reason: `City level ${P.level}`, locked: true };
   if (save.lots[lot.id]) return { ok: false, reason: 'Lot in use' };
-  if (P.waterfront && !lot.water) return { ok: false, reason: 'Waterfront lots only' };
+  if (P.waterfront && !isWater(lot)) return { ok: false, reason: 'Waterfront lots only' };
   if (save.coins < P.cost) return { ok: false, reason: `${fmt(P.cost - save.coins)} more coins`, short: true };
   return { ok: true, cost: P.cost };
 }

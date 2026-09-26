@@ -97,6 +97,9 @@ const STYLES = {
   pearl:    { body: '#eeebf4', light: '#ffffff', dark: '#c3bdd0', outline: '#3b3550', win: 'ribbon' },
   glass:    { body: '#7fb3d5', light: '#c7e3f5', dark: '#4f86ad', outline: '#15324a', win: 'ribbon' },
   magenta:  { body: '#d0418f', light: '#f08cc4', dark: '#8f2560', outline: '#3a0b25', win: 'ribbon' },
+  plum:     { body: '#7a3b6e', light: '#b77aa9', dark: '#4f2247', outline: '#1f0b1c', win: 'balcony' },
+  aurora:   { body: '#bfeee8', light: '#f2fffd', dark: '#6fbfb6', outline: '#12403b', win: 'ribbon' },
+  leaf:     { body: '#4c9a3c', light: '#8fd07a', dark: '#2f6b24', outline: '#0f2a0b', win: 'twin' },
 };
 const STYLE_KEYS = Object.keys(STYLES);
 
@@ -143,6 +146,23 @@ const BLUEPRINTS = {
                blurb: 'Trade fairs and conferences. Needs a hotel nearby.' },
   opera:     { name: 'Opera House',       role: 'ent', floors: 14,  level: 12, cost: 8000,  mult: 2.6, style: 'pearl', unique: true, tourism: 0.15, aura: 0.15, mat: 60,
                blurb: 'White sails on the skyline: tourism, and land value +0.15 within 100 m.' },
+  // Contract rewards: these blueprints are unlocked only by finishing special contracts.
+  lofts:     { name: 'Artist Lofts',      role: 'res', floors: 12,  level: 6,  cost: 1400,  mult: 1.9, style: 'brick', contract: true, mat: 10,
+               blurb: 'Contract reward. Characterful homes that fit historic districts.' },
+  boutique:  { name: 'Boutique Hotel',    role: 'hot', floors: 14,  level: 8,  cost: 2600,  mult: 2.9, style: 'plum', contract: true, mat: 20,
+               blurb: 'Contract reward. Small, luxurious and very profitable.' },
+  greenhq:   { name: 'Green HQ',          role: 'off', floors: 30,  level: 12, cost: 9000,  mult: 3.0, style: 'mint', contract: true, special: { every: 6, name: 'Garden Floor' }, mat: 60,
+               blurb: 'Contract reward. Offices with a garden every six floors.' },
+  skyclub:   { name: 'Sky Club',          role: 'ent', floors: 26,  level: 14, cost: 12000, mult: 3.2, style: 'obsidian', contract: true, unique: true, tourism: 0.1, mat: 80,
+               blurb: 'Contract reward. A members\' club in the clouds: tourism and glamour.' },
+  // Future era (GDD §11)
+  vfarm:     { name: 'Vertical Farm',     role: 'ind', floors: 30,  level: 25, cost: 30000, mult: 3.0, style: 'leaf', special: { every: 5, name: 'Grow Floor' }, mat: 150, clean: true, happy: 0.03,
+               blurb: 'Farms stacked into the sky: clean jobs, materials and a greener city.' },
+  arcology:  { name: 'Forge Arcology',    role: 'mixed', floors: 250, level: 24, cost: 150000, mult: 5.5, style: 'aurora', unique: true, mat: 1200, roof: 'aurora',
+               special: { every: 10, name: 'Sky Park' },
+               sections: [[25, 'obsidian', 'com'], [80, 'glass', 'off'], [130, 'aurora', 'res'], [150, 'leaf', 'ent'], [210, 'aurora', 'res'], [240, 'glass', 'off'], [250, 'gold', 'landmark']],
+               phases: [[25, 'Foundation'], [80, 'Core'], [130, 'Lower City'], [150, 'Sky Bridge'], [210, 'Upper City'], [240, 'Crown'], [250, 'Spire']],
+               blurb: 'A 250-floor vertical city, built phase by phase over many sessions. The permit covers every phase.' },
   tech:      { name: 'Tech Campus',       role: 'off', floors: 24,  level: 14, cost: 9000,  mult: 2.9, style: 'sky', needs: ['edu'], mat: 60, rich: true,
                blurb: 'High-paying jobs. Needs a school or university nearby.' },
 };
@@ -170,6 +190,9 @@ const STYLE_VARIANTS = {
 };
 const MASTERY_TIERS = [0, 2, 5];           // topped out this many times to unlock each facade
 const masteryTier = key => { const m = save.mastery[key]; const n = m ? m.built : 0; return MASTERY_TIERS.filter(t => n >= t).length - 1; };
+// For a phased blueprint: the phase that ends at this floor count, or the next one to build.
+const phaseAt = (bp, n) => (bp && bp.phases ? bp.phases.find(p => p[0] === n) || null : null);
+const nextPhase = (bp, n) => (bp && bp.phases ? bp.phases.find(p => p[0] > n) || null : null);
 const isSpecial = (bp, i) => !!(bp && bp.special && i > 0 && i < bp.floors - 1 && i % bp.special.every === 0);
 const ROLE_NAMES = { res: 'residents', com: 'shop jobs', off: 'office jobs', hot: 'guests', landmark: 'visitors', mixed: 'residents & jobs', ind: 'factory jobs', edu: 'students & staff', health: 'patients & staff', safety: 'officers', ent: 'visitors' };
 const ROLE_LABEL = { res: 'Residential', com: 'Commercial', off: 'Office', hot: 'Hospitality', landmark: 'Landmark', mixed: 'Mixed use', ind: 'Industrial', edu: 'Education', health: 'Healthcare', safety: 'Safety', ent: 'Entertainment' };
@@ -213,6 +236,7 @@ const PLACEABLES = {
   ferry: { name: 'Ferry Terminal', level: 9, cost: 2500, radius: 90,  lv: 0.15, transit: 1, cap: 400, tourism: 0.1, waterfront: true, blurb: 'Waterfront lots only. Transit and tourists from across the harbour.' },
   metro: { name: 'Metro Station', level: 12, cost: 5000, radius: 110, lv: 0.25, transit: 2, cap: 900, blurb: 'Transit within 110 m: land value +25%, big traffic relief.' },
   rail:  { name: 'Rail Station',  level: 15, cost: 9000, radius: 140, lv: 0.25, transit: 2, cap: 1500, tourism: 0.1, blurb: 'Intercity rail: land value +25% within 140 m, tourists, huge traffic relief.' },
+  maglev: { name: 'Autonomous Transit Hub', level: 26, cost: 28000, radius: 240, lv: 0.3, transit: 2, cap: 4000, blurb: 'Driverless pods and a maglev line: land value +30% within 240 m, and traffic nearly vanishes.' },
   hsr:   { name: 'High-Speed Rail', level: 18, cost: 16000, radius: 200, lv: 0.3, transit: 2, cap: 2500, tourism: 0.15, blurb: 'Bullet trains to the rest of the country: land value +30% within 200 m, big tourism and traffic relief.' },
   power: { name: 'Power Plant',   level: 4,  cost: 800,  power: 150, pollution: 70, blurb: '+150 power. Pollutes the lots around it.' },
   tower: { name: 'Water Tower',   level: 4,  cost: 600,  water: 160, blurb: '+160 water.' },
@@ -221,6 +245,7 @@ const PLACEABLES = {
   waterworks: { name: 'Water Works', level: 10, cost: 3200, water: 420, blurb: '+420 water.' },
   dump:  { name: 'Landfill',        level: 5,  cost: 700,  waste: 160, pollution: 50, blurb: '+160 waste handling. Smells: pollutes nearby lots.' },
   recycling: { name: 'Recycling Centre', level: 11, cost: 3800, waste: 420, blurb: '+420 clean waste handling.' },
+  fusion: { name: 'Fusion Plant',   level: 27, cost: 40000, power: 2500, blurb: '+2,500 clean power. The end of power worries.' },
   cell:  { name: 'Cell Tower',      level: 6,  cost: 900,  data: 180, blurb: '+180 connectivity.' },
   datacenter: { name: 'Data Centre', level: 13, cost: 6000, data: 600, blurb: '+600 connectivity for a wired city.' },
 };
@@ -242,6 +267,7 @@ const DISTRICTS = [
   { id: 'dockyards', name: 'Dockyards',          col: 5,  level: 4,  cost: 2500,  lv: 0.90, bonus: { ind: 0.3 }, docks: true, trait: 'Industrial harbour: factories +30%, and their pollution stays in the docks.' },
   { id: 'unihill',   name: 'University Hill',    col: -4, level: 12, cost: 20000, lv: 1.20, bonus: { edu: 0.3 }, trait: 'Schools and universities +30%, covering half again as far.' },
   { id: 'suburbs',   name: 'Suburbs',            col: 6,  level: 6,  cost: 6000,  lv: 0.95, maxFloors: 12, bonus: { res: 0.25 }, road: 150, trait: 'Low-rise family streets: max 12 floors, homes +25%, extra road capacity.' },
+  { id: 'floating',  name: 'Floating Quarter',   pos: { x: 300, z: 116 }, level: 25, cost: 250000, lv: 1.4, bonus: { res: 0.2, off: 0.2 }, allWater: true, trait: 'Future era: a district on pontoons. Every lot is waterfront; homes and offices +20%.' },
   { id: 'nightlife', name: 'Entertainment District', col: -5, level: 10, cost: 30000, lv: 1.2, bonus: { ent: 0.35, com: 0.15 }, tourism: 0.2, trait: 'Arenas and landmarks +35%, shops +15%, tourism +20%. Bright lights all night.' },
 ];
 const DISTRICT_BY_ID = Object.fromEntries(DISTRICTS.map(d => [d.id, d]));
@@ -277,6 +303,16 @@ const REGIONS = [
     weather: { clear: 18, cloudy: 22, wind: 16, rain: 0, fog: 10, storm: 4, snow: 30 },
     look: { grass: ['#e8eef2', '#d6e0e6', '#f4f8fa'], paving: '#e9edf0', street: '#5c6168', leaf: '#2f5a3a', city: '#dfe8f4', roof: '#f2f5f8', water: '#0f3a52', horizon: '#dfe9f2', trees: 'pine' } },
 ];
+REGIONS.push(
+  { id: 'mountain', name: 'Highpeak', climate: 'Alpine valley', unlock: 22, cost: 320000,
+    trait: 'Mountain views: land value +0.15 and tourism +15%, wind power ×1.3, but steep ground makes every permit 20% dearer.', mods: { lv: 0.15, tourism: 0.15, wind: 1.3, permit: 1.2 },
+    weather: { clear: 28, cloudy: 22, wind: 14, rain: 8, fog: 12, storm: 4, snow: 12 },
+    look: { grass: ['#6f9a52', '#5e8a44', '#86b064'], paving: '#dcdcd6', street: '#4b4f55', leaf: '#2f5a3a', city: '#f1ece4', roof: '#7a5a44', water: '#1f5a6a', horizon: '#e6eef2', trees: 'pine', mountains: true, skyline: 0.7 } },
+  { id: 'island', name: 'Pearl Atoll', climate: 'Island nation', unlock: 25, cost: 450000,
+    trait: 'Every lot counts as waterfront, hotels +40% and tourism +30%, but supplies arrive by sea: materials cost double.', mods: { tourism: 0.3, cap: { hot: 0.4 }, allWater: true, matPrice: 2 },
+    weather: { clear: 40, cloudy: 12, wind: 14, rain: 14, fog: 2, storm: 12, snow: 0 },
+    look: { grass: ['#6cbf5a', '#5aab4a', '#80d06c'], paving: '#f0e6cc', street: '#5a5d61', leaf: '#3aa04a', city: '#fff8ee', roof: '#e0cfa8', water: '#1aa3b4', horizon: '#ffe8c8', trees: 'palm', skyline: 0.4 } },
+);
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 const TRADE_BONUS = 0.05;          // income for every other city you own
 
@@ -366,6 +402,12 @@ const CONTRACTS = [
   { id: 'reno',     min: 4, w: 1, make: r => { const n = pick(r, [1, 2]); return { type: 'reno', target: n, text: `Renovate ${plural(n, 'building')}`, coins: 260 * n, prestige: 4 }; } },
   { id: 'weather',  min: 3, w: 1, make: () => ({ type: 'weather', target: 1, text: 'Top out a building in wind, rain, fog or a storm', coins: 420, prestige: 6 }) },
   { id: 'transit',  min: 5, w: 1, make: () => ({ type: 'transit', target: 1, text: 'Open a new transit stop', coins: 500, prestige: 4 }) },
+  // Clients with constraints (GDD §10): where, what, and how well.
+  { id: 'district', min: 4, w: 2, make: (r, c) => { const own = c.districts.filter(id => id !== 'harbor'), d = own.length ? pick(r, own) : 'harbor', role = pick(r, ['res', 'com', 'off']);
+      return { type: 'district', d, role, target: 1, text: `Top out a ${ROLE_LABEL[role].toLowerCase()} building in ${DISTRICT_BY_ID[d].name}`, coins: 460, prestige: 6 }; } },
+  { id: 'transitHome', min: 6, w: 1, make: () => ({ type: 'transitHome', target: 1, text: 'Top out homes on a lot served by transit', coins: 540, prestige: 6 }) },
+  { id: 'waterHotel', min: 9, w: 1, make: () => ({ type: 'waterHotel', target: 1, text: 'Top out a waterfront hotel with 85%+ quality', coins: 950, prestige: 8 }) },
+  { id: 'tall',     min: 6, w: 1, make: r => { const f = pick(r, [20, 30]); return { type: 'tall', f, target: 1, text: `Top out a ${f}+ floor tower without a collapse`, coins: 32 * f, prestige: 7 }; } },
 ];
 
 /* ---- Achievements: each pays prestige once. ---- */

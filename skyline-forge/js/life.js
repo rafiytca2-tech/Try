@@ -41,7 +41,13 @@ instanced(new T.BoxGeometry(0.9, 0.25, 0.5).translate(0, 6.0, 0), lampHeadMat, l
 const lampGlow = pointsOf(lamps.map(l => ({ x: l.x, y: 5.6, z: l.z })), '#ffcf8a', 9, true);
 
 /* ---------------- Aviation lights (backdrop + your tall towers) ---------------- */
-const aviaStatic = pointsOf(aviation, '#ff3b2f', 7, false);
+let aviaStatic = pointsOf(aviation, '#ff3b2f', 7, false);
+function setAviationScale(k) {
+  const base = aviaStatic.userData.base;
+  scene.remove(aviaStatic); aviaStatic.geometry.dispose(); aviaStatic.material.dispose();
+  aviaStatic = pointsOf(k < 0.6 ? [] : aviation.map(a => ({ x: a.x, y: a.y * k, z: a.z })), '#ff3b2f', 7, false);
+  aviaStatic.userData.base = base;
+}
 let aviaTowers = pointsOf([], '#ff3b2f', 7, false);
 function refreshAviation() {
   const list = [];

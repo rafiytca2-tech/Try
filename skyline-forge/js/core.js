@@ -85,6 +85,7 @@ function defaultSave() {
     stadium: { stage: 0, parts: {} },            // the Harbor Stadium megaproject
     airport: { stage: 0, parts: {} },            // the Harbor Airport megaproject
     custom: [],                  // player-made blueprints
+    bpUnlocks: {},               // contract-reward blueprints the player has earned
     overlay: '',                 // hub map overlay
     region: 'harbor',            // the city you are in; the others wait in regions{}
     regions: {},                 // region id -> that city's saved state while you're away

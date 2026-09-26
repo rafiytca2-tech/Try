@@ -128,7 +128,8 @@ function startCityBuild(lot, key, cont) {
   if (!payPermit(key, lot, cont)) { const c = canBuild(key, lot, { cont }); Sound.deny(); toast(c.reason || 'Cannot build here'); return; }
   if (save.ftue === 0) { save.ftue = 1; persist(); }
   const b = buildingAt(lot.id);
-  beginSession('city', { site: lot, bp: key, xs: cont && b ? b.xs : null, style: cont && b ? b.style : chosenStyle(key), mods: weatherMods() });
+  const bp = BLUEPRINTS[key], ph = nextPhase(bp, cont && b ? b.xs.length : 0);
+  beginSession('city', { site: lot, bp: key, xs: cont && b ? b.xs : null, style: cont && b ? b.style : chosenStyle(key), mods: weatherMods(), target: ph ? ph[0] : undefined });
 }
 function startRace() { Sound.resume(); beginSession('race', { site: PIER, style: 'green' }); }
 function startWeekly() {

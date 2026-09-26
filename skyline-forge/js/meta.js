@@ -22,11 +22,15 @@ function makeContract() {
   const n = ++save.contracts.made;
   const rng = mulberry32(hashStr(`contract:${save.created}:${n}`));
   const active = new Set(save.contracts.slots.filter(c => c && !c.empty).map(c => c.tpl));
-  const ctx = { level: save.level, bps: unlockedBlueprints(), raceBest: save.race.best, pop: population() };
+  const ctx = { level: save.level, bps: unlockedBlueprints(), raceBest: save.race.best, pop: population(), districts: Object.keys(save.districts) };
   const pool = CONTRACTS.filter(t => t.min <= skillLevel() && !active.has(t.id) && (t.id !== 'topout' || ctx.bps.length));
   let total = pool.reduce((s, t) => s + t.w, 0), r = rng() * total, tpl = pool[0];
   for (const t of pool) { r -= t.w; if (r <= 0) { tpl = t; break; } }
-  return Object.assign({ tpl: tpl.id, progress: 0, done: false, claimed: false }, tpl.make(rng, ctx));
+  const c = Object.assign({ tpl: tpl.id, progress: 0, done: false, claimed: false }, tpl.make(rng, ctx));
+  // Some clients pay in blueprints you can't get any other way.
+  const locked = BP_KEYS.filter(k => BLUEPRINTS[k].contract && !save.bpUnlocks[k] && BLUEPRINTS[k].level <= save.level + 2);
+  if (save.level >= 6 && locked.length && rng() < 0.3) c.unlock = pick(rng, locked);
+  return c;
 }
 function contractsOn() { return skillLevel() >= FEATURES.contracts; }
 function ensureContracts() {
@@ -63,13 +67,21 @@ bus.on('build', ev => eachContract(c => {
 bus.on('recovery', ev => eachContract(c => { if (c.type === 'recovery' && ev.tier >= c.k) progressContract(c); }));
 bus.on('place', ev => eachContract(c => { if ((c.type === 'parks' && ev.key === 'park') || (c.type === 'transit' && PLACEABLES[ev.key].transit)) progressContract(c); }));
 bus.on('renovate', () => eachContract(c => { if (c.type === 'reno') progressContract(c); }));
-bus.on('build', ev => eachContract(c => { if (c.type === 'weather' && ev.done && WEATHER[ev.weather] && WEATHER[ev.weather].bonus) progressContract(c); }));
+bus.on('build', ev => eachContract(c => {
+  if (!ev.done) return;
+  if (c.type === 'weather' && WEATHER[ev.weather] && WEATHER[ev.weather].bonus) progressContract(c);
+  else if (c.type === 'district' && ev.district === c.d && ev.role === c.role) progressContract(c);
+  else if (c.type === 'transitHome' && ev.role === 'res' && ev.transit) progressContract(c);
+  else if (c.type === 'waterHotel' && ev.role === 'hot' && ev.water && ev.quality >= 0.85 - 1e-6) progressContract(c);
+  else if (c.type === 'tall' && ev.floors >= c.f && !ev.collapses) progressContract(c);
+}));
 bus.on('daily', () => eachContract(c => { if (c.type === 'daily') progressContract(c); }));
 function checkPopContracts() { const p = population(); eachContract(c => { if (c.type === 'pop' && p >= c.p) progressContract(c); }); }
 function claimContract(i) {
   const c = save.contracts.slots[i];
   if (!c || c.empty || !c.done) return null;
   addCoins(c.coins); addPrestige(c.prestige);
+  if (c.unlock && BLUEPRINTS[c.unlock]) { save.bpUnlocks[c.unlock] = Date.now(); setTimeout(() => toast(`New blueprint: ${BLUEPRINTS[c.unlock].name}`, 'good'), 900); }
   save.contracts.slots[i] = { empty: true, readyAt: Date.now() + ECON.contractRefillMin * 60000 };
   save.stats.contracts++;
   Sound.coin(4); persistNow();

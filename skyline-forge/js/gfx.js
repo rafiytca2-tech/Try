@@ -367,6 +367,35 @@ function buildRoofProps(style) {
     add(new T.BoxGeometry(3.6, 1.6, 3.6), new T.MeshStandardMaterial({ color: lin('#a8e4f8'), roughness: 0.1, metalness: 0.5, emissive: new T.Color('#9fe8ff'), emissiveIntensity: 0.18 }), -0.6, 1.25, -0.4);
     const dish = add(new T.SphereGeometry(1.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), new T.MeshStandardMaterial({ color: lin('#eef1f4'), roughness: 0.4, side: T.DoubleSide }), 2, 1.6, 2); dish.rotation.x = -0.9;
     add(new T.CylinderGeometry(0.08, 0.08, 1.1, 6), propMat('#8d99a6'), 2, 1, 2);
+  } else if (style === 'plum') {                        // Boutique hotel: rooftop pool, loungers and a parasol
+    add(new T.BoxGeometry(5.6, 0.3, 5.6), propMat('#d9c9a8'), 0, 0.55, 0);
+    add(new T.BoxGeometry(3.6, 0.12, 2.4), new T.MeshStandardMaterial({ color: lin('#4fc3e0'), roughness: 0.08, metalness: 0.2, emissive: new T.Color('#2fa8d0'), emissiveIntensity: 0.25 }), -0.7, 0.72, -0.9).castShadow = false;
+    for (const x of [-1.8, -0.4, 1]) add(new T.BoxGeometry(0.6, 0.18, 1.3), propMat('#f6f1e4'), x, 0.8, 1.6);
+    add(new T.CylinderGeometry(0.04, 0.04, 1.8, 6), propMat('#c9ced4'), 2.1, 1.6, 1.4);
+    add(new T.ConeGeometry(1.2, 0.5, 8), propMat(st.light), 2.1, 2.55, 1.4);
+  } else if (style === 'leaf') {                        // Vertical farm: a glass greenhouse over planted beds
+    const glassM = new T.MeshStandardMaterial({ color: lin('#d8f7e6'), roughness: 0.08, metalness: 0.3, transparent: true, opacity: 0.55, emissive: new T.Color('#b8ffcf'), emissiveIntensity: 0.15 });
+    add(new T.BoxGeometry(5.4, 1.6, 5), glassM, 0, 1.25, 0).castShadow = false;
+    const ridge = add(new T.CylinderGeometry(2.9, 2.9, 5.4, 3, 1).rotateZ(Math.PI / 2), glassM, 0, 2.65, 0); ridge.scale.set(1, 0.42, 0.9); ridge.castShadow = false;
+    const crop = new T.MeshStandardMaterial({ color: lin('#5cbf4a'), roughness: 0.9, flatShading: true });
+    for (const z of [-1.5, 0, 1.5]) for (let x = -2; x <= 2; x += 1) add(new T.IcosahedronGeometry(0.34, 0), crop, x, 0.8, z);
+    for (const x of [-2.7, 2.7]) add(new T.BoxGeometry(0.1, 2.6, 5.1), propMat(st.outline), x, 1.75, 0);
+  } else if (style === 'aurora') {                      // Forge Arcology: stepped sky crown, a glowing halo ring and a needle
+    const glow = new T.MeshStandardMaterial({ color: lin('#c8fff6'), roughness: 0.2, metalness: 0.4, emissive: new T.Color('#5cffe0'), emissiveIntensity: 0.9 });
+    const gold = new T.MeshStandardMaterial({ color: lin('#e8c55e'), roughness: 0.3, metalness: 0.7, emissive: new T.Color('#ffb640'), emissiveIntensity: 0.12 });
+    add(new T.CylinderGeometry(4.2, 4.6, 1.6, 20), propMat(st.light), 0, 1.2, 0);
+    add(new T.CylinderGeometry(3.4, 4, 3, 20), new T.MeshStandardMaterial({ color: lin('#9fe8e0'), roughness: 0.1, metalness: 0.5, emissive: new T.Color('#7fffe8'), emissiveIntensity: 0.3 }), 0, 3.5, 0);
+    add(new T.CylinderGeometry(2.6, 3.2, 2.4, 20), gold, 0, 6.2, 0);
+    for (let k = 0; k < 8; k++) {                        // garden terraces spilling from the crown
+      const a = k * Math.PI / 4;
+      add(new T.IcosahedronGeometry(0.55, 0), new T.MeshStandardMaterial({ color: lin('#5cbf4a'), roughness: 0.9, flatShading: true }), Math.cos(a) * 3.9, 2.25, Math.sin(a) * 3.9);
+    }
+    const halo = new T.Group(); halo.position.set(0, top + 9.5, 0); halo.userData.spin = 0.35; halo.userData.axis = 'y'; g.add(halo);
+    const ring = new T.Mesh(new T.TorusGeometry(4.8, 0.28, 10, 48).rotateX(Math.PI / 2), glow); halo.add(ring);
+    for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3, s = new T.Mesh(new T.BoxGeometry(0.12, 0.12, 4.8), gold); s.position.set(Math.cos(a) * 2.4, 0, Math.sin(a) * 2.4); s.rotation.y = -a + Math.PI / 2; halo.add(s); }
+    add(new T.ConeGeometry(1.8, 12, 12), propMat('#f2fffd'), 0, 13.4, 0);
+    add(new T.CylinderGeometry(0.08, 0.16, 9, 6), propMat('#c9ced4'), 0, 23.5, 0);
+    add(new T.SphereGeometry(0.55, 12, 10), new T.MeshBasicMaterial({ color: '#7fffe8' }), 0, 28.2, 0);
   } else {
     add(new T.BoxGeometry(4.2, 0.45, 4.2), propMat(st.light), 0, 0.67, 0);
     add(new T.BoxGeometry(2.6, 0.45, 2.6), propMat(st.body), 0, 1.1, 0);
@@ -412,6 +441,60 @@ function makeModule(style, kind, roofStyle) {
   g.add(body);
   if (kind === 'roof') g.add(roofProps(roofStyle || style));
   return g;
+}
+
+/* ---------------- Menu thumbnails: a little 3D tower on a lawn, rendered once and kept as an image ---------------- */
+const thumbCache = {};
+let thumbKit = null;
+function thumbKitMake() {
+  const sc = new T.Scene();
+  sc.add(new T.HemisphereLight(0xe4f1ff, 0x8a7a60, 0.95));
+  const sun = new T.DirectionalLight(0xfff0d8, 1.7); sun.position.set(-40, 70, 55); sc.add(sun);
+  const rt = new T.WebGLRenderTarget(480, 600); rt.texture.encoding = T.sRGBEncoding;
+  const lawn = new T.MeshStandardMaterial({ color: lin('#6cc24a'), roughness: 0.9 }), soil = new T.MeshStandardMaterial({ color: lin('#b8875a'), roughness: 1 });
+  const tree = new T.MeshStandardMaterial({ color: lin('#3f9a3a'), roughness: 0.9, flatShading: true }), trunk = new T.MeshStandardMaterial({ color: lin('#6e4a2a') });
+  return { sc, rt, cam: new T.PerspectiveCamera(22, 0.8, 1, 4000), holder: new T.Group(), lawn, soil, tree, trunk, buf: new Uint8Array(480 * 600 * 4) };
+}
+// key: a blueprint key, or 'place:<placeable>'. Returns a PNG data URL (cached per key and facade).
+function thumbFor(key, style) {
+  const place = key.startsWith('place:'), bp = place ? null : BLUEPRINTS[key];
+  if (!place && !bp) return '';
+  const st = place ? '' : style || bp.style, id = key + '|' + st;
+  if (thumbCache[id]) return thumbCache[id];
+  const K = thumbKit || (thumbKit = thumbKitMake()), g = K.holder;
+  K.sc.add(g);
+  if (place) g.add(placeableModel(key.slice(6)));
+  else {
+    const F = bp.floors, n = F <= 8 ? F : Math.min(16, Math.round(4 + Math.sqrt(F) * 1.3));
+    for (let i = 0; i < n; i++) {
+      const fi = n === 1 ? 0 : Math.round(i / (n - 1) * (F - 1));
+      const kind = i === 0 ? 'foundation' : i === n - 1 ? 'roof' : isSpecial(bp, fi) ? 'special' : 'floor';
+      const m = makeModule(floorStyleOf(bp, fi, st), kind, roofStyleOf(bp, st)); m.position.y = (i + 0.5) * H * S; g.add(m);
+    }
+    const base = new T.Mesh(new T.BoxGeometry(14, 1, 12), [K.soil, K.soil, K.lawn, K.soil, K.soil, K.soil]); base.position.y = -0.5; g.add(base);
+    for (const [x, z, s] of [[-5.2, 3.8, 1], [5, -3.6, 0.8], [5.4, 4, 0.7]]) {
+      const t = new T.Mesh(new T.ConeGeometry(1.3 * s, 3.4 * s, 7), K.tree); t.position.set(x, 1.1 + 1.7 * s, z); g.add(t);
+      const k = new T.Mesh(new T.CylinderGeometry(0.2, 0.25, 1.2, 6), K.trunk); k.position.set(x, 0.6, z); g.add(k);
+    }
+  }
+  // Frame the model: a three-quarter view from above, tall towers fill the height.
+  const box = new T.Box3().setFromObject(g), c = box.getCenter(new T.Vector3()), sz = box.getSize(new T.Vector3());
+  const fv = K.cam.fov * Math.PI / 360, fh = Math.atan(Math.tan(fv) * K.cam.aspect);
+  const dist = Math.max(sz.y * 0.56 / Math.tan(fv), Math.max(sz.x, sz.z) * 0.78 / Math.tan(fh)) + Math.max(sz.x, sz.z) * 0.5;
+  K.cam.position.copy(c).add(new T.Vector3(0.62, 0.42, 0.66).normalize().multiplyScalar(dist)); K.cam.lookAt(c);
+  const prevRT = renderer.getRenderTarget(), prevCol = renderer.getClearColor(new T.Color()), prevA = renderer.getClearAlpha(), prevExp = renderer.toneMappingExposure;
+  renderer.setRenderTarget(K.rt); renderer.setClearColor(0x000000, 0); renderer.toneMappingExposure = 1.05; renderer.clear();
+  renderer.render(K.sc, K.cam);
+  renderer.readRenderTargetPixels(K.rt, 0, 0, 480, 600, K.buf);
+  renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA); renderer.toneMappingExposure = prevExp;
+  // Flip rows into a canvas, then halve it for smooth edges.
+  const big = canvasOf(480, 600), bg = big.getContext('2d'), img = bg.createImageData(480, 600);
+  for (let y = 0; y < 600; y++) img.data.set(K.buf.subarray((599 - y) * 1920, (600 - y) * 1920), y * 1920);
+  bg.putImageData(img, 0, 0);
+  const out = canvasOf(240, 300), og = out.getContext('2d'); og.imageSmoothingQuality = 'high'; og.drawImage(big, 0, 0, 240, 300);
+  for (const ch of [...g.children]) { g.remove(ch); if (ch.isMesh && ch.geometry !== geoModule) ch.geometry.dispose(); }
+  K.sc.remove(g);
+  return (thumbCache[id] = out.toDataURL('image/png'));
 }
 
 /* ---------------- Rods (rope, slings, crane pendants) ---------------- */

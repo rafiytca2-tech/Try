@@ -10,11 +10,13 @@ const BLOCK = 74, LOT_PITCH = 20, QUAY_Z = 44, WATER_Y = -1.8, CITY_N = 9;
 /* ---------------- Lots and sites ---------------- */
 // Each district is one block with a 3 x 3 grid of lots. Row A is the back, C faces the water.
 const LOTS = [], LOT_BY_ID = {};
+// A district's centre: its column on the waterfront row, or its own spot (the Floating Quarter).
+const districtCentre = d => (d.pos ? d.pos : { x: d.col * BLOCK, z: 0 });
 for (const d of DISTRICTS) {
-  const bx = d.col * BLOCK;
+  const o = districtCentre(d);
   ['A', 'B', 'C'].forEach((row, r) => {
     for (let c = 0; c < 3; c++) {
-      const lot = { id: `${d.id}-${row}${c + 1}`, d: d.id, x: bx + (c - 1) * LOT_PITCH, z: (r - 1) * LOT_PITCH, row, col: c + 1, water: row === 'C' };
+      const lot = { id: `${d.id}-${row}${c + 1}`, d: d.id, x: o.x + (c - 1) * LOT_PITCH, z: o.z + (r - 1) * LOT_PITCH, row, col: c + 1, water: row === 'C' || !!d.allWater };
       LOTS.push(lot); LOT_BY_ID[lot.id] = lot;
     }
   });
@@ -22,7 +24,7 @@ for (const d of DISTRICTS) {
 const PIER = { id: 'pier', x: BLOCK / 2, z: 86, pier: true };          // Sky Race and the daily challenge
 const RECORD_PIER = { id: 'record', x: -BLOCK / 2, z: 86, pier: true }; // your best Sky Race tower
 const lotDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const districtCols = new Set(DISTRICTS.map(d => d.col));
+const districtCols = new Set(DISTRICTS.filter(d => d.col != null).map(d => d.col));
 
 /* ---------------- Ground, harbour and streets ---------------- */
 // Streets: asphalt with dashed centre lines and zebra crossings. One texture tile per 74 m block
@@ -226,13 +228,25 @@ glassMat.onBeforeCompile = sh => {
 };
 glassMat.customProgramCacheKey = () => 'city-glass-2';
 todHooks.push(P => { cityUniforms.uLit.value = P.lit; cityUniforms.uWin.value = 0.3 + P.win * 0.9; });
-instanced(unitBox, cityMat, buildings.filter(b => !b.g), b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); }, true);
-instanced(unitBox, glassMat, buildings.filter(b => b.g), b => { vPos.set(b.x, b.y - 0.25, b.z); vScale.set(b.w, b.h, b.d); }, true);
+const skylineParts = [];                               // backdrop meshes that setSkylineScale re-places
+const placeBld = (b, k = 1) => { vPos.set(b.x, b.y * k - 0.25, b.z); vScale.set(b.w, b.h * k, b.d); };
+{
+  const plain = buildings.filter(b => !b.g), glassy = buildings.filter(b => b.g);
+  skylineParts.push({ mesh: instanced(unitBox, cityMat, plain, placeBld, true), list: plain, place: placeBld });
+  skylineParts.push({ mesh: instanced(unitBox, glassMat, glassy, placeBld, true), list: glassy, place: placeBld });
+}
 const steelGrey = new T.MeshStandardMaterial({ color: lin('#b8c0c8'), roughness: 0.35, metalness: 0.7 });
-instanced(new T.ConeGeometry(1, 1, 8).translate(0, 0.5, 0), steelGrey, spires, s => { vPos.set(s.x, s.y - 0.25, s.z); vScale.set(s.r, s.h, s.r); }, true);
-instanced(new T.CylinderGeometry(0.18, 0.35, 1, 6).translate(0, 0.5, 0), steelGrey, antennas, a => { vPos.set(a.x, a.y - 0.25, a.z); vScale.set(1, a.h, 1); });
-instanced(new T.CylinderGeometry(1.4, 1.4, 2.6, 10).translate(0, 1.3 + 1.6, 0), new T.MeshStandardMaterial({ color: lin('#8a6a4a'), roughness: 0.9 }), tanks, t => { vPos.set(t.x, t.y - 0.25, t.z); vScale.setScalar(t.s); }, true);
-const roofBoxMesh = instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofBoxes, r => { vPos.set(r.x, r.y - 0.25, r.z); vScale.set(r.w, r.h, r.d); });
+{
+  const pSpire = (s, k = 1) => { vPos.set(s.x, s.y * k - 0.25, s.z); vScale.set(s.r, s.h * k, s.r); };
+  const pAnt = (a, k = 1) => { vPos.set(a.x, a.y * k - 0.25, a.z); vScale.set(1, a.h * k, 1); };
+  const pTank = (t, k = 1) => { vPos.set(t.x, t.y * k - 0.25, t.z); vScale.setScalar(t.s); };
+  skylineParts.push({ mesh: instanced(new T.ConeGeometry(1, 1, 8).translate(0, 0.5, 0), steelGrey, spires, pSpire, true), list: spires, place: pSpire });
+  skylineParts.push({ mesh: instanced(new T.CylinderGeometry(0.18, 0.35, 1, 6).translate(0, 0.5, 0), steelGrey, antennas, pAnt), list: antennas, place: pAnt });
+  skylineParts.push({ mesh: instanced(new T.CylinderGeometry(1.4, 1.4, 2.6, 10).translate(0, 1.3 + 1.6, 0), new T.MeshStandardMaterial({ color: lin('#8a6a4a'), roughness: 0.9 }), tanks, pTank, true), list: tanks, place: pTank });
+}
+const pRoofBox = (r, k = 1) => { vPos.set(r.x, r.y * k - 0.25, r.z); vScale.set(r.w, r.h, r.d); };
+const roofBoxMesh = instanced(unitBox, new T.MeshStandardMaterial({ color: lin('#8d9096'), roughness: 0.8 }), roofBoxes, pRoofBox);
+skylineParts.push({ mesh: roofBoxMesh, list: roofBoxes, place: pRoofBox });
 const treeTopGeo = new T.IcosahedronGeometry(2.4, 0).translate(0, 4.2, 0), trunkGeo = new T.CylinderGeometry(0.22, 0.3, 2.4, 5).translate(0, 1.2, 0);
 // Region trees: round (temperate), palms (tropics and desert), pines (north).
 const TREE_GEOS = {
@@ -475,6 +489,32 @@ function buildPlaceable(key) {
     for (let y = 1; y < 5; y += 1.2) box(14.05, 0.12, 10.05, '#39c7ff', 0, y, -2).material = new T.MeshStandardMaterial({ color: lin('#39c7ff'), emissive: new T.Color('#39c7ff'), emissiveIntensity: 0.6 });
     for (let x = -5; x <= 5; x += 2.5) { const fan = new T.Mesh(new T.CylinderGeometry(0.9, 0.9, 0.5, 14), propMat('#8d99a6')); fan.position.set(x, 5.25, -2); g.add(fan); }
     box(3, 2, 2, '#5a6470', -5, 0, 6); box(3, 2, 2, '#5a6470', 0, 0, 6);
+  } else if (key === 'maglev') {
+    box(17, 0.15, 17, '#c9c4b8', 0, 0, 0);
+    for (const x of [-7, 0, 7]) box(0.9, 5, 0.9, '#e8ebee', x, 0, 5);                     // guideway piers
+    box(17, 0.8, 1.4, '#f2f4f6', 0, 5, 5);
+    box(17, 0.1, 1.5, '#39c7ff', 0, 5.8, 5).material = new T.MeshStandardMaterial({ color: lin('#39c7ff'), emissive: new T.Color('#39c7ff'), emissiveIntensity: 0.7 });
+    const pod = new T.Group(); pod.position.set(0, 6.4, 5); pod.userData.glide = { span: 17, speed: 6 }; g.add(pod);
+    const shell = new T.Mesh(new T.CylinderGeometry(1, 1, 5, 14).rotateZ(Math.PI / 2), propMat('#f7f8f9')); shell.scale.set(1, 0.85, 1); shell.castShadow = true; pod.add(shell);
+    for (const x of [-2.5, 2.5]) { const nose = new T.Mesh(new T.SphereGeometry(1, 14, 10), propMat('#f7f8f9')); nose.scale.set(1.3, 0.85, 1); nose.position.x = x; pod.add(nose); }
+    const band = new T.Mesh(new T.BoxGeometry(5.6, 0.45, 2.02), propMat('#1d2a38')); band.position.y = 0.2; pod.add(band);
+    // Station: a white shell roof over glass, with driverless pods waiting at the kerb.
+    box(12, 3.4, 6, '#a8e4f8', -1, 0, -4.4).material = new T.MeshStandardMaterial({ color: lin('#a8e4f8'), roughness: 0.1, metalness: 0.5, emissive: new T.Color('#9fe8ff'), emissiveIntensity: 0.15 });
+    const roof = new T.Mesh(new T.SphereGeometry(7, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: lin('#f4f6f8'), roughness: 0.35, side: T.DoubleSide }));
+    roof.scale.set(1, 0.25, 0.55); roof.position.set(-1, 3.4, -4.4); roof.castShadow = true; g.add(roof);
+    for (const x of [-5.5, -2.5, 0.5]) { box(2.2, 1.3, 1.3, '#f2f4f6', x, 0, 0.8); box(1.6, 0.5, 1.34, '#1d2a38', x, 0.7, 0.8); }
+  } else if (key === 'fusion') {
+    box(17, 0.15, 17, '#c9c4b8', 0, 0, 0);
+    const hall = new T.Mesh(new T.CylinderGeometry(5.6, 6, 6, 28).translate(0, 3, 0), propMat('#eef1f4')); hall.position.set(-1.5, 0, -1.5); hall.castShadow = hall.receiveShadow = true; g.add(hall);
+    const dome = new T.Mesh(new T.SphereGeometry(5.6, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2), propMat('#dfe5ea')); dome.scale.y = 0.5; dome.position.set(-1.5, 6, -1.5); dome.castShadow = true; g.add(dome);
+    const glowM = new T.MeshStandardMaterial({ color: lin('#c8a8ff'), emissive: new T.Color('#b07cff'), emissiveIntensity: 0.9, roughness: 0.2 });
+    const band = new T.Mesh(new T.CylinderGeometry(5.66, 5.8, 0.6, 28), glowM); band.position.set(-1.5, 3.4, -1.5); g.add(band);
+    const halo = new T.Group(); halo.position.set(-1.5, 10.2, -1.5); halo.userData.spin = 0.8; halo.userData.axis = 'y'; g.add(halo);
+    const torus = new T.Mesh(new T.TorusGeometry(2.4, 0.45, 12, 36).rotateX(Math.PI / 2), glowM); halo.add(torus);
+    for (let k = 0; k < 4; k++) { const b = new T.Mesh(new T.BoxGeometry(0.2, 0.2, 2.4), propMat('#c9ced4')); b.rotation.y = k * Math.PI / 4; halo.add(b); }
+    for (const [x, z] of [[5.5, -4], [5.5, 0.5], [5.5, 5]]) box(3, 2.4, 3, '#8d99a6', x, 0, z);
+    for (const x of [-6, -2, 2]) box(0.3, 7, 0.3, '#6b7178', x, 0, 6.5);
+    box(9, 0.2, 0.2, '#6b7178', -2, 6.8, 6.5);
   }
   return g;
 }
@@ -565,7 +605,7 @@ todHooks.push(P => { stripMat.opacity = clamp(P.win * 0.8, 0, 1); stripMesh.visi
 const spinning = [], bobbing = [], smokeSrc = [];
 function collectAnimated() {
   spinning.length = bobbing.length = smokeSrc.length = 0;
-  const visit = o => { if (o.userData.spin) spinning.push(o); if (o.userData.bob) bobbing.push(o); if (o.userData.smoke) smokeSrc.push(o); };
+  const visit = o => { if (o.userData.spin) spinning.push(o); if (o.userData.bob || o.userData.glide) bobbing.push(o); if (o.userData.smoke) smokeSrc.push(o); };
   for (const m of Object.values(placeMeshes)) if (m.visible) m.traverse(visit);
   for (const r of TowerField.roofs) r.traverse(visit);
 }
@@ -573,7 +613,11 @@ const SMOKE_PER = 6, smokeSprites = [];
 const smokeTex = puffTex, vSmoke = new T.Vector3();
 function updateProps(dt, t) {
   for (const o of spinning) o.rotation[o.userData.axis || 'z'] -= o.userData.spin * dt;
-  for (const o of bobbing) { o.position.y = WATER_Y + 0.3 + Math.sin(t * 1.2) * 0.22; o.rotation.x = Math.sin(t * 0.9) * 0.02; }
+  for (const o of bobbing) {
+    const gl = o.userData.glide;                        // maglev pods run the guideway and wrap round
+    if (gl) { o.position.x = ((t * gl.speed) % (gl.span + 12)) - gl.span / 2 - 6; o.visible = Math.abs(o.position.x) < gl.span / 2 + 2; continue; }
+    o.position.y = WATER_Y + 0.3 + Math.sin(t * 1.2) * 0.22; o.rotation.x = Math.sin(t * 0.9) * 0.02;
+  }
   const need = Math.min(20, smokeSrc.length) * SMOKE_PER;
   while (smokeSprites.length < need) {
     const sp = new T.Sprite(new T.SpriteMaterial({ map: smokeTex, color: '#d9d5cc', transparent: true, opacity: 0, depthWrite: false, fog: true }));
@@ -807,6 +851,8 @@ function applyRegionLook(L) {
   cityMat.color.copy(lin(L.city)); glassMat.color.copy(lin(L.city));
   roofBoxMesh.material.color.copy(lin(L.roof));
   cityUniforms.uSnow.value = L.trees === 'pine' ? 0.85 : 0;
+  mountainRoot.visible = !!L.mountains;
+  setSkylineScale(L.skyline || 1);
   regionSky.hor = L.horizon; regionWater.col = L.water;
   // Park blocks in the backdrop take the region's ground colour.
   blocks.forEach((b, i) => { if (b.c === '#6d8f4e' || b.park) { b.park = true; blockMesh.setColorAt(i, col3.set(L.grass[0]).convertSRGBToLinear()); } });
@@ -821,4 +867,34 @@ function applyRegionLook(L) {
   }
   for (const [id, m] of Object.entries(placeMeshes)) if (m.userData.key === 'park') { scene.remove(m); delete placeMeshes[id]; }
   applyTimeOfDay();
+}
+
+/* ---------------- The Floating Quarter's pontoons ---------------- */
+{
+  const d = DISTRICT_BY_ID.floating, o = districtCentre(d);
+  const deck = new T.Mesh(new T.BoxGeometry(66, 1.4, 66).translate(0, -0.7, 0), new T.MeshStandardMaterial({ map: pavingTex, roughness: 0.9 }));
+  deck.position.set(o.x, 0, o.z); deck.receiveShadow = true; scene.add(deck);
+  for (const [dx, dz] of [[-30, -30], [30, -30], [-30, 30], [30, 30], [0, -30], [0, 30], [-30, 0], [30, 0]]) {
+    const f = new T.Mesh(new T.CylinderGeometry(3, 3, 2.4, 12), new T.MeshStandardMaterial({ color: lin('#e8ebee'), roughness: 0.6 })); f.position.set(o.x + dx, -1.8, o.z + dz); scene.add(f);
+  }
+  const br = new T.Mesh(new T.BoxGeometry(10, 1, o.z - 33 - QUAY_Z + 2).translate(0, -0.5, 0), deckMat); br.position.set(o.x, 0, (QUAY_Z + o.z - 33) / 2); br.receiveShadow = true; scene.add(br);
+}
+
+/* ---------------- Region backdrops: mountains, and a lower skyline for small places ---------------- */
+const mountainRoot = new T.Group(); mountainRoot.visible = false; scene.add(mountainRoot);
+{
+  const r = mulberry32(404), rock = new T.MeshStandardMaterial({ color: lin('#6b7078'), roughness: 1, flatShading: true }), snow = new T.MeshStandardMaterial({ color: lin('#f4f7fa'), roughness: 0.9, flatShading: true });
+  for (let k = 0; k < 16; k++) {
+    const x = -1800 + k * 240 + (r() - 0.5) * 120, z = -1300 - r() * 700, h = 280 + r() * 480, rad = h * (0.8 + r() * 0.4);
+    const m = new T.Mesh(new T.ConeGeometry(rad, h, 7 + Math.floor(r() * 3)), rock); m.position.set(x, h / 2 - 20, z); m.rotation.y = r() * 3; mountainRoot.add(m);
+    const cap = new T.Mesh(new T.ConeGeometry(rad * 0.34, h * 0.34, m.geometry.parameters.radialSegments), snow); cap.position.set(x, h - 20 - h * 0.17 + 1, z); cap.rotation.y = m.rotation.y; mountainRoot.add(cap);
+  }
+}
+// The backdrop skyline, re-placed at a height scale (1 = big city, 0.4 = a resort island's low roofs).
+function setSkylineScale(k) {
+  for (const P of skylineParts) {
+    P.list.forEach((it, i) => { P.place(it, k); P.mesh.setMatrixAt(i, mtx.compose(vPos, q0, vScale)); });
+    P.mesh.instanceMatrix.needsUpdate = true;
+  }
+  if (typeof setAviationScale === 'function') setAviationScale(k);
 }
