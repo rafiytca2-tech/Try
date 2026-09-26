@@ -199,6 +199,9 @@ Ready-made configs are in [`config/`](config):
 - [`kinect_room.yaml`](config/kinect_room.yaml): room-scale control with the skeleton.
   Grab to drag, push to press space.
 - [`webcam_only.yaml`](config/webcam_only.yaml): no Kinect.
+- [`skyline_stack.yaml`](config/skyline_stack.yaml): play the crane tower-stacking games in this
+  repo, [Skyline Forge](skyline-forge/) (3D city builder, with an Android APK) and
+  [Skyline Stack](skyline-stack/) (2D pixel). A fist, push or double blink drops a floor.
 
 ## 5. Mouse pointer
 
