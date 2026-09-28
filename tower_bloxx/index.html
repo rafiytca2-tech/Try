@@ -13,6 +13,7 @@
   --sky:#8fcbee;
   --ink:#fff6d6;
   --edge:#0b1733;
+  --hat:#f5c518;
   --font:"Silkscreen","Courier New",ui-monospace,monospace;
 }
 html,body{height:100%}
@@ -29,14 +30,21 @@ body{
   position:absolute;left:0;right:0;padding-inline:16px;text-align:center;pointer-events:none;
   text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
 }
-#floors{top:16px;font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+#top{top:16px;display:flex;flex-direction:column;align-items:center;gap:10px}
+#floors{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+#lives{display:flex;gap:6px}
+.life{width:20px;height:14px;color:var(--hat);filter:drop-shadow(2px 2px 0 var(--edge))}
+.life.lost{color:var(--edge);opacity:.35}
 #msg{bottom:24px;font-size:14px;letter-spacing:.06em}
 </style>
 </head>
 <body>
 <div id="stage">
   <canvas id="view" aria-label="Tower site. Tap, click or press Space to drop the next floor."></canvas>
-  <div class="hud" id="floors">0</div>
+  <div class="hud" id="top">
+    <div id="floors">0</div>
+    <div id="lives"></div>
+  </div>
   <div class="hud" id="msg" aria-live="polite">Tap, click or press Space to drop</div>
 </div>
 
@@ -55,14 +63,19 @@ const CFG = {
   swingReach: 40,   // px either side of centre
   swingSpeed: 2.6,  // swing phase speed, rad/s
   nextDelay: 0.35,  // seconds before the next floor hangs on the hook
+  missDelay: 0.7,   // the same after a miss, so the lost floor can fall away first
   cameraRate: 7,
+  lives: 3,
+  tenantTime: 1.3,  // seconds for a tenant to float down to the new floor
+  maxTenants: 4,    // a dead-centre drop brings this many, an edge drop brings one
 };
-const W = CFG.blockW, H = CFG.blockH, HOOK = 8, PIVOT_ABOVE = 30;
+const W = CFG.blockW, H = CFG.blockH, HOOK = 8, PIVOT_ABOVE = 30, SLAB = 52;
 
 const stage = document.getElementById('stage');
 const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d', { alpha: false });
 const floorsEl = document.getElementById('floors');
+const livesEl = document.getElementById('lives');
 const msgEl = document.getElementById('msg');
 
 function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
@@ -71,6 +84,7 @@ function pixLine(color, x0, y0, x1, y1, width) {
   ctx.fillStyle = color;
   for (let i = 0; i <= steps; i++) ctx.fillRect(Math.round(x0 + dx * i / steps), Math.round(y0 + dy * i / steps), width, 1);
 }
+const pick = list => list[Math.floor(Math.random() * list.length)];
 
 // One floor, painted once: the blue City Bloxx block with two windows.
 const floorSprite = document.createElement('canvas');
@@ -90,6 +104,10 @@ floorSprite.width = W; floorSprite.height = H;
     rect(g, '#eef9ff', x + 2, 10, 1, 11);   // glint
   }
 }
+
+// Hard hats for the lives row.
+const LIFE_SVG = '<svg class="life" viewBox="0 0 10 7" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="1" width="6" height="4" fill="currentColor"/><rect x="0" y="5" width="10" height="2" fill="currentColor"/><rect x="4" y="0" width="2" height="1" fill="currentColor"/></svg>';
+livesEl.innerHTML = LIFE_SVG.repeat(CFG.lives);
 
 /* ---------------- View ---------------- */
 const view = { w: 240, h: 320 };
@@ -115,15 +133,19 @@ let game;
 function newGame() {
   game = {
     tower: [],      // x of each floor's centre, 0 = middle of the site
+    lives: CFG.lives,
     phase: 0,       // swing phase
     loaded: true,   // a floor hangs on the hook
     reload: 0,
     falling: null,
+    debris: [],     // missed floors on their way down
+    tenants: [],
     over: false, overT: 0,
     camY: 0,        // world y at the top edge of the screen (up is negative)
   };
   game.camY = camTarget();
   floorsEl.textContent = '0';
+  showLives();
 }
 
 const topY = () => -game.tower.length * H;
@@ -136,30 +158,88 @@ function ropeEnd() {
   return { x: rig.L * Math.sin(a), y: pivotY() + rig.L * Math.cos(a) };
 }
 
+function showLives() {
+  [...livesEl.children].forEach((el, i) => el.classList.toggle('lost', i >= game.lives));
+  livesEl.setAttribute('aria-label', `${game.lives} of ${CFG.lives} lives left`);
+}
+
 function drop() {
   const g = game;
   if (g.over || !g.loaded || g.falling) return;
   const e = ropeEnd();
-  g.falling = { x: e.x, y: e.y + HOOK + H / 2, vx: 0, vy: 0, ang: 0, spin: 0, miss: false, rest: false };
+  g.falling = { x: e.x, y: e.y + HOOK + H / 2, vx: 0, vy: 0, ang: 0, spin: 0 };
   g.loaded = false;
   msgEl.hidden = true;
 }
 
 function land(f) {
-  const g = game, n = g.tower.length, dx = n ? f.x - topX() : 0;
-  if (Math.abs(dx) > W / 2) {                   // centre past the edge: it falls off
-    const side = Math.sign(dx);
-    f.miss = true; f.spin = side * 5;
-    if (Math.abs(dx) < W) { f.vy = 0; f.vx = side * 140; }   // clipped the edge: knocked off sideways
-    g.over = true; g.overT = 0;
-    msgEl.textContent = `${n} ${n === 1 ? 'floor' : 'floors'}. Tap to build again`;
-    msgEl.hidden = false;
-    return;
-  }
+  const g = game, n = g.tower.length, dx = f.x - (n ? topX() : 0);
+  if (n && Math.abs(dx) > W / 2) { miss(f, dx); return; }   // centre past the edge
   g.tower.push(f.x);
   g.falling = null;
   g.reload = CFG.nextDelay;
   floorsEl.textContent = String(g.tower.length);
+  const accuracy = 1 - Math.min(1, Math.abs(dx) / (n ? W / 2 : SLAB));
+  moveIn(n, 1 + Math.round(accuracy * (CFG.maxTenants - 1)));
+}
+
+function miss(f, dx) {
+  const g = game, side = Math.sign(dx);
+  f.spin = side * 5;
+  if (Math.abs(dx) < W) { f.vy = 0; f.vx = side * 140; }   // clipped the edge: knocked off sideways
+  g.debris.push(f);
+  g.falling = null;
+  g.lives--;
+  showLives();
+  if (g.lives > 0) { g.reload = CFG.missDelay; return; }
+  const n = g.tower.length;
+  g.over = true; g.overT = 0;
+  msgEl.textContent = `${n} ${n === 1 ? 'floor' : 'floors'}. Tap to build again`;
+  msgEl.hidden = false;
+}
+
+/* ---------------- Tenants ---------------- */
+// As in Tower Bloxx: new tenants float down from the sky under umbrellas
+// and step in through the windows of the floor that just landed.
+const UMBRELLAS = [['#e8452c', '#9c2b1e'], ['#f5c518', '#a67d12'], ['#ff7fb0', '#b2477a'], ['#3cbf3c', '#23862a'], ['#f4f4f4', '#a8a8a8']];
+const SHIRTS = ['#dc4a3a', '#3b7fe0', '#ecbd2f', '#8b5fd0', '#2e9e8f'];
+function moveIn(i, count) {
+  const fx = game.tower[i], fy = -(i + 1) * H;
+  for (let k = 0; k < count; k++) {
+    const tx = fx + (k % 2 ? 8 : -8) - 1, ty = fy + 37;   // feet at the bottom of a window
+    const side = Math.random() < 0.5 ? -1 : 1;
+    game.tenants.push({
+      sx: tx + side * (40 + Math.random() * 70), sy: ty - rig.top - 60,   // just above the screen
+      tx, ty, t: -k * 0.18, dur: CFG.tenantTime * (0.85 + Math.random() * 0.3), ph: Math.random() * 6.28,
+      umbrella: pick(UMBRELLAS), shirt: pick(SHIRTS),
+    });
+  }
+}
+function tenantPos(p) {
+  const k = Math.max(0, p.t) / p.dur, glide = 1 - (1 - k) * (1 - k);
+  return {
+    x: p.sx + (p.tx - p.sx) * glide + Math.sin(p.t * 4 + p.ph) * 3 * (1 - k),   // drifts in, swaying
+    y: p.sy + (p.ty - p.sy) * k,                                               // sinks at a steady rate
+  };
+}
+function drawTenant(p, x, y) {   // x, y: screen pixel under the tenant's feet
+  const [top, rim] = p.umbrella;
+  rect(ctx, '#2a2a2a', x + 1, y - 18, 1, 1);   // umbrella tip
+  rect(ctx, top, x - 1, y - 17, 5, 1);
+  rect(ctx, top, x - 3, y - 16, 9, 1);
+  rect(ctx, top, x - 4, y - 15, 11, 1);
+  rect(ctx, rim, x - 4, y - 14, 11, 1);
+  rect(ctx, '#2a2a2a', x + 1, y - 13, 1, 4);   // handle
+  rect(ctx, '#f0c090', x + 1, y - 9, 1, 2);    // raised arm
+  rect(ctx, '#f0c090', x - 1, y - 9, 2, 2);    // head
+  rect(ctx, p.shirt, x - 1, y - 7, 3, 4);      // body
+  rect(ctx, '#2a2a2a', x - 1, y - 3, 1, 3);    // legs
+  rect(ctx, '#2a2a2a', x + 1, y - 3, 1, 3);
+}
+
+/* ---------------- Update ---------------- */
+function fall(b, dt) {
+  b.vy += gravity() * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.ang += b.spin * dt;
 }
 
 function update(dt) {
@@ -168,11 +248,18 @@ function update(dt) {
   if (!g.loaded && !g.falling && !g.over) { g.reload -= dt; if (g.reload <= 0) g.loaded = true; }
 
   const f = g.falling;
-  if (f && !f.rest) {
-    f.vy += gravity() * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.ang += f.spin * dt;
-    if (!f.miss && f.y + H / 2 >= topY()) { f.y = topY() - H / 2; land(f); }
-    else if (f.miss && f.y + H / 2 >= 0) { f.y = -H / 2; f.rest = true; }   // wreck on the ground
+  if (f) {
+    fall(f, dt);
+    if (f.y + H / 2 >= topY()) { f.y = topY() - H / 2; land(f); }
   }
+  for (const d of g.debris) {
+    if (d.rest) { d.t -= dt; continue; }
+    fall(d, dt);
+    if (d.y + H / 2 >= 0) { d.y = -H / 2; d.rest = true; d.t = 0.8; }   // crashes on the ground, then clears
+  }
+  g.debris = g.debris.filter(d => (d.rest ? d.t > 0 : d.y - g.camY < view.h + H));
+  for (const p of g.tenants) p.t += dt;
+  g.tenants = g.tenants.filter(p => p.t < p.dur);
 
   g.camY += (camTarget() - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
   if (g.over) g.overT += dt;
@@ -198,8 +285,8 @@ function render() {
   if (gy < view.h + 4) {
     rect(ctx, '#4f8a3a', 0, gy - 3, view.w, 3);                // grass
     rect(ctx, '#8b6a3c', 0, gy, view.w, view.h - gy);          // dirt
-    rect(ctx, '#b4b4b4', cx - 52, gy, 104, 5);                 // concrete slab
-    rect(ctx, '#6d6d6d', cx - 52, gy + 5, 104, 2);
+    rect(ctx, '#b4b4b4', cx - SLAB, gy, SLAB * 2, 5);          // concrete slab
+    rect(ctx, '#6d6d6d', cx - SLAB, gy + 5, SLAB * 2, 2);
   }
 
   g.tower.forEach((x, i) => {
@@ -207,7 +294,17 @@ function render() {
     if (y < view.h && y + H > 0) ctx.drawImage(floorSprite, Math.round(cx + x - W / 2), y);
   });
 
+  for (const d of g.debris) {
+    if (d.rest && Math.floor(d.t * 10) % 2) continue;   // wreck blinks out
+    drawFloor(cx + d.x, d.y - camY, d.ang);
+  }
   if (g.falling) drawFloor(cx + g.falling.x, g.falling.y - camY, g.falling.ang);
+
+  for (const p of g.tenants) {
+    if (p.t < 0) continue;
+    const pos = tenantPos(p);
+    drawTenant(p, Math.round(cx + pos.x), Math.round(pos.y - camY));
+  }
 
   // Crane rope, hook and the floor waiting on it. The load hangs level while the rope swings.
   const e = ropeEnd(), ex = Math.round(cx + e.x), ey = Math.round(e.y - camY);
