@@ -164,13 +164,18 @@ const CFG = {
   blockW: 40,
   blockH: 46,
   towerTopRatio: 754 / 1280,   // the tower top always comes to rest this far down the screen
+  // The rope is a straight line from a fixed pivot far above the screen to the hook. The hook
+  // goes round an ellipse (the load circling under the jib, seen from the side): over the top
+  // to the left, back along the bottom to the right, its height a quarter turn ahead of its
+  // sideways position. The load tilts in proportion to how far the hook is off centre, which is
+  // almost three times the rope's own angle. Fitted over 300 frames, residual under 5 px.
   crane: {
     period: 8 / 3,             // seconds per loop; the same on every floor
-    rx: 76 * K,                // the hook circles an ellipse: over the top to the left,
-    ry: 44.5 * K,              //   back along the bottom to the right (a load circling under the jib)
-    above: 326 * K,            // ellipse centre, above the tower top
-    tilt: 17 * Math.PI / 180,  // the load tilts this far at the sides of the loop
-    pivot: 1022 * K,           // the rope's top end, above the tower top (off screen)
+    rx: 76.7 * K,              // hook: sideways reach
+    ry: 44.1 * K,              //       and rise and fall
+    above: 331.1 * K,          // ellipse centre, above the tower top
+    tilt: 16.8 * Math.PI / 180,// load tilt at the sides (the rope is at 6.2 degrees there)
+    pivot: 1032.4 * K,         // rope pivot, above the tower top (off screen)
   },
   gravity: 7200 * K,           // px/s², falling floor
   carry: 0.55,                 // share of the hook's sideways speed a released floor keeps
@@ -181,17 +186,26 @@ const CFG = {
   missDelay: 0.72,
   scrollTime: 0.45,            // the camera climbs one floor after a landing, easing out
   parallax: 0.82,              // the city behind moves this much of the camera's climb
+  // The tower bends like a mast: the bottom three floors never move, and each floor above them
+  // swings a little further than the one below, so the sway grows as the tower climbs.
   sway: {
     period: 2.8,               // seconds per full swing of the building
-    comGain: 1.2,              // steady sway per px the floors' average sits off the base
-    kick: 0.6,                 // wobble per px an off-centre floor lands off
-    kickDecay: 0.6,            // seconds for that wobble to die down
-    max: 30,                   // px at the top of the tower
-    maxTilt: 0.06,             // radians
+    fixed: 3,                  // floors that never move
+    span: 10,                  // floors above those at which the sway reaches its full size
+    power: 1.5,                // how quickly it grows with height
+    base: 2.5,                 // px of sway (at full size) even when every floor is dead centre
+    comGain: 1.2,              // more per px the floors' average sits off the base
+    kick: 0.6,                 // extra per px an off-centre floor lands off, dying down
+    kickDecay: 0.6,            // seconds
+    max: 36,                   // px, at any floor
+    wobble: 0.01,              // radians the newly landed top floor rocks per px it landed off
   },
   residents: 4,                // per clean floor; one fewer per perfectTol px off. The foundation brings none.
   combo: { bar: 413, base: 50, perLevel: 10 },   // the bar drains (base + perLevel * n) of 413 per second
-  tenants: { delay: 0.5, time: 2.15, startAbove: 21, window: 31, winX: 8 },
+  // Tenants fly in a straight line with both axes easing out together: from just off the screen
+  // edge (umbrella top 83 px above the floor top in the recording) to the middle of the floor
+  // (umbrella top 38 px below it), where they go inside.
+  tenants: { delay: 0.48, time: 2.64, startAbove: 83 * K - 21, end: 38 * K + 21, endX: 2 },
   lives: 3,
 };
 const OMEGA = 2 * Math.PI / CFG.crane.period;
@@ -228,7 +242,7 @@ function shade(hex, amt) {
 const W = CFG.blockW, H = CFG.blockH;
 const BLOCK = { body: '#479cab', light: '#72c3cf', dark: '#1a5f6f', outline: '#0e3440', frame: '#a2ae8e', frameDark: '#2c3526', cap: '#a8a89c' };
 const GLASS = [['#c9f3fa', 6], ['#8fdbea', 7], ['#52bbd1', 6], ['#3899b3', 4], ['#2a7b93', 3]];   // sky reflection, top to bottom
-const HANG = { foundation: 16, floor: 9 };   // hook point -> top of the load: two-cable sling, or pulley and hook
+const HANG = { foundation: 17, floor: 11 };  // rope end -> top of the load: pulley and a two-cable sling, or pulley and hook
 
 function paintGlass(g, x, y, w, h) {
   let yy = y;
@@ -410,7 +424,8 @@ function newGame() {
     phase: game ? game.phase : Math.PI / 2,
     hook: { has: true, wait: 0 },
     falling: null, debris: [], parts: [], tenants: [], bursts: [], twinkles: [], twinkleT: 0,
-    sway: { phase: 0, amp: 0, target: 0, kick: 0 },
+    sway: { phase: 0, amp: CFG.sway.base, target: CFG.sway.base, kick: 0 },
+    wobble: null,
     camY: 0, cam: null, bonusT: 0,
     ending: null, pan: null, hold: false, finished: false,
   };
@@ -432,21 +447,27 @@ function hookAt(g) {
   };
 }
 
-// The building rocks as one rigid piece about the middle of its base.
-function swayAngle(g) {
-  const n = g.tower.length;
-  if (!n) return 0;
-  const d = (g.sway.amp + g.sway.kick) * Math.sin(g.sway.phase);
-  return clamp(Math.atan2(d, n * H), -CFG.sway.maxTilt, CFG.sway.maxTilt);
+// The building bends like a mast. Floors are stored where they landed on a still tower; the
+// sway shifts each height sideways by bendAt(), which is zero up to the top of the third floor
+// and grows the higher you go.
+function bendShape(y) {                  // y: height above the ground, in floors
+  const S = CFG.sway;
+  return y <= S.fixed ? 0 : Math.pow((y - S.fixed) / S.span, S.power);
 }
-function toWorld(g, lx, ly, a) {
-  const p0 = g.tower[0].x, x = lx - p0;
-  return { x: p0 + x * Math.cos(a) - ly * Math.sin(a), y: x * Math.sin(a) + ly * Math.cos(a) };
+function bendAt(g, y) {
+  const S = CFG.sway, d = (g.sway.amp + g.sway.kick) * Math.sin(g.sway.phase) * bendShape(y);
+  return clamp(d, -S.max, S.max);
 }
+function bent(g, x, y) { return { x: x + bendAt(g, -y / H), y }; }   // a point on the still tower, moved into place
 function towerTop(g) {
   const n = g.tower.length;
   if (!n) return { x: 0, y: 0 };
-  return toWorld(g, g.tower[n - 1].x, -n * H, swayAngle(g));
+  return { x: g.tower[n - 1].x + bendAt(g, n), y: -n * H };
+}
+// A floor that lands off centre rocks on the one below for a moment before it settles.
+function wobbleAngle(g) {
+  const w = g.wobble;
+  return w ? w.a * Math.exp(-w.t / 0.2) * Math.cos(2 * Math.PI * w.t / 0.3) : 0;
 }
 
 function drop() {
@@ -514,13 +535,14 @@ function settle(g, b, dx) {
   if (c.n) g.maxCombo = Math.max(g.maxCombo, c.n);
   if (perfect) g.perfects++;
 
-  // Sway: the floors' average offset keeps the building rocking; an off-centre landing adds a wobble that dies down.
+  // Sway: the floors' average offset keeps the building rocking harder; an off-centre landing
+  // adds a swing that dies down, and the new floor rocks on the one below for a moment.
   const s = g.sway, p0 = g.tower[0].x;
   const com = g.tower.reduce((sum, f) => sum + f.x - p0, 0) / g.tower.length;
-  s.target = Math.min(CFG.sway.max, CFG.sway.comGain * Math.abs(com));
+  s.target = Math.min(CFG.sway.max, CFG.sway.base + CFG.sway.comGain * Math.abs(com));
   if (!perfect && n > 0) {
-    if (s.amp + s.kick < 1.5) s.phase = dx > 0 ? 0 : Math.PI;   // start swinging toward the heavy side
     s.kick = Math.min(CFG.sway.max, s.kick + Math.abs(dx) * CFG.sway.kick);
+    g.wobble = { a: clamp(dx * CFG.sway.wobble, -0.08, 0.08), t: 0 };
   }
 
   const top = towerTop(g);
@@ -611,43 +633,48 @@ function drawTwinkle(x, y, big) {
 }
 
 /* ---------------- Tenants ---------------- */
-// Half a second after a floor lands, two new tenants set off from the edges of the screen,
-// one each side, under red or blue umbrellas. They glide in, sinking and slowing all the way,
-// and step in through the floor's two windows about two seconds later.
-const UMBRELLAS = [['#c8201c', '#7a0e0c'], ['#1c35a8', '#0b1660']];
-const SHIRTS = ['#d98a3a', '#b5652a', '#c9a13a', '#8e5a2c'];
-const SKIN = ['#f0c090', '#c98a5a'];
+// Measured from the recording at 60 fps: 0.48 s after a floor lands, one tenant sets off from
+// just beyond each edge of the screen under a red or blue umbrella. Each flies a straight line,
+// sideways and down together, fast at first (about 210 and 92 px/s there) and slowing evenly to
+// a stop (an ease-out) 2.64 s later, passing the windows and meeting the other in the middle of
+// the floor, where they go inside. The tenant swings a little under the umbrella.
+const UMBRELLAS = [['#a81818', '#5c0a0a', '#e0463a'], ['#1b2f9a', '#0b1660', '#4a6ad8']];
+const SHIRTS = ['#3f8f2f', '#c8a038', '#3a64b8', '#b84a3a'];
+const SKIN = ['#e8b07a', '#c98a5a'];
 function moveIn(g, floor) {
   const T = CFG.tenants;
   for (const side of [-1, 1]) {
     g.tenants.push({
-      floor, win: side * T.winX - 1,
-      sx: side * (view.w / 2 - 2), sy: -(floor + 1) * H - T.startAbove,
-      t: -T.delay - Math.random() * 0.06, dur: T.time * (0.95 + Math.random() * 0.1), ph: Math.random() * 6.28,
+      floor, endX: side * T.endX,
+      sx: side * (view.w / 2 + 3), sy: -(floor + 1) * H - T.startAbove,   // umbrella centre, feet
+      t: -T.delay - Math.random() * 0.03, dur: T.time, ph: Math.random() * 6.28,
       umbrella: pick(UMBRELLAS), shirt: pick(SHIRTS), skin: pick(SKIN),
     });
   }
 }
 function tenantPos(g, p) {
   const f = g.tower[p.floor];
-  const end = toWorld(g, f.x + p.win, -(p.floor + 1) * H + CFG.tenants.window, swayAngle(g));   // feet at the bottom of the window
+  const end = bent(g, f.x + p.endX, -(p.floor + 1) * H + CFG.tenants.end);
   const e = easeOut(clamp(p.t / p.dur, 0, 1));
   return { x: p.sx + (end.x - p.sx) * e, y: p.sy + (end.y - p.sy) * e };
 }
-function drawTenant(p, x, y) {   // x, y: screen pixel under the tenant's feet
-  const [top, rim] = p.umbrella;
-  const sw = Math.round(Math.sin(p.t * 6 + p.ph) * 1.2), px = x + sw;   // the tenant swings under the umbrella
-  rect(ctx, '#2a2a2a', x + 1, y - 18, 1, 1);   // umbrella tip
-  rect(ctx, top, x - 1, y - 17, 5, 1);
-  rect(ctx, top, x - 3, y - 16, 9, 1);
-  rect(ctx, top, x - 4, y - 15, 11, 1);
-  rect(ctx, rim, x - 4, y - 14, 11, 1);
-  pixLine(ctx, '#2a2a2a', x + 1, y - 13, px + 1, y - 10);   // handle
-  rect(ctx, p.skin, px + 1, y - 9, 1, 2);      // raised arm
-  rect(ctx, p.skin, px - 1, y - 9, 2, 2);      // head
-  rect(ctx, p.shirt, px - 1, y - 7, 3, 4);     // body
-  rect(ctx, '#3a2a1a', px - 1, y - 3, 1, 3);   // legs
-  rect(ctx, '#3a2a1a', px + 1, y - 3, 1, 3);
+function drawTenant(p, x, y) {   // x: the umbrella's centre column; y: the screen row under the feet
+  const [dome, rim, hi] = p.umbrella, trousers = '#a8561e';
+  const sw = Math.round(Math.sin(p.t * 5 + p.ph) * 1.2), px = x + sw - 1;   // the tenant swings under the umbrella
+  rect(ctx, '#2a1a1a', x, y - 22, 1, 1);          // tip
+  rect(ctx, dome, x - 2, y - 21, 5, 1);
+  rect(ctx, dome, x - 4, y - 20, 9, 1);
+  rect(ctx, dome, x - 5, y - 19, 11, 2);
+  rect(ctx, hi, x - 3, y - 20, 2, 1); rect(ctx, hi, x - 4, y - 19, 1, 1);
+  rect(ctx, rim, x - 5, y - 17, 11, 1);
+  for (const k of [-5, -1, 3]) rect(ctx, rim, x + k, y - 16, 2, 1);   // scalloped edge
+  pixLine(ctx, '#1a1a1a', x, y - 16, px + 1, y - 12);                 // handle
+  rect(ctx, p.skin, px + 1, y - 12, 1, 3);        // raised arm
+  rect(ctx, p.skin, px - 1, y - 11, 2, 2);        // head
+  rect(ctx, p.shirt, px - 1, y - 9, 3, 4);        // shirt
+  rect(ctx, trousers, px - 1, y - 5, 3, 2);
+  rect(ctx, trousers, px - 1, y - 3, 1, 2); rect(ctx, trousers, px + 1, y - 3, 1, 2);   // legs
+  rect(ctx, '#2a1a10', px - 1, y - 1, 1, 1); rect(ctx, '#2a1a10', px + 1, y - 1, 1, 1);  // shoes
 }
 
 /* ---------------- Update ---------------- */
@@ -664,6 +691,7 @@ function update(dt) {
   s.phase += dt * 2 * Math.PI / CFG.sway.period;
   s.amp += (s.target - s.amp) * Math.min(1, dt * 1.5);
   s.kick *= Math.exp(-dt / CFG.sway.kickDecay);
+  if (g.wobble && (g.wobble.t += dt) > 0.8) g.wobble = null;
 
   if (state === 'play') stepCombo(g, dt);
   if (g.bonusT > 0) g.bonusT -= dt;
@@ -835,19 +863,24 @@ function drawGround(camY) {
 
   cone(cx - S - 16, back + 1); cone(cx + S + 18, back + 1);
 }
+// Each floor sits on the bent line: its bottom is moved sideways by the bend at its height and
+// it leans by the bend's slope across its own height. The bottom three floors stay put.
 function drawTower(g, camY) {
   const n = g.tower.length;
   if (!n) return;
-  const p0 = g.tower[0].x, a = swayAngle(g);
-  ctx.save();
-  ctx.translate(Math.round(view.w / 2 + p0), Math.round(-camY));
-  if (a) ctx.rotate(a);
+  const cx = view.w / 2;
   const iMin = Math.max(0, Math.floor(-(camY + view.h) / H) - 2), iMax = Math.min(n - 1, Math.ceil(-camY / H) + 2);
   for (let i = iMin; i <= iMax; i++) {
-    const f = g.tower[i];
-    ctx.drawImage(SPR[f.kind], Math.round(f.x - p0 - W / 2), -(i + 1) * H);
+    const f = g.tower[i], d0 = bendAt(g, i), d1 = bendAt(g, i + 1);
+    const lean = Math.atan2(d1 - d0, H) + (i === n - 1 ? wobbleAngle(g) : 0);
+    const bx = Math.round(cx + f.x + d0), by = Math.round(-i * H - camY);
+    if (Math.abs(lean) < 0.004) { ctx.drawImage(SPR[f.kind], bx - W / 2, by - H); continue; }
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(lean);
+    ctx.drawImage(SPR[f.kind], -W / 2, -H);
+    ctx.restore();
   }
-  ctx.restore();
 }
 function drawBlock(kind, x, y, ang) {
   ctx.save();
@@ -856,15 +889,20 @@ function drawBlock(kind, x, y, ang) {
   ctx.drawImage(SPR[kind], -W / 2, -H / 2);
   ctx.restore();
 }
+// The rope ends in a round pulley with a gold hub; a short hook under it carries the floor,
+// whose top edge sits 11 px below the rope end (27 px in the recording).
 function drawRigging(kind, loaded) {
-  rect(ctx, '#2a2418', -3, 0, 7, 6); rect(ctx, '#8e8e86', -2, 1, 5, 4); rect(ctx, '#e0c45a', -1, 2, 3, 2);   // pulley block
+  const O = '#1e1a14', G = '#8e8e86', L = '#c4c4bc';
+  rect(ctx, O, -2, 0, 5, 1); rect(ctx, O, -3, 1, 7, 6); rect(ctx, O, -2, 7, 5, 1);   // pulley outline
+  rect(ctx, G, -2, 1, 5, 6); rect(ctx, L, -2, 1, 2, 1); rect(ctx, L, -2, 2, 1, 1);
+  rect(ctx, '#f2c83a', -1, 3, 3, 2); rect(ctx, '#fff0a0', -1, 3, 1, 1);           // gold hub
   if (kind === 'foundation' && loaded) {             // two-cable sling for the first floor
-    pixLine(ctx, '#1a1a1a', 0, 6, -(W / 2 - 4), HANG.foundation);
-    pixLine(ctx, '#1a1a1a', 1, 6, W / 2 - 4, HANG.foundation);
-  } else {                                           // crane hook for every floor after it
-    rect(ctx, '#2a2a2a', 0, 6, 2, 2);
-    rect(ctx, '#2a2a2a', -2, 8, 1, 2); rect(ctx, '#2a2a2a', 3, 7, 1, 2); rect(ctx, '#2a2a2a', -1, 9, 4, 1);
-    rect(ctx, '#bdbdbd', 1, 6, 1, 1);
+    pixLine(ctx, '#1a1a1a', 0, 8, -(W / 2 - 4), HANG.foundation);
+    pixLine(ctx, '#1a1a1a', 0, 8, W / 2 - 4, HANG.foundation);
+  } else {                                           // hook shank down to the floor's top
+    rect(ctx, O, -1, 8, 3, HANG.floor - 8);
+    rect(ctx, '#b88a4a', 0, 8, 1, HANG.floor - 8);
+    if (!loaded) { rect(ctx, O, -2, HANG.floor - 1, 1, 2); rect(ctx, O, -2, HANG.floor + 1, 4, 1); }   // open hook
   }
 }
 function drawCrane(g) {
@@ -906,10 +944,9 @@ function render() {
     rect(ctx, p.c, Math.round(cx + p.x), Math.round(p.y - camY), p.s, p.s);
   }
   ctx.globalAlpha = 1;
-  const a = swayAngle(g);
   for (const k of g.twinkles) {
     if (!g.tower[k.floor] || Math.floor(k.t * 20) % 3 === 2) continue;
-    const p = toWorld(g, k.lx, k.ly, a);
+    const p = bent(g, k.lx, k.ly);
     drawTwinkle(Math.round(cx + p.x), Math.round(p.y - camY), k.big);
   }
   for (const p of g.tenants) {
