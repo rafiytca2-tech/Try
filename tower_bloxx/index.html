@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Skyline Stack Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --sky:#8fcbee;
+  --ink:#fff6d6;
+  --edge:#0b1733;
+  --font:"Silkscreen","Courier New",ui-monospace,monospace;
+}
+html,body{height:100%}
+body{
+  margin:0;overflow:hidden;background:var(--sky);color:var(--ink);font-family:var(--font);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+}
+#stage{
+  position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;touch-action:manipulation;cursor:pointer;
+}
+#view{position:absolute;left:0;top:0;display:block;image-rendering:crisp-edges;image-rendering:pixelated}
+.hud{
+  position:absolute;left:0;right:0;padding-inline:16px;text-align:center;pointer-events:none;
+  text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
+}
+#floors{top:16px;font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+#msg{bottom:24px;font-size:14px;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="view" aria-label="Tower site. Tap, click or press Space to drop the next floor."></canvas>
+  <div class="hud" id="floors">0</div>
+  <div class="hud" id="msg" aria-live="polite">Tap, click or press Space to drop</div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// Feel tuning from Skyline Stack. Units are low-res canvas pixels and seconds.
+const CFG = {
+  blockW: 40,
+  blockH: 46,
+  towerTop: 0.58,   // the tower top sits this far down the screen
+  gap: 0.14,        // hanging floor bottom -> tower top, as a share of screen height
+  minGap: 60,
+  dropTime: 0.36,   // seconds to fall the gap (sets gravity)
+  swingReach: 40,   // px either side of centre
+  swingSpeed: 2.6,  // swing phase speed, rad/s
+  nextDelay: 0.35,  // seconds before the next floor hangs on the hook
+  cameraRate: 7,
+};
+const W = CFG.blockW, H = CFG.blockH, HOOK = 8, PIVOT_ABOVE = 30;
+
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d', { alpha: false });
+const floorsEl = document.getElementById('floors');
+const msgEl = document.getElementById('msg');
+
+function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
+function pixLine(color, x0, y0, x1, y1, width) {
+  const dx = x1 - x0, dy = y1 - y0, steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
+  ctx.fillStyle = color;
+  for (let i = 0; i <= steps; i++) ctx.fillRect(Math.round(x0 + dx * i / steps), Math.round(y0 + dy * i / steps), width, 1);
+}
+
+// One floor, painted once: the blue City Bloxx block with two windows.
+const floorSprite = document.createElement('canvas');
+floorSprite.width = W; floorSprite.height = H;
+{
+  const g = floorSprite.getContext('2d');
+  rect(g, '#0c2250', 0, 0, W, H);           // outline
+  rect(g, '#3b7fe0', 1, 1, W - 2, H - 2);   // body
+  rect(g, '#86b6f5', 1, 5, 2, H - 9);       // lit edge
+  rect(g, '#2356a8', W - 3, 5, 2, H - 9);   // shaded edge
+  rect(g, '#2356a8', 1, H - 4, W - 2, 3);
+  rect(g, '#d4bb7c', 1, 1, W - 2, 3);       // floor slab
+  for (const x of [6, 22]) {
+    rect(g, '#0b1733', x, 8, 12, 31);       // window frame
+    rect(g, '#58a6e8', x + 2, 10, 8, 27);   // glass
+    rect(g, '#c4e8ff', x + 2, 10, 8, 9);
+    rect(g, '#eef9ff', x + 2, 10, 1, 11);   // glint
+  }
+}
+
+/* ---------------- View ---------------- */
+const view = { w: 240, h: 320 };
+const rig = { top: 0, gap: 0, L: 0 };
+function layout() {
+  const dpr = window.devicePixelRatio || 1;
+  const devW = stage.clientWidth * dpr, devH = stage.clientHeight * dpr;
+  const s = Math.max(1, Math.floor(Math.min(devW / 240, devH / 320)));   // whole-pixel upscale
+  view.w = Math.ceil(devW / s); view.h = Math.ceil(devH / s);
+  canvas.width = view.w; canvas.height = view.h;
+  canvas.style.width = (view.w * s / dpr) + 'px';
+  canvas.style.height = (view.h * s / dpr) + 'px';
+  ctx.imageSmoothingEnabled = false;
+
+  rig.top = Math.round(view.h * CFG.towerTop);
+  rig.gap = Math.max(CFG.minGap, Math.round(view.h * CFG.gap));
+  // Rope long enough that the pivot sits just above the top edge of the screen.
+  rig.L = Math.max(60, rig.top - rig.gap - H - HOOK + PIVOT_ABOVE);
+}
+
+/* ---------------- Game ---------------- */
+let game;
+function newGame() {
+  game = {
+    tower: [],      // x of each floor's centre, 0 = middle of the site
+    phase: 0,       // swing phase
+    loaded: true,   // a floor hangs on the hook
+    reload: 0,
+    falling: null,
+    over: false, overT: 0,
+    camY: 0,        // world y at the top edge of the screen (up is negative)
+  };
+  game.camY = camTarget();
+  floorsEl.textContent = '0';
+}
+
+const topY = () => -game.tower.length * H;
+const topX = () => game.tower[game.tower.length - 1];
+const camTarget = () => topY() - rig.top;
+const pivotY = () => game.camY - PIVOT_ABOVE;   // the crane rides along with the camera
+const gravity = () => 2 * rig.gap / (CFG.dropTime * CFG.dropTime);
+function ropeEnd() {
+  const a = Math.asin(Math.min(0.9, CFG.swingReach / rig.L)) * Math.sin(game.phase);
+  return { x: rig.L * Math.sin(a), y: pivotY() + rig.L * Math.cos(a) };
+}
+
+function drop() {
+  const g = game;
+  if (g.over || !g.loaded || g.falling) return;
+  const e = ropeEnd();
+  g.falling = { x: e.x, y: e.y + HOOK + H / 2, vx: 0, vy: 0, ang: 0, spin: 0, miss: false, rest: false };
+  g.loaded = false;
+  msgEl.hidden = true;
+}
+
+function land(f) {
+  const g = game, n = g.tower.length, dx = n ? f.x - topX() : 0;
+  if (Math.abs(dx) > W / 2) {                   // centre past the edge: it falls off
+    const side = Math.sign(dx);
+    f.miss = true; f.spin = side * 5;
+    if (Math.abs(dx) < W) { f.vy = 0; f.vx = side * 140; }   // clipped the edge: knocked off sideways
+    g.over = true; g.overT = 0;
+    msgEl.textContent = `${n} ${n === 1 ? 'floor' : 'floors'}. Tap to build again`;
+    msgEl.hidden = false;
+    return;
+  }
+  g.tower.push(f.x);
+  g.falling = null;
+  g.reload = CFG.nextDelay;
+  floorsEl.textContent = String(g.tower.length);
+}
+
+function update(dt) {
+  const g = game;
+  g.phase += CFG.swingSpeed * dt;
+  if (!g.loaded && !g.falling && !g.over) { g.reload -= dt; if (g.reload <= 0) g.loaded = true; }
+
+  const f = g.falling;
+  if (f && !f.rest) {
+    f.vy += gravity() * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.ang += f.spin * dt;
+    if (!f.miss && f.y + H / 2 >= topY()) { f.y = topY() - H / 2; land(f); }
+    else if (f.miss && f.y + H / 2 >= 0) { f.y = -H / 2; f.rest = true; }   // wreck on the ground
+  }
+
+  g.camY += (camTarget() - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
+  if (g.over) g.overT += dt;
+}
+
+/* ---------------- Drawing ---------------- */
+function drawFloor(x, y, ang) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  if (ang) ctx.rotate(ang);
+  ctx.drawImage(floorSprite, -W / 2, -H / 2);
+  ctx.restore();
+}
+
+function render() {
+  const g = game, cx = Math.round(view.w / 2), camY = Math.round(g.camY);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, view.h);
+  sky.addColorStop(0, '#6cb8e8'); sky.addColorStop(1, '#c4e3f4');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, view.w, view.h);
+
+  const gy = -camY;                             // ground line on screen
+  if (gy < view.h + 4) {
+    rect(ctx, '#4f8a3a', 0, gy - 3, view.w, 3);                // grass
+    rect(ctx, '#8b6a3c', 0, gy, view.w, view.h - gy);          // dirt
+    rect(ctx, '#b4b4b4', cx - 52, gy, 104, 5);                 // concrete slab
+    rect(ctx, '#6d6d6d', cx - 52, gy + 5, 104, 2);
+  }
+
+  g.tower.forEach((x, i) => {
+    const y = -(i + 1) * H - camY;
+    if (y < view.h && y + H > 0) ctx.drawImage(floorSprite, Math.round(cx + x - W / 2), y);
+  });
+
+  if (g.falling) drawFloor(cx + g.falling.x, g.falling.y - camY, g.falling.ang);
+
+  // Crane rope, hook and the floor waiting on it. The load hangs level while the rope swings.
+  const e = ropeEnd(), ex = Math.round(cx + e.x), ey = Math.round(e.y - camY);
+  pixLine('#111111', cx, pivotY() - camY, ex, ey, 2);
+  rect(ctx, '#2a2a2a', ex - 1, ey, 3, HOOK - 2);
+  rect(ctx, '#2a2a2a', ex - 5, ey + HOOK - 3, 11, 3);
+  if (g.loaded) ctx.drawImage(floorSprite, ex - W / 2, ey + HOOK);
+}
+
+/* ---------------- Input and loop ---------------- */
+function tap() {
+  if (!game.over) drop();
+  else if (game.overT > 0.5) { newGame(); msgEl.hidden = true; }
+}
+stage.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
+  e.preventDefault();
+  tap();
+});
+window.addEventListener('keydown', e => {
+  if (e.key !== ' ' && e.key !== 'Enter' && e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  if (!e.repeat) tap();
+});
+window.addEventListener('resize', () => { layout(); game.camY = camTarget(); });
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+layout();
+newGame();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
