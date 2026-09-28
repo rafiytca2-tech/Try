@@ -50,7 +50,11 @@ function bonus(g, amount, n) {
 }
 
 // Floors fell off the tower (collapse/collapse.js): their residents are gone.
-function remove(g, count) { g.pop = Math.max(0, g.pop - count); SS.hud.update(g); }
+function remove(g, count) {
+  g.pop = Math.max(0, g.pop - count);
+  SS.hud.update(g);
+  SS.hud.popLoss(count);
+}
 
 SS.residents = { RESIDENTS, init, onLand, arrive, bonus, remove };
 })();

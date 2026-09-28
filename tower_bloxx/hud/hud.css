@@ -157,6 +157,14 @@
 
 /* bottom-right: population */
 .hud-br{position:absolute;right:calc(var(--u) * 14);bottom:calc(var(--u) * 21);display:flex;align-items:center;gap:calc(var(--u) * 2.5)}
+.pop-loss{
+  position:absolute;right:0;bottom:100%;opacity:0;pointer-events:none;
+  font-family:var(--font-hud);font-size:calc(var(--u) * 8);font-weight:700;color:#ff5a5a;
+  text-shadow:0 1px 0 #4a0808,0 0 calc(var(--u) * 4) rgba(255,60,60,.6);
+}
+.pop-loss.show{animation:pop-loss 1.6s ease-out forwards}
+@keyframes pop-loss{0%{opacity:0;transform:translateY(calc(var(--u) * 4)) scale(.7)}12%{opacity:1;transform:scale(1.15)}25%{transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(calc(var(--u) * -12))}}
+@media (prefers-reduced-motion: reduce){.pop-loss.show{animation:fade 1.6s linear forwards}}
 .hud-br svg{width:calc(var(--u) * 13);height:calc(var(--u) * 10);filter:drop-shadow(1px 1px 0 var(--edge))}
 .hud-pop{display:inline-block;font-size:calc(var(--u) * 7.5);line-height:1;letter-spacing:.06em;font-variant-numeric:tabular-nums}
 .hud-pop.bump{animation:bump .4s cubic-bezier(.2,1.6,.4,1)}

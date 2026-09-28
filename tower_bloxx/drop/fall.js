@@ -17,14 +17,15 @@ const FALL = {
 
 function init(g) { g.falling = null; }
 
-// Let go of the floor on the hook; hold: the multiplier it carries (hold/hold.js).
-function drop(g, hold = 1) {
+// Let go of the floor on the hook. hold: the multiplier it carries; extraCarry: more of the
+// hook's speed it keeps (both from holding, hold/hold.js).
+function drop(g, hold = 1, extraCarry = 0) {
   if (SS.round.state !== 'play' || !g.hook.has || g.falling || g.ending) return;
   const { H } = SS.blocks;
   const h = SS.crane.hookAt(g), kind = SS.crane.nextKind(g), d = SS.rigging.hangOf(kind) + H / 2;
   // the centre of the load, which hangs tilted below the hook point
   const sx = h.x - d * Math.sin(h.tilt), sy = h.y + d * Math.cos(h.tilt);
-  g.falling = { x: sx - view.w / 2, y: sy + g.camY, vx: h.vx * FALL.carry, vy: h.vy, ang: h.tilt, kind, hold };
+  g.falling = { x: sx - view.w / 2, y: sy + g.camY, vx: h.vx * (FALL.carry + extraCarry), vy: h.vy, ang: h.tilt, kind, hold };
   SS.crane.take(g);
   SS.hud.hideTip();
   SS.sound.release();

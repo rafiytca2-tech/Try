@@ -11,7 +11,7 @@
 // Timing round the loop is evened out so the load never seems to hang at the sides: it turns
 // round each side quicker and crosses the middle a little slower, easing in and out the whole
 // way, and one loop still takes exactly the same time. At the end of a round the rope is wound
-// up out of sight. Holding the button speeds the loop up (hold/hold.js).
+// up out of sight. Holding the button makes the loop faster and wider (hold/hold.js).
 (() => {
 'use strict';
 const { K } = SS, { view } = SS.screen;
@@ -54,10 +54,10 @@ function liftOf(g) {
 
 // The hook point (the rope's end) in screen pixels, its velocity, and the tilt of the load.
 function hookAt(g) {
-  const s = Math.sin(g.phase), co = Math.cos(g.phase), w = rate(g.phase) * g.swingMult;
+  const s = Math.sin(g.phase), co = Math.cos(g.phase), w = rate(g.phase) * g.swingMult, r = g.swingReach;
   return {
-    x: view.w / 2 - CRANE.rx * s, y: SS.camera.restLine() - CRANE.above - CRANE.ry * co - liftOf(g), tilt: CRANE.tilt * s,
-    vx: -CRANE.rx * w * co, vy: CRANE.ry * w * s,
+    x: view.w / 2 - CRANE.rx * r * s, y: SS.camera.restLine() - CRANE.above - CRANE.ry * r * co - liftOf(g), tilt: CRANE.tilt * r * s,
+    vx: -CRANE.rx * r * w * co, vy: CRANE.ry * r * w * s,
   };
 }
 

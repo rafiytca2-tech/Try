@@ -12,7 +12,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 |---|---|
 | How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears, which floors are balcony floors, winding the rope up at the end | `crane/swing.js` |
 | How the rope, pulley, hook and hanging floor look | `crane/rigging.js` |
-| Press and hold: swing speed steps, multipliers, the auto-drop, cancelling | `hold/hold.js` |
+| Press and hold: swing speed and size steps, extra momentum, multipliers, the 2 s warning and auto-drop, cancelling | `hold/hold.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
 | The perfect-drop window (2 px), what a landing sets off, the dust from under it | `landing/landing.js` |
 | Misses: tipping over the edge, falling past, landing off the slab | `miss/miss.js` |
@@ -26,7 +26,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Camera: where the tower top rests, the climb after a landing, the end-of-round slide | `camera/camera.js` |
 | Residents per floor, where a combo's residents go | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
-| How tenants fly in: one per resident, timing, start and window end points, easing, the window lighting up, turning back | `tenants/flight.js` |
+| How tenants fly in: one per resident, timing, start and window end points, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
 | How tenants look | `tenants/sprite.js` |
 | Perfect-drop stars | `effects/stars.js` |
 | Combo twinkles on the top floors | `effects/twinkles.js` |

@@ -11,8 +11,8 @@ const LOOK = {
   skin: ['#e8b07a', '#c98a5a'],
   trousers: '#a8561e',
   shoes: '#2a1a10',
-  swing: 1.2,         // px the person swings under the umbrella
-  swingSpeed: 5,      // rad/s
+  swing: 1.2,         // px the person swings under the umbrella (unless the tenant has its own)
+  swingSpeed: 5,      // rad/s (likewise)
 };
 const HEIGHT = 21;    // feet to the umbrella's top, game px (tenants/flight.js places tenants by it)
 
@@ -21,7 +21,7 @@ function look() { return { umbrella: pick(LOOK.umbrellas), shirt: pick(LOOK.shir
 // x: the umbrella's centre; y: the ground line under the feet (screen px, any fraction).
 function draw(p, x, y) {
   const [dome, rim, hi] = p.umbrella, L = LOOK;
-  const sw = Math.sin(p.t * L.swingSpeed + p.ph) * L.swing, px = x + sw - 0.5;
+  const sw = Math.sin(p.t * (p.swingRate || L.swingSpeed) + p.ph) * (p.swing || L.swing), px = x + sw - 0.5;
   const top = y - HEIGHT, base = y - 16.2, r = 5.6;
 
   // canopy: a dome, with a scalloped edge along the bottom

@@ -11,7 +11,8 @@
 const { $, pad, clamp, easeOut } = SS;
 
 const HUD = {
-  countUp: 0.45,      // seconds the payout and the population take to count up
+  countUp: 0.45,      // seconds the payout and the floors-built count take to count up
+  popRate: 12,        // 1/s: how fast the population shown catches up with the real count
   low: 0.25,          // bar share left at which the combo bar starts to pulse
 };
 
@@ -48,6 +49,7 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
     <div class="hud-br" aria-label="Residents">
       <svg viewBox="0 0 13 10" shape-rendering="crispEdges" aria-hidden="true"><rect x="1" y="0" width="4" height="4" fill="#ffb21a"/><rect x="0" y="4" width="6" height="4" fill="#f59a0c"/><rect x="1" y="8" width="1" height="2" fill="#f59a0c"/><rect x="4" y="8" width="1" height="2" fill="#f59a0c"/><rect x="2" y="1" width="1" height="1" fill="#6b3a05"/><rect x="8" y="0" width="4" height="4" fill="#ffb21a"/><rect x="7" y="4" width="6" height="4" fill="#f59a0c"/><rect x="8" y="8" width="1" height="2" fill="#f59a0c"/><rect x="11" y="8" width="1" height="2" fill="#f59a0c"/><rect x="10" y="1" width="1" height="1" fill="#6b3a05"/></svg>
       <span class="hud-pop outline" id="hudPop">00000</span>
+      <span class="pop-loss" id="popLoss" aria-hidden="true"></span>
     </div>
   </div>
   <p class="tip" id="tip">Tap to drop · hold to swing faster<br>drag up and let go to cancel</p>`);
@@ -60,13 +62,20 @@ const now = () => performance.now() / 1000;
 // Restart a one-off CSS animation on an element.
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
-// The population counts up (or down) to its new value.
-const pop = { shown: 0, from: 0, to: 0, t0: 0 };
+// The population shown follows the real count every frame (quickly, a step at a time), so it
+// never falls behind however many residents arrive.
+const pop = { shown: 0, to: 0, last: 0 };
 function setPop(value, instant) {
-  if (value === pop.to && !instant) return;
-  if (!instant) replay($('hudPop'), value > pop.to ? 'bump' : 'drop');
-  pop.from = instant ? value : pop.shown; pop.to = value; pop.t0 = now();
-  if (instant) { pop.shown = value; $('hudPop').textContent = pad(value, 5); }
+  if (instant) { pop.shown = pop.to = value; $('hudPop').textContent = pad(value, 5); return; }
+  if (value === pop.to) return;
+  replay($('hudPop'), value > pop.to ? 'bump' : 'drop');
+  pop.to = value;
+}
+// Residents lost when floors fell: the number floats up from the population in red.
+function popLoss(n) {
+  if (n <= 0) return;
+  $('popLoss').textContent = '−' + n;
+  replay($('popLoss'), 'show');
 }
 
 // Floors, population and lives: called whenever one of them changes.
@@ -97,12 +106,13 @@ function frame(g) {
   const ch = g && g.charge;                                   // the hold meter (hold/hold.js)
   $('hold').hidden = !ch;
   if (ch) {
-    const H = SS.hold.HOLD, text = '×' + H.mult[ch.step].toFixed(1), label = ch.cancel ? 'Let go to cancel' : H.label[ch.step];
+    const { HOLD: H, WARN_AT, CAP } = SS.hold, warn = ch.t >= WARN_AT, text = '×' + H.mult[ch.step].toFixed(1);
+    const label = ch.cancel ? 'Let go to cancel' : warn ? `Drops in ${Math.max(0, CAP - ch.t).toFixed(1)}s` : H.label[ch.step];
     if ($('holdX').textContent !== text) { $('holdX').textContent = text; if (ch.step) replay($('holdX'), 'pop'); }
     if ($('holdLabel').textContent !== label) $('holdLabel').textContent = label;
-    $('holdFill').style.width = Math.min(100, ch.t / H.cap * 100).toFixed(1) + '%';
+    $('holdFill').style.width = Math.min(100, ch.t / CAP * 100).toFixed(1) + '%';
     $('hold').dataset.step = ch.step;
-    $('hold').classList.toggle('warn', ch.t >= H.warn);
+    $('hold').classList.toggle('warn', warn);
     $('hold').classList.toggle('cancel', ch.cancel);
   }
 
@@ -115,9 +125,10 @@ function frame(g) {
     const v = Math.round(built.n * easeOut(clamp((t - built.t0) / HUD.countUp, 0, 1)));
     if (v !== built.v) { built.v = v; $('builtNum').textContent = v; }
   }
+  const dt = Math.min(0.1, t - pop.last); pop.last = t;
   if (pop.shown !== pop.to) {
-    const k = clamp((t - pop.t0) / HUD.countUp, 0, 1);
-    pop.shown = k >= 1 ? pop.to : Math.round(pop.from + (pop.to - pop.from) * easeOut(k));
+    const gap = pop.to - pop.shown, step = Math.max(1, Math.round(Math.abs(gap) * Math.min(1, dt * HUD.popRate)));
+    pop.shown += Math.sign(gap) * Math.min(step, Math.abs(gap));
     $('hudPop').textContent = pad(pop.shown, 5);
   }
 }
@@ -145,5 +156,5 @@ function show(on) {
   if (on) { $('built').hidden = true; built = null; }
 }
 
-SS.hud = { HUD, update, frame, showBonus, showBuilt, hideTip, show };
+SS.hud = { HUD, update, frame, showBonus, showBuilt, popLoss, hideTip, show };
 })();
