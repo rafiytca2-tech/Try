@@ -1,96 +1,205 @@
-// The city behind the site: big grey blocks with sky showing between them, seen in 3D through the
-// camera's eye like the floors (the side facing the middle, and the roof once you're above it),
-// slower than the tower (0.82 of the camera's climb, measured from the recording), with a paler,
-// slower layer further back that shows once the near one runs out.
+// The city behind the site: three layers of buildings, near, middle and far, each scrolling
+// slower than the tower the further back it is (the near one at 0.82 of the camera's climb, as
+// measured from the recording). Buildings come in all sizes, from squat blocks to skyscrapers
+// that step back as they rise, in a warm, lively palette (the player's teal tower still stands
+// out), with window grids, ribbon windows, glass curtain walls, vertical strips or brick, and
+// spires with a red light, domes, water tanks, stepped crowns or parapets on top. They're seen in
+// 3D through the camera's eye like the floors (the side facing the middle, and the roof once
+// you're above it), hazed by the air in front of them, and their windows light up at night.
 (() => {
 'use strict';
-const { canvasOf, rect, poly, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
+const { canvasOf, rect, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
 
 const CITY = {
-  parallax: 0.82,       // near blocks move this share of the camera's climb
-  farParallax: 0.35,
-  farHaze: 0.38,        // how much of the sky's low colour lies over the far blocks (depth)
-  nearHaze: 0.12,       //   and over the near ones
-  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef', deep: 70 },
-  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee', deep: 50 },
+  layers: [   // back to front; res: the most screen px per game px a layer is painted at
+    { parallax: 0.35, haze: 0.4, deep: 40, width: [18, 46], height: [110, 560], res: 2, lights: 0.35,
+      colors: ['#f3c9b0', '#e8d6a8', '#bcd8c8', '#b8cfe6', '#d9c2e0', '#f0b8b0', '#cfe0a8', '#e6c9a0'] },
+    { parallax: 0.6, haze: 0.22, deep: 55, width: [24, 70], height: [140, 900], res: 2, lights: 0.4,
+      colors: ['#e89a7a', '#e8c170', '#8fc0a4', '#7fa8d6', '#b99acb', '#f2a38e', '#d8d27a', '#9fd0d0', '#e4b58a'] },
+    { parallax: 0.82, haze: 0.15, deep: 70, width: [32, 100], height: [170, 1100], res: 3, lights: 0.45,
+      colors: ['#e07a5f', '#f2cc8f', '#81b29a', '#5b7fb3', '#e9c46a', '#b5838d', '#f4a261', '#8e7cc3', '#ffb4a2', '#c96f53', '#a3c46b', '#6aa6c8'] },
+  ],
+  tallBias: 2.1,        // >1: most buildings are low or middling, a few are very tall
+  gapChance: 0.35,      // chance of a gap after a building
+  gap: [2, 9],          // px
+  styles: ['grid', 'grid', 'bands', 'glass', 'columns', 'brick'],
+  roofs: ['flat', 'flat', 'setback', 'setback', 'spire', 'dome', 'tank', 'crown'],
+  glassTint: '#9fd3ec',
+  lightColors: ['255,214,140', '255,236,180', '255,196,120', '210,230,255'],
 };
 
-// This file's own seeded generator, so the skyline is the same on every visit. The seed carries
-// on from where the old single-file version's shared generator was at this point, so the
-// skyline looks exactly as it did before the game was split into files.
-const rand = mulberry32((2005 + 836 * 0x6D2B79F5) | 0);
+// This file's own seeded generator, so the skyline is the same on every visit.
+const rand = mulberry32(0x5eed1e);
+const between = ([a, b]) => a + rand() * (b - a);
+const pick = list => list[Math.floor(rand() * list.length)];
+const mixHex = (a, b, t) => {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), ch = (p, s) => (p >> s) & 255;
+  return `rgb(${[16, 8, 0].map(s => Math.round(ch(pa, s) + (ch(pb, s) - ch(pa, s)) * t)).join(',')})`;
+};
+const bright = hex => { const p = parseInt(hex.slice(1), 16); return ((p >> 16) * 0.3 + ((p >> 8) & 255) * 0.59 + (p & 255) * 0.11) / 255; };
 
-// Where each block goes is chosen once, at load, so the skyline never changes. It is painted
-// onto its own canvas at up to MAX_RES screen pixels per game pixel (enough to stay sharp), and
-// repainted if the screen's resolution changes.
-const MAX_RES = 3;
+// A building: its tiers (from the ground up; each narrower one stands on the one below), its
+// colour, facade and what's on its roof. Sizes in px; y is height above the ground.
+function makeBuilding(L) {
+  const w = Math.round(between(L.width)), h = Math.round(L.height[0] + Math.pow(rand(), CITY.tallBias) * (L.height[1] - L.height[0]));
+  const roof = pick(CITY.roofs), tiers = [];
+  if (roof === 'setback' && h > 160 && w > 26) {             // narrower tiers stepping back toward the top
+    const steps = h > 600 ? 2 : 1;
+    let x0 = 0, x1 = w, top = Math.round(h * (steps === 2 ? 0.66 : 0.8));
+    tiers.push({ x0, x1, top });
+    for (let i = 0; i < steps; i++) {
+      const inset = Math.max(3, Math.round((x1 - x0) * between([0.14, 0.26])));
+      x0 += inset; x1 -= inset; top = i === steps - 1 ? h : Math.round(top + (h - top) * 0.5);
+      tiers.push({ x0, x1, top });
+    }
+  } else tiers.push({ x0: 0, x1: w, top: h });
+  return { w, h, tiers, c: pick(L.colors), style: pick(CITY.styles), roof, seed: rand() };
+}
 
-function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass, deep }) {
-  const arr = []; let total = 0;
+function makeLayer(L) {
+  const arr = [];
+  let total = 0;
   while (total < 720) {
-    const b = {
-      w: minW + Math.floor(rand() * (maxW - minW)), h: minH + Math.floor(rand() * (maxH - minH)),
-      gap: rand() < 0.3 ? 3 : 0, c: pal[Math.floor(rand() * pal.length)],
-      kind: ['bands', 'glass', 'grid', 'bands', 'plain'][Math.floor(rand() * 5)], cap: rand() < 0.35, gx: rand(),
-    };
-    b.x = total;                           // where it starts along the strip
-    arr.push(b); total += b.w + b.gap;
+    const b = makeBuilding(L);
+    b.x = total;
+    arr.push(b);
+    total += b.w + (rand() < CITY.gapChance ? Math.round(between(CITY.gap)) : 0);
   }
-  return { arr, total, tall: maxH + 12, detail, glass, deep, img: null, res: 0 };
+  const tall = Math.max(...arr.map(b => b.h)) + 70;       // room above for spires
+  return { ...L, arr, total, tall, img: null, lit: null, painted: 0 };
 }
 
-function paint(layer, res) {
-  const { arr, total, tall, detail, glass } = layer, c = canvasOf(total * res, tall * res), g = c.getContext('2d');
-  g.scale(res, res);
-  let x = 0;
-  for (const b of arr) {
-    const top = tall - b.h;
-    rect(g, b.c, x, top, b.w, b.h);
-    if (b.cap) rect(g, shade(b.c, -12), x + 5, top - 8, Math.round(b.w * 0.4), 8);
-    if (b.kind === 'bands') for (let y = top + 14; y < tall - 8; y += 22) rect(g, shade(b.c, -20 * detail), x, y, b.w, 6);
-    if (b.kind === 'glass') { const gw = Math.min(14, b.w - 10), gx = x + 4 + Math.floor(b.gx * (b.w - gw - 8)); rect(g, glass, gx, top + 6, gw, b.h - 8); rect(g, shade(glass, 18), gx, top + 6, 3, b.h - 8); }
-    if (b.kind === 'grid') for (let y = top + 8; y < tall - 8; y += 9) for (let xx = x + 4; xx < x + b.w - 6; xx += 7) rect(g, shade(b.c, -26 * detail), xx, y, 3, 4);
-    rect(g, shade(b.c, 16), x, top, b.w, 2);
-    rect(g, shade(b.c, -14), x + b.w - 1, top, 1, b.h);
-    rect(g, b.c, x, tall - 2, b.w - 3, 2);
-    x += b.w + b.gap;
+// --- painting a building's front (x: its left edge on the strip, ground: the strip's bottom) ---
+
+function paintFacade(g, b, tier, x, ground, lights, L) {
+  const l = x + tier.x0, w = tier.x1 - tier.x0, top = ground - tier.top, bottom = ground;
+  const dark = bright(b.c) > 0.62;                          // light buildings get darker glass
+  const glass = dark ? mixHex(b.c, '#23364a', 0.62) : mixHex(b.c, '#eef8ff', 0.62);
+  const r = mulberry32(Math.floor(b.seed * 1e9) + tier.top);
+  const light = (px, py, pw, ph) => { if (r() < L.lights) { lights.fillStyle = `rgba(${CITY.lightColors[Math.floor(r() * CITY.lightColors.length)]},0.95)`; lights.fillRect(px, py, pw, ph); } };
+  const body = g.createLinearGradient(0, top, 0, bottom);   // lit from above
+  body.addColorStop(0, shade(b.c, 14)); body.addColorStop(Math.min(1, 160 / Math.max(160, tier.top)), b.c); body.addColorStop(1, shade(b.c, -16));
+  g.fillStyle = body; g.fillRect(l, top, w, tier.top);
+  rect(g, shade(b.c, 26), l, top, 1, tier.top);             // the lit left edge
+  rect(g, shade(b.c, -24), l + w - 1, top, 1, tier.top);    // the shaded right edge
+  if (b.style === 'grid') {
+    const cols = Math.max(1, Math.floor((w - 5) / 7)), gx = (w - cols * 7 + 3) / 2;
+    for (let y = top + 7; y < bottom - 8; y += 9) for (let i = 0; i < cols; i++) {
+      const px = l + gx + i * 7;
+      rect(g, glass, px, y, 4, 5); rect(g, shade(b.c, 30), px, y + 5, 4, 0.8);
+      light(px, y, 4, 5);
+    }
+  } else if (b.style === 'bands') {
+    for (let y = top + 8; y < bottom - 8; y += 13) {
+      rect(g, glass, l + 3, y, w - 6, 5); rect(g, shade(b.c, 24), l + 3, y + 5, w - 6, 0.8);
+      for (let px = l + 3; px < l + w - 6; px += 8) light(px + 0.5, y, 6, 5);
+    }
+  } else if (b.style === 'glass') {
+    const tint = mixHex(b.c, CITY.glassTint, 0.72);
+    rect(g, tint, l + 2, top + 3, w - 4, tier.top - 5);
+    for (let px = l + 2; px < l + w - 2; px += 6) rect(g, shade(b.c, -12), px, top + 3, 0.7, tier.top - 5);
+    for (let y = top + 3; y < bottom - 2; y += 11) { rect(g, shade(b.c, -12), l + 2, y, w - 4, 0.7); for (let px = l + 2; px < l + w - 6; px += 6) light(px + 0.8, y + 1, 5, 9.5); }
+    g.save(); g.beginPath(); g.rect(l + 2, top + 3, w - 4, tier.top - 5); g.clip();   // a sweep of reflected sky
+    g.fillStyle = 'rgba(255,255,255,0.22)';
+    for (let y = top - w; y < bottom; y += 90) { g.beginPath(); g.moveTo(l, y + w); g.lineTo(l + w, y); g.lineTo(l + w, y + 14); g.lineTo(l, y + w + 14); g.fill(); }
+    g.restore();
+  } else if (b.style === 'columns') {
+    for (let px = l + 3; px < l + w - 5; px += 7) {
+      rect(g, glass, px, top + 6, 3, tier.top - 12);
+      for (let y = top + 6; y < bottom - 8; y += 10) light(px, y, 3, 8);
+    }
+  } else {                                                    // brick: pairs of small windows and a cornice
+    rect(g, shade(b.c, 20), l, top, w, 3); rect(g, shade(b.c, -20), l, top + 3, w, 1);
+    for (let y = top + 9; y < bottom - 8; y += 10) for (let px = l + 4; px < l + w - 7; px += 9) {
+      rect(g, glass, px, y, 3, 5); rect(g, glass, px + 4, y, 3, 5); rect(g, shade(b.c, 28), px - 0.5, y + 5, 8, 0.8);
+      light(px, y, 7, 5);
+    }
   }
-  layer.img = c; layer.res = res;
 }
-const FAR = makeBackdrop(CITY.far);
-const NEAR = makeBackdrop(CITY.near);
+
+function paintRoof(g, b, x, ground, lights) {
+  const t = b.tiers[b.tiers.length - 1], l = x + t.x0, w = t.x1 - t.x0, top = ground - t.top, mid = l + w / 2;
+  rect(g, shade(b.c, 30), l, top, w, 1.2);                  // parapet catching the light
+  if (b.roof === 'spire') {
+    rect(g, shade(b.c, -20), mid - 3, top - 5, 6, 5);
+    rect(g, '#4a4f58', mid - 0.6, top - 5 - 30 - b.seed * 25, 1.2, 30 + b.seed * 25);
+    lights.fillStyle = 'rgba(255,60,50,1)'; lights.beginPath(); lights.arc(mid, top - 6 - 30 - b.seed * 25, 1.4, 0, Math.PI * 2); lights.fill();
+    g.fillStyle = '#e8453c'; g.beginPath(); g.arc(mid, top - 6 - 30 - b.seed * 25, 1.1, 0, Math.PI * 2); g.fill();
+  } else if (b.roof === 'dome') {
+    const r = Math.min(w * 0.32, 16), dome = g.createLinearGradient(mid - r, 0, mid + r, 0);
+    dome.addColorStop(0, '#9fd6c4'); dome.addColorStop(1, '#4f8f82');                       // weathered copper
+    rect(g, shade(b.c, -10), mid - r - 1, top - 3, 2 * r + 2, 3);
+    g.fillStyle = dome; g.beginPath(); g.ellipse(mid, top - 3, r, r * 0.9, 0, Math.PI, 0); g.fill();
+    rect(g, '#3b4a52', mid - 0.5, top - 3 - r * 0.9 - 6, 1, 6);
+  } else if (b.roof === 'tank') {
+    const tx = l + w * (0.2 + b.seed * 0.5);
+    rect(g, '#5a4636', tx - 3, top - 5, 1, 5); rect(g, '#5a4636', tx + 3, top - 5, 1, 5);
+    g.fillStyle = '#8a6a4c'; g.beginPath(); g.moveTo(tx - 5, top - 5); g.lineTo(tx + 5, top - 5); g.lineTo(tx + 5, top - 13); g.lineTo(tx, top - 17); g.lineTo(tx - 5, top - 13); g.closePath(); g.fill();
+    rect(g, '#6e533b', tx - 5, top - 10, 10, 0.8);
+  } else if (b.roof === 'crown') {
+    for (let i = 0; i < 3; i++) { const cw = w * (0.7 - i * 0.2); rect(g, shade(b.c, 10 - i * 6), mid - cw / 2, top - 4 * (i + 1), cw, 4); }
+  } else {                                                    // flat: a couple of rooftop boxes
+    rect(g, shade(b.c, -18), l + w * 0.15, top - 4, w * 0.22, 4);
+    if (w > 40) rect(g, shade(b.c, -28), l + w * 0.6, top - 6, w * 0.16, 6);
+  }
+}
+
+// Paints a layer's strip (and its night lights, kept separate so they can fade in).
+function paint(layer, res) {
+  const { arr, total, tall } = layer, c = canvasOf(total * res, tall * res), g = c.getContext('2d');
+  const lc = canvasOf(total, tall), lg = lc.getContext('2d');
+  g.scale(res, res);
+  for (const b of arr) {
+    for (const tier of b.tiers) paintFacade(g, b, tier, b.x, tall, lg, layer);
+    paintRoof(g, b, b.x, tall, lg);
+  }
+  layer.img = c; layer.lit = lc; layer.painted = res;
+}
+const LAYERS = CITY.layers.map(makeLayer);
 
 // 3D: each block's side facing the middle and, once the camera is above it, its roof, drawn in
 // toward the camera's eye (camera/camera.js). A layer that moves p of the camera's climb is
 // 1 / p times as far away as the tower, so its depth draws in less. The fronts go over these.
-function blockSides(layer, x, base, p) {
-  const E = SS.camera.eye(), far = E.dist / p, k = far / (far + layer.deep);
+function blockSides(layer, x, base) {
+  const E = SS.camera.eye(), far = E.dist / layer.parallax, k = far / (far + layer.deep);
   const back = ([px, py]) => [E.x + (px - E.x) * k, E.y + (py - E.y) * k];
-  const bottom = Math.min(base, view.h + 20);
+  const quad = pts => { ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill(); };
   for (const b of layer.arr) {
-    const l = x + b.x, r = l + b.w, t = base - b.h;
-    if (r < -30 || l > view.w + 30 || t > view.h) continue;
-    const quad = pts => { ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill(); };
-    if (l > E.x) { ctx.fillStyle = shade(b.c, -10); quad([[l, t], [l, bottom], back([l, bottom]), back([l, t])]); }       // its left wall, lit
-    if (r < E.x) { ctx.fillStyle = shade(b.c, -30); quad([[r, t], [r, bottom], back([r, bottom]), back([r, t])]); }       // its right wall, in shade
-    if (t > E.y) { ctx.fillStyle = shade(b.c, 20); quad([[l, t], [r, t], back([r, t]), back([l, t])]); }                 // its roof
+    if (x + b.x + b.w < -30 || x + b.x > view.w + 30) continue;
+    b.tiers.forEach((tr, i) => {
+      const l = x + b.x + tr.x0, r = x + b.x + tr.x1, t = base - tr.top;
+      const bottom = Math.min(i ? base - b.tiers[i - 1].top : base, view.h + 20);
+      if (t > view.h) return;
+      if (l > E.x) { ctx.fillStyle = shade(b.c, -8); quad([[l, t], [l, bottom], back([l, bottom]), back([l, t])]); }    // its left wall, lit
+      if (r < E.x) { ctx.fillStyle = shade(b.c, -34); quad([[r, t], [r, bottom], back([r, bottom]), back([r, t])]); }   // its right wall, in shade
+      if (t > E.y) { ctx.fillStyle = shade(b.c, 22); quad([[l, t], [r, t], back([r, t]), back([l, t])]); }              // its roof
+    });
   }
 }
 
 // Draws a layer and returns the screen row of its tallest roofs (or null when it's off screen).
-function drawLayer(layer, camY, p) {
-  const base = -camY * p + (1 - p) * SS.camera.restLine();
+function drawLayer(layer, camY, night) {
+  const p = layer.parallax, base = -camY * p + (1 - p) * SS.camera.restLine();
   if (base - layer.tall > view.h) return null;
-  const res = Math.min(MAX_RES, Math.max(1, Math.ceil(view.m - 0.01)));
-  if (layer.res !== res) paint(layer, res);
-  const { img, total, tall } = layer;
+  const res = Math.min(layer.res, Math.max(1, Math.ceil(view.m - 0.01)));   // layer.res: the most it's painted at
+  if (layer.painted !== res) paint(layer, res);
+  const { img, lit, total, tall } = layer;
   const x0 = Math.round(view.w / 2) - total * Math.ceil(view.w / 2 / total + 1);
-  for (let x = x0; x < view.w; x += total) blockSides(layer, x, base, p);
+  for (let x = x0; x < view.w; x += total) blockSides(layer, x, base);
   for (let x = x0; x < view.w; x += total) {
     ctx.drawImage(img, x, base - tall, total, tall);
     if (base < view.h) ctx.drawImage(img, 0, (tall - 1) * res, total * res, res, x, base - 0.5, total, view.h - base + 0.5);
   }
+  layer.lightsAt = night > 0.02 ? { x0, base } : null;
   return base - tall;
+}
+// The layer's lit windows, over its haze, fading in as night falls.
+function drawLights(layer, night) {
+  if (!layer.lightsAt) return;
+  const { x0, base } = layer.lightsAt;
+  ctx.globalAlpha = night * (1 - layer.haze * 0.6);
+  for (let x = x0; x < view.w; x += layer.total) ctx.drawImage(layer.lit, x, base - layer.tall, layer.total, layer.tall);
+  ctx.globalAlpha = 1;
 }
 
 // Air between here and the buildings: the colour of the low sky laid over them, thicker further back.
@@ -101,9 +210,11 @@ function haze(top, amount, color) {
 }
 
 function draw(camY) {
-  const color = SS.sky.hazeAt(camY);
-  haze(drawLayer(FAR, camY, CITY.farParallax), CITY.farHaze, color);
-  haze(drawLayer(NEAR, camY, CITY.parallax), CITY.nearHaze, color);
+  const color = SS.sky.hazeAt(camY), night = SS.sky.nightAt(camY);
+  for (const L of LAYERS) {
+    haze(drawLayer(L, camY, night), L.haze, color);
+    drawLights(L, night);
+  }
 }
 
 SS.city = { CITY, draw };
