@@ -40,17 +40,18 @@ function draw(g, camY) {
   const n = g.tower.length;
   if (!n) return;
   shadow(g, camY);
-  const { W, H } = SS.blocks, cx = view.w / 2;
+  const { W, H } = SS.blocks, cx = view.w / 2, night = SS.sky.nightAt(camY);
   const iMin = Math.max(0, Math.floor(-(camY + view.h) / H) - 2), iMax = Math.min(n - 1, Math.ceil(-camY / H) + 2);
   for (let i = iMin; i <= iMax; i++) {
     const f = g.tower[i], d0 = SS.sway.bendAt(g, i), d1 = SS.sway.bendAt(g, i + 1);
     const lean = Math.atan2(d1 - d0, H) + (i === n - 1 ? SS.sway.wobbleAngle(g) : 0);
     const bx = cx + f.x + d0, by = -i * H - camY;
-    if (!lean) { SS.damage.draw(ctx, f.kind, f.dmg, bx - W / 2, by - H, 0); continue; }
+    if (!lean) { SS.damage.draw(ctx, f.kind, f.dmg, bx - W / 2, by - H, 0); SS.blocks.lights(ctx, f.kind, bx - W / 2, by - H, night, i); continue; }
     ctx.save();
     ctx.translate(bx, by);
     ctx.rotate(lean);
     SS.damage.draw(ctx, f.kind, f.dmg, -W / 2, -H, lean);
+    SS.blocks.lights(ctx, f.kind, -W / 2, -H, night, i);
     ctx.restore();
   }
 }

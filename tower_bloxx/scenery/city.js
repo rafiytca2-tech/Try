@@ -9,6 +9,8 @@ const { canvasOf, rect, poly, shade, mulberry32 } = SS.px, { ctx, view } = SS.sc
 const CITY = {
   parallax: 0.82,       // near blocks move this share of the camera's climb
   farParallax: 0.35,
+  farHaze: 0.38,        // how much of the sky's low colour lies over the far blocks (depth)
+  nearHaze: 0.12,       //   and over the near ones
   near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef', depth: 0.85 },
   far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee', depth: 0.5 },
 };
@@ -60,9 +62,10 @@ function paint(layer, res) {
 const FAR = makeBackdrop(CITY.far);
 const NEAR = makeBackdrop(CITY.near);
 
+// Draws a layer and returns the screen row of its tallest roofs (or null when it's off screen).
 function drawLayer(layer, camY, p) {
   const base = -camY * p + (1 - p) * SS.camera.restLine();
-  if (base - layer.tall > view.h) return;
+  if (base - layer.tall > view.h) return null;
   const res = Math.min(MAX_RES, Math.max(1, Math.ceil(view.m - 0.01)));
   if (layer.res !== res) paint(layer, res);
   const { img, total, tall } = layer;
@@ -71,11 +74,20 @@ function drawLayer(layer, camY, p) {
     ctx.drawImage(img, x, base - tall, total, tall);
     if (base < view.h) ctx.drawImage(img, 0, (tall - 1) * res, total * res, res, x, base - 0.5, total, view.h - base + 0.5);
   }
+  return base - tall;
+}
+
+// Air between here and the buildings: the colour of the low sky laid over them, thicker further back.
+function haze(top, amount, color) {
+  if (top === null || top > view.h) return;
+  const y = Math.max(0, top);
+  ctx.fillStyle = `rgba(${color},${amount})`; ctx.fillRect(0, y, view.w, view.h - y);
 }
 
 function draw(camY) {
-  drawLayer(FAR, camY, CITY.farParallax);
-  drawLayer(NEAR, camY, CITY.parallax);
+  const color = SS.sky.hazeAt(camY);
+  haze(drawLayer(FAR, camY, CITY.farParallax), CITY.farHaze, color);
+  haze(drawLayer(NEAR, camY, CITY.parallax), CITY.nearHaze, color);
 }
 
 SS.city = { CITY, draw };

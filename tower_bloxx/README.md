@@ -33,10 +33,11 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Dust clouds and grit from knocks and landings | `effects/dust.js` |
 | Chips knocked off floors | `effects/chips.js` |
 | Screen jolt on heavy knocks | `effects/shake.js` |
+| Darkened edges of the view | `effects/vignette.js` |
 | Floor, ground-floor and balcony-floor look and size; the 2.5D depth (how far back floors go, roof and wall faces) | `art/blocks.js` |
 | Cracks and chipped corners | `art/damage.js` |
-| Sky colours by height, stars, planets, clouds | `scenery/sky.js` |
-| The city behind the site and its parallax | `scenery/city.js` |
+| Sky colours by height, sunset glow, the sun, stars, planets, soft clouds, how dark it is | `scenery/sky.js` |
+| The city behind the site, its parallax and haze | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
 | What the HUD shows and when, the payout, population and floors-built count-ups | `hud/hud.js` |
 | How the HUD looks: glass chips, icons, hearts, the combo meter, hold meter, payout and floors-built animations | `hud/hud.css` |

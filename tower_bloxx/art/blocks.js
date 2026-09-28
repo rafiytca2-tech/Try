@@ -2,9 +2,10 @@
 // sky-reflecting glass, the glass doors on the ground floor, and the balcony floor that comes
 // every 10th floor. Floors are solid boxes drawn in 2.5D: behind the front you see the roof and
 // the right-hand wall, going back up and to the right (lit from the top left, so the roof is
-// light and the wall in shade), and they stay right however a floor is turned. Everything is
-// painted once at 8x detail so it stays sharp at any screen size and when it turns. Also draws
-// a floor at any position and angle.
+// light and the wall in shade), and they stay right however a floor is turned. The facade is lit
+// from the top left, the glass is glossy, and at night windows light up. Everything is painted
+// once at 8x detail so it stays sharp at any screen size and when it turns. Also draws a floor
+// at any position and angle.
 (() => {
 'use strict';
 const { canvasOf, rect, shade } = SS.px;
@@ -14,10 +15,17 @@ const RES = 8;          // detail the floors are painted at
 const BLOCK = { body: '#479cab', light: '#72c3cf', dark: '#1a5f6f', outline: '#0e3440', frame: '#a2ae8e', frameDark: '#2c3526', cap: '#a8a89c' };
 const GLASS = [['#c9f3fa', 6], ['#8fdbea', 7], ['#52bbd1', 6], ['#3899b3', 4], ['#2a7b93', 3]];   // sky reflection, top to bottom
 
+// Glass: the sky's reflection from light to deep, a bright edge, and two glossy streaks.
 function paintGlass(g, x, y, w, h) {
   let yy = y;
   for (const [c, n] of GLASS) { const rows = Math.min(Math.round(n * h / 26), y + h - yy); if (rows > 0) rect(g, c, x, yy, w, rows); yy += rows; }
   if (yy < y + h) rect(g, GLASS[GLASS.length - 1][0], x, yy, w, y + h - yy);
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+  g.fillStyle = 'rgba(255,255,255,0.28)';
+  g.beginPath(); g.moveTo(x, y + h * 0.5); g.lineTo(x + w, y + h * 0.22); g.lineTo(x + w, y + h * 0.36); g.lineTo(x, y + h * 0.64); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.16)';
+  g.beginPath(); g.moveTo(x, y + h * 0.72); g.lineTo(x + w, y + h * 0.5); g.lineTo(x + w, y + h * 0.54); g.lineTo(x, y + h * 0.76); g.fill();
+  g.restore();
   rect(g, '#f2fdff', x, y + 1, 1, Math.round(h * 0.4));
 }
 function paintWindow(g, x, y, w, h) {
@@ -26,10 +34,23 @@ function paintWindow(g, x, y, w, h) {
   rect(g, shade(BLOCK.frame, 28), x + 1, y + 1, w - 2, 1);
   rect(g, BLOCK.frameDark, x + 2, y + 2, w - 4, h - 4);
   paintGlass(g, x + 3, y + 3, w - 6, h - 6);
+  rect(g, shade(BLOCK.frame, 38), x - 0.5, y + h, w + 1, 1);          // the sill, catching the light
+  rect(g, 'rgba(0,0,0,0.22)', x - 0.5, y + h + 1, w + 1, 1);          //   and its shadow
+}
+// Light from the top left: the facade a little brighter at the top, a soft shadow under the
+// concrete slab along the top, and a seam up the middle.
+function paintFacade(g, t) {
+  const face = g.createLinearGradient(0, 1, 0, H - 1);
+  face.addColorStop(0, shade(t.body, 14)); face.addColorStop(1, shade(t.body, -14));
+  g.fillStyle = face; g.fillRect(1, 1, W - 2, H - 2);
+  const ao = g.createLinearGradient(0, 5, 0, 10);
+  ao.addColorStop(0, 'rgba(0,20,30,0.3)'); ao.addColorStop(1, 'rgba(0,20,30,0)');
+  g.fillStyle = ao; g.fillRect(1, 5, W - 2, 5);
 }
 function paintBlock(g, t, door) {
   rect(g, t.outline, 0, 0, W, H);
-  rect(g, t.body, 1, 1, W - 2, H - 2);
+  paintFacade(g, t);
+  if (!door) rect(g, shade(t.body, -22), 19.7, 6, 0.6, H - 10);
   rect(g, t.light, 1, 5, 2, H - 9);
   rect(g, t.dark, W - 2, 4, 1, H - 5);                // the corner, turning into the wall
   rect(g, t.dark, 1, H - 4, W - 2, 3);                // shaded underside
@@ -55,7 +76,7 @@ const BALCONY = {
 function paintBalcony(g, t) {
   const B = BALCONY, o = B.out, wide = W + 2 * o;
   rect(g, t.outline, 0, 0, W, H);
-  rect(g, t.body, 1, 1, W - 2, H - 2);
+  paintFacade(g, t);
   rect(g, t.light, 1, 5, 2, H - 9);
   rect(g, t.dark, W - 2, 4, 1, H - 5);
   rect(g, t.dark, 1, H - 4, W - 2, 3);
@@ -127,10 +148,16 @@ for (const kind of ['floor', 'foundation', 'balcony']) {
   under.getContext('2d').fillStyle = shade(BLOCK.body, -85); under.getContext('2d').fillRect(0, 0, 8, 8);
   FACE[kind] = { side, top, under };
 }
+// Night: floors darken as the sky does (their lit windows are drawn over this, see lights()).
+const NIGHT = { color: '8,14,40', strength: 0.55 };
+let shadeNow = null;
+function setNight(night) { shadeNow = night > 0 ? `rgba(${NIGHT.color},${(NIGHT.strength * night).toFixed(3)})` : null; }
+
 function quad(g, tex, tw, th, ox, oy, ux, uy, vx, vy) {   // texture x along u, texture y along v
   g.save();
   g.transform(ux / tw, uy / tw, vx / th, vy / th, ox, oy);
   g.drawImage(tex, 0, 0, tw, th);
+  if (shadeNow) { g.fillStyle = shadeNow; g.fillRect(0, 0, tw, th); }
   g.restore();
 }
 // The faces behind a floor whose front's top-left corner is at (x, y), in a drawing space turned
@@ -144,9 +171,38 @@ function faces(g, kind, x, y, ang = 0) {
   else if (dx < 0) quad(g, F.side, DEEP, H, x, y, dx, dy, 0, H);
 }
 
+// Lights on at night: where the glass is on each kind of floor, and which windows are lit.
+const PANES = {
+  floor: [[9, 11, 6, 25], [25, 11, 6, 25]],
+  foundation: [[10, 11, 20, 29]],
+  balcony: [[8, 10, 6, 22], [17, 10, 6, 22], [26, 10, 6, 22]],
+};
+const LIGHT = { on: 0.72, colors: ['255,214,140', '255,232,176', '255,196,120'] };
+const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+// Window lights for the floor at index i, with its front's top-left at (x, y): night is 0..1, and
+// windows come on one after another as it gets dark.
+function lights(g, kind, x, y, night, i) {
+  if (night <= 0) return;
+  PANES[kind].forEach(([px, py, pw, ph], k) => {
+    const r = hash(i * 7.3 + k), on = Math.min(1, Math.max(0, night * 1.8 - r * 0.9));
+    if (r > LIGHT.on || on <= 0) return;
+    const c = LIGHT.colors[Math.floor(hash(i * 3.1 + k * 5.7) * LIGHT.colors.length)];
+    const grad = g.createLinearGradient(0, y + py, 0, y + py + ph);
+    grad.addColorStop(0, `rgba(${c},${0.95 * on})`); grad.addColorStop(1, `rgba(${c},${0.6 * on})`);
+    g.fillStyle = grad; g.fillRect(x + px, y + py, pw, ph);
+  });
+}
+
 // A floor's front with its top-left corner at (x, y) in the current drawing space (a balcony
 // sticks out a little either side of that).
-function draw(g, kind, x, y) { const o = OUT[kind] || 0; g.drawImage(SPR[kind], x - o, y, W + 2 * o, H); }
+function draw(g, kind, x, y) {
+  const o = OUT[kind] || 0;
+  g.drawImage(SPR[kind], x - o, y, W + 2 * o, H);
+  if (shadeNow) {
+    g.fillStyle = shadeNow; g.fillRect(x, y, W, H);
+    if (o) { g.fillRect(x - o, y + 23, o, 13); g.fillRect(x + W, y + 23, o, 13); }   // the balcony's ends
+  }
+}
 // The whole box: the faces behind, then the front. ang: how the drawing space is turned.
 function draw3d(g, kind, x, y, ang = 0) { faces(g, kind, x, y, ang); draw(g, kind, x, y); }
 
@@ -160,5 +216,5 @@ function drawAt(kind, x, y, ang) {
   ctx.restore();
 }
 
-SS.blocks = { W, H, DEPTH, SPR, draw, draw3d, faces, drawAt };
+SS.blocks = { W, H, DEPTH, NIGHT, SPR, draw, draw3d, faces, lights, setNight, drawAt };
 })();

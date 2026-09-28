@@ -33,6 +33,7 @@ function render() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   const camY = g.camY;   // not rounded: the scene scrolls smoothly between pixels
+  SS.blocks.setNight(SS.sky.nightAt(camY));
   SS.sky.draw(camY);
   SS.city.draw(camY);
   SS.ground.draw(camY);
@@ -46,6 +47,7 @@ function render() {
   SS.tenants.draw(g, camY);
   SS.stars.draw(g, camY);
   SS.rigging.draw(g);
+  SS.vignette.draw();
 }
 
 let last = performance.now(), acc = 0;

@@ -8,19 +8,21 @@ const { circle, line } = SS.px, { ctx, view } = SS.screen;
 const RIGGING = {
   hang: { foundation: 17, floor: 11 },   // rope end -> top of the load (27 px in the recording)
   ropeWidth: 3,
-  rope: '#101010',
+  rope: '#141414',
+  ropeShine: 'rgba(200,210,220,0.35)',
   pulley: { rim: '#1e1a14', body: '#8e8e86', shine: '#d2d2ca', hub: '#f2c83a', hubShine: '#fff0a0' },
   shank: '#b88a4a',
 };
 
 function drawRigging(kind, loaded) {
   const { W } = SS.blocks, HANG = RIGGING.hang, P = RIGGING.pulley;
-  circle(ctx, 0, 4, 3.8, P.rim);                     // round pulley
-  circle(ctx, 0, 4, 3, P.body);
-  ctx.strokeStyle = P.shine; ctx.lineWidth = 0.7;
-  ctx.beginPath(); ctx.arc(0, 4, 2.2, Math.PI * 1.1, Math.PI * 1.6); ctx.stroke();
-  circle(ctx, 0, 4, 1.5, P.hub);                     // gold hub
-  circle(ctx, -0.4, 3.6, 0.5, P.hubShine);
+  circle(ctx, 0, 4, 3.8, P.rim);                     // round steel pulley, lit from the top left
+  const steel = ctx.createRadialGradient(-1.2, 2.8, 0.3, 0, 4, 3.2);
+  steel.addColorStop(0, P.shine); steel.addColorStop(0.55, P.body); steel.addColorStop(1, '#5b5b55');
+  circle(ctx, 0, 4, 3, steel);
+  const gold = ctx.createRadialGradient(-0.5, 3.5, 0.1, 0, 4, 1.6);   // gold hub
+  gold.addColorStop(0, P.hubShine); gold.addColorStop(0.6, P.hub); gold.addColorStop(1, '#a8781a');
+  circle(ctx, 0, 4, 1.5, gold);
   if (kind === 'foundation' && loaded) {             // two-cable sling for the first floor
     line(ctx, '#1a1a1a', 0, 7.5, -(W / 2 - 4), HANG.foundation, 0.9);
     line(ctx, '#1a1a1a', 0, 7.5, W / 2 - 4, HANG.foundation, 0.9);
@@ -38,7 +40,9 @@ function draw(g) {
   const h = SS.crane.hookAt(g), cx = view.w / 2, py = SS.crane.pivotY();
   // rope from the pivot above the screen, drawn from just above the top edge down
   const y0 = Math.max(py, -4), k0 = (y0 - py) / Math.max(1, h.y - py);
-  line(ctx, RIGGING.rope, cx + (h.x - cx) * k0, y0, h.x, h.y + 0.5, RIGGING.ropeWidth, 'butt');
+  const rx = cx + (h.x - cx) * k0;
+  line(ctx, RIGGING.rope, rx, y0, h.x, h.y + 0.5, RIGGING.ropeWidth, 'butt');           // steel cable
+  line(ctx, RIGGING.ropeShine, rx - 0.6, y0, h.x - 0.6, h.y + 0.5, 0.7, 'butt');       //   catching the light
   const kind = SS.crane.nextKind(g);
   ctx.save();
   ctx.translate(h.x, h.y);

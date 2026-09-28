@@ -11,6 +11,7 @@ const GROUND = {
   slabFront: 3,         // px below street level of the slab's front edge
   slabDeep: 10,         // px the slab's top goes back (drawn up the screen)
   slabThick: 4,         // px of the slab's front face
+  tufts: [-118, -104, -90, -76, -71, 74, 88, 97, 111, 121],   // px from the middle: grass on the ground's top
 };
 
 // This file's own seeded generator (see scenery/city.js for why the seed looks like this).
@@ -29,14 +30,29 @@ const MESH_RES = 8, meshTile = canvasOf(6 * MESH_RES, 6 * MESH_RES);
 }
 const MESH = ctx.createPattern(meshTile, 'repeat');
 
+// A round clump of leaves: light where the sun catches it (top left), dark underneath.
+function leaf(x, y, r, lit, dark) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, lit); g.addColorStop(1, dark);
+  circle(ctx, x, y, r, g);
+}
+// A little tuft of grass at (x, y), its foot on the ground.
+function tuft(x, y) {
+  ctx.strokeStyle = '#5f8f3a'; ctx.lineWidth = 0.7; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const [dx, h, lean] of [[-1.2, 3.2, -0.8], [0, 4.2, 0.2], [1.1, 3, 0.9], [2, 2.2, 1.2]]) { ctx.moveTo(x + dx, y); ctx.quadraticCurveTo(x + dx + lean * 0.3, y - h * 0.6, x + dx + lean, y - h); }
+  ctx.stroke();
+}
 // A traffic cone standing on yb, centred on x + 0.5.
 function cone(x, yb) {
   const c = x + 0.5, hw = y => 0.5 + 3 * (y - (yb - 10)) / 9;   // half-width at height y
   const band = (y0, y1, color) => poly(ctx, color, [c - hw(y0), y0, c + hw(y0), y0, c + hw(y1), y1, c - hw(y1), y1]);
   rrect(ctx, '#2a1a10', x - 4, yb - 1.5, 9, 2.5, 0.8);
-  band(yb - 10, yb - 1, '#e8452c');
-  band(yb - 5.4, yb - 3.4, '#ffffff');
-  circle(ctx, c - 0.2, yb - 8.6, 0.5, '#ffd0c4');
+  const shine = ctx.createLinearGradient(c - 3.5, 0, c + 3.5, 0);   // lit on the left, round the right
+  shine.addColorStop(0, '#ff7a5c'); shine.addColorStop(0.35, '#f0523a'); shine.addColorStop(1, '#a92a18');
+  band(yb - 10, yb - 1, shine);
+  band(yb - 5.4, yb - 3.4, '#f4f4f4');
+  circle(ctx, c - 0.9, yb - 7.2, 0.45, 'rgba(255,230,220,0.9)');
 }
 
 function draw(camY) {
@@ -57,11 +73,12 @@ function draw(camY) {
 
   // tree and wooden hoarding, right of the site
   const rs = cx + S + 10, wTop = back - 30, tx = cx + S + 50;
-  rect(ctx, '#3b2716', tx - 2, back - 40, 5, 40);
-  disc(ctx, tx, back - 50, 17, '#1f4a1c');
-  disc(ctx, tx - 10, back - 44, 11, '#2c6526'); disc(ctx, tx + 11, back - 45, 12, '#2c6526'); disc(ctx, tx + 1, back - 58, 12, '#2c6526');
-  disc(ctx, tx - 5, back - 57, 6, '#3f8a36'); disc(ctx, tx - 12, back - 47, 5, '#3f8a36'); disc(ctx, tx + 7, back - 52, 5, '#3f8a36');
-  rect(ctx, '#6dbb58', tx - 7, back - 61, 2, 2); rect(ctx, '#6dbb58', tx + 5, back - 55, 2, 1);
+  const trunk = ctx.createLinearGradient(tx - 2, 0, tx + 3, 0);
+  trunk.addColorStop(0, '#5a3d22'); trunk.addColorStop(1, '#2e1e10');
+  ctx.fillStyle = trunk; ctx.fillRect(tx - 2, back - 40, 5, 40);
+  leaf(tx, back - 50, 17.5, '#2f6a28', '#173b15');                 // leafy clumps, lit from the top left
+  leaf(tx - 10, back - 44, 11.5, '#3b7d31', '#1f4a1c'); leaf(tx + 11, back - 45, 12.5, '#357530', '#1b441a'); leaf(tx + 1, back - 58, 12.5, '#459238', '#22521f');
+  leaf(tx - 5, back - 57, 6.5, '#63ad50', '#3a7a30'); leaf(tx - 12, back - 47, 5.5, '#5aa148', '#347129'); leaf(tx + 7, back - 52, 5.5, '#5aa148', '#347129');
   if (rs < view.w) {
     const D = SS.blocks.DEPTH;                         // the hoarding's top edge, seen from above
     poly(ctx, '#e8d09a', [rs, wTop, view.w, wTop, view.w + D.x * 0.4, wTop + D.y * 0.4, rs + D.x * 0.4, wTop + D.y * 0.4]);
@@ -99,6 +116,7 @@ function draw(camY) {
   rect(ctx, 'rgba(20,14,8,0.35)', x0, f + t, x1 - x0, 1.2);
 
   cone(cx - S - 16, back + 1); cone(cx + S + 18, back + 1);
+  for (const x of GROUND.tufts) { const tx2 = cx + x; if (tx2 > -4 && tx2 < view.w + 4 && Math.abs(x) > S + 12) tuft(tx2, back + 3 + (Math.abs(x) % 5)); }
 }
 
 SS.ground = { GROUND, draw };
