@@ -1,15 +1,16 @@
-// The city behind the site: big flat grey blocks with sky showing between them, scrolling
+// The city behind the site: big grey blocks with sky showing between them, each with its roof
+// and right-hand wall showing (the same 2.5D as the floors, shallower further back), scrolling
 // slower than the tower (0.82 of the camera's climb, measured from the recording), with a paler,
 // slower layer further back that shows once the near one runs out.
 (() => {
 'use strict';
-const { canvasOf, rect, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
+const { canvasOf, rect, poly, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
 
 const CITY = {
   parallax: 0.82,       // near blocks move this share of the camera's climb
   farParallax: 0.35,
-  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef' },
-  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee' },
+  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef', depth: 0.85 },
+  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee', depth: 0.5 },
 };
 
 // This file's own seeded generator, so the skyline is the same on every visit. The seed carries
@@ -22,7 +23,7 @@ const rand = mulberry32((2005 + 836 * 0x6D2B79F5) | 0);
 // repainted if the screen's resolution changes.
 const MAX_RES = 3;
 
-function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
+function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass, depth }) {
   const arr = []; let total = 0;
   while (total < 720) {
     const b = {
@@ -32,22 +33,25 @@ function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
     };
     arr.push(b); total += b.w + b.gap;
   }
-  return { arr, total, tall: maxH + 12, detail, glass, img: null, res: 0 };
+  return { arr, total, tall: maxH + 12, detail, glass, depth, img: null, res: 0 };
 }
 
 function paint(layer, res) {
   const { arr, total, tall, detail, glass } = layer, c = canvasOf(total * res, tall * res), g = c.getContext('2d');
+  const D = SS.blocks.DEPTH, dx = D.x * layer.depth, dy = D.y * layer.depth;   // the blocks' roofs and right-hand walls
   g.scale(res, res);
   let x = 0;
   for (const b of arr) {
     const top = tall - b.h;
+    poly(g, shade(b.c, -26), [x + b.w, top, x + b.w + dx, top + dy, x + b.w + dx, tall, x + b.w, tall]);
+    poly(g, shade(b.c, 22), [x, top, x + b.w, top, x + b.w + dx, top + dy, x + dx, top + dy]);
     rect(g, b.c, x, top, b.w, b.h);
     if (b.cap) rect(g, shade(b.c, -12), x + 5, top - 8, Math.round(b.w * 0.4), 8);
     if (b.kind === 'bands') for (let y = top + 14; y < tall - 8; y += 22) rect(g, shade(b.c, -20 * detail), x, y, b.w, 6);
     if (b.kind === 'glass') { const gw = Math.min(14, b.w - 10), gx = x + 4 + Math.floor(b.gx * (b.w - gw - 8)); rect(g, glass, gx, top + 6, gw, b.h - 8); rect(g, shade(glass, 18), gx, top + 6, 3, b.h - 8); }
     if (b.kind === 'grid') for (let y = top + 8; y < tall - 8; y += 9) for (let xx = x + 4; xx < x + b.w - 6; xx += 7) rect(g, shade(b.c, -26 * detail), xx, y, 3, 4);
     rect(g, shade(b.c, 16), x, top, b.w, 2);
-    rect(g, shade(b.c, -14), x + b.w - 3, top, 3, b.h);
+    rect(g, shade(b.c, -14), x + b.w - 1, top, 1, b.h);
     rect(g, b.c, x, tall - 2, b.w - 3, 2);
     x += b.w + b.gap;
   }

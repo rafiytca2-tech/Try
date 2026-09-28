@@ -13,7 +13,8 @@ const COMBO = {
   perLevel: 10,
   bonusShow: 1.3,     // seconds the payout blinks at the top
 };
-const payout = n => n * (n + 1);
+// n x (n + 1), less the share of residents that don't move in (score/residents.js).
+const payout = n => Math.round(n * (n + 1) * SS.residents.RESIDENTS.share);
 
 function init(g) { g.combo = { n: 0, left: 0 }; g.maxCombo = 0; g.bonusT = 0; }   // left: share of the bar still full
 

@@ -162,7 +162,7 @@ function draw(g, camY) {
     for (const p of pc.parts) {
       const q = partAt(pc, p, pv);
       ctx.save(); ctx.translate(cx + q.x, q.y - camY); ctx.rotate(q.ang);
-      SS.damage.draw(ctx, p.kind, p.dmg, -W / 2, -H / 2);
+      SS.damage.draw(ctx, p.kind, p.dmg, -W / 2, -H / 2, q.ang);
       ctx.restore();
     }
   }

@@ -1,5 +1,6 @@
 // Residents (the score). Measured from the recording: 4 for a clean floor and one fewer for
-// every 5 px it lands off centre (never fewer than 1); the ground floor brings none. A floor
+// every 5 px it lands off centre (never fewer than 1); the ground floor brings none. Only half
+// of that moves in (`share`), for floors and combo payouts alike. A floor
 // dropped while holding (hold/hold.js) gets its multiplier's worth. Each resident is a tenant
 // who flies in (tenants/flight.js) and only counts once through the window. When a combo pays
 // out, that many more fly into the floors built during it. Floors that fall off in a collapse
@@ -12,17 +13,22 @@ const RESIDENTS = {
   band: 5,            // px off centre per resident lost
   least: 1,
   foundation: 0,      // the ground floor
+  share: 0.5,         // share of all that who actually move in (floors and combo payouts alike)
   bonusStagger: 0.25, // seconds between floors as a combo's residents set off
 };
 
-function init(g) { g.pop = 0; }
+function init(g) { g.pop = 0; g.residentCarry = 0; }
 
 // A floor landed (index n, dx px off centre, carrying the hold's multiplier): how many residents
 // will move in.
+// Fractions carry over to the next floor, so over a round exactly `share` of them come.
 function onLand(g, n, dx, mult = 1) {
   if (n === 0) return RESIDENTS.foundation;
   const base = Math.max(RESIDENTS.least, RESIDENTS.clean - Math.floor(Math.abs(dx) / RESIDENTS.band));
-  return Math.round(base * mult);
+  g.residentCarry += base * mult * RESIDENTS.share;
+  const count = Math.floor(g.residentCarry + 1e-9);
+  g.residentCarry -= count;
+  return count;
 }
 
 // One resident got in through a window of floor i.

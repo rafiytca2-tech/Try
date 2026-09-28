@@ -43,8 +43,8 @@ function draw(g) {
   ctx.save();
   ctx.translate(h.x, h.y);
   ctx.rotate(h.tilt);
+  if (g.hook.has) SS.blocks.draw3d(ctx, kind, -SS.blocks.W / 2, hangOf(kind), h.tilt);   // the floor, then the hook over its roof
   drawRigging(kind, g.hook.has);
-  if (g.hook.has) SS.blocks.draw(ctx, kind, -SS.blocks.W / 2, hangOf(kind));
   ctx.restore();
 }
 

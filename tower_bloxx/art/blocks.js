@@ -1,7 +1,10 @@
-// How a floor looks: its size, the teal body with a concrete cap and a shaded side, the beige
-// window frames with sky-reflecting glass, the glass doors on the ground floor, and the balcony
-// floor that comes every 10th floor. Floors are painted once at 8x detail so they stay sharp at
-// any screen size and when they turn. Also draws a floor at any position and angle.
+// How a floor looks: its size, the teal body with a concrete cap, the beige window frames with
+// sky-reflecting glass, the glass doors on the ground floor, and the balcony floor that comes
+// every 10th floor. Floors are solid boxes drawn in 2.5D: behind the front you see the roof and
+// the right-hand wall, going back up and to the right (lit from the top left, so the roof is
+// light and the wall in shade), and they stay right however a floor is turned. Everything is
+// painted once at 8x detail so it stays sharp at any screen size and when it turns. Also draws
+// a floor at any position and angle.
 (() => {
 'use strict';
 const { canvasOf, rect, shade } = SS.px;
@@ -28,7 +31,7 @@ function paintBlock(g, t, door) {
   rect(g, t.outline, 0, 0, W, H);
   rect(g, t.body, 1, 1, W - 2, H - 2);
   rect(g, t.light, 1, 5, 2, H - 9);
-  rect(g, t.dark, W - 4, 4, 3, H - 5);                // shaded side
+  rect(g, t.dark, W - 2, 4, 1, H - 5);                // the corner, turning into the wall
   rect(g, t.dark, 1, H - 4, W - 2, 3);                // shaded underside
   rect(g, shade(t.cap, 30), 1, 1, W - 2, 1);          // concrete floor slab along the top
   rect(g, t.cap, 1, 2, W - 2, 2);
@@ -54,7 +57,7 @@ function paintBalcony(g, t) {
   rect(g, t.outline, 0, 0, W, H);
   rect(g, t.body, 1, 1, W - 2, H - 2);
   rect(g, t.light, 1, 5, 2, H - 9);
-  rect(g, t.dark, W - 4, 4, 3, H - 5);
+  rect(g, t.dark, W - 2, 4, 1, H - 5);
   rect(g, t.dark, 1, H - 4, W - 2, 3);
   rect(g, shade(B.trim, 45), 1, 1, W - 2, 1);           // gold cap
   rect(g, B.trim, 1, 2, W - 2, 2);
@@ -91,9 +94,61 @@ for (const kind of ['floor', 'foundation', 'balcony']) {
   if (kind === 'balcony') paintBalcony(g, BLOCK); else paintBlock(g, BLOCK, kind === 'foundation');
 }
 
-// A floor with its top-left corner at (x, y) in the current drawing space (a balcony sticks out
-// a little either side of that).
+// The box behind the front: the roof and the right-hand wall, as textures laid on the
+// parallelograms that join the front's edges to the same edges further back.
+const DEPTH = { x: 7, y: -6 };   // how far back a floor goes, drawn on screen (up and to the right)
+const DEEP = 8;                  // texture size along the depth, game px
+function paintSide(g, t, trim) {              // DEEP wide (x: front edge -> back) x H tall
+  rect(g, t.outline, 0, 0, DEEP, H);
+  rect(g, shade(t.body, -40), 0, 1, DEEP - 0.7, H - 2);
+  rect(g, shade(trim, -45), 0, 1, DEEP - 0.7, 4);                    // the cap, round the corner
+  rect(g, shade(BLOCK.frameDark, -8), 2, 8, 4, 31);                  // a narrow side window
+  rect(g, '#2b6377', 2.8, 9, 2.4, 29); rect(g, '#4f8fa3', 2.8, 9, 0.7, 12);
+  rect(g, shade(t.body, -70), 0, H - 4, DEEP - 0.7, 3);
+  const fade = g.createLinearGradient(0, 0, DEEP, 0);                // darker toward the back
+  fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(1, 'rgba(0,0,0,0.22)');
+  g.fillStyle = fade; g.fillRect(0, 0, DEEP, H);
+}
+function paintTop(g, t, trim) {               // W wide x DEEP deep (y: front edge -> back)
+  rect(g, t.outline, 0, 0, W, DEEP);
+  rect(g, shade(trim, 22), 0.7, 0, W - 1.4, DEEP - 0.7);
+  rect(g, shade(trim, 55), 0.7, 0, W - 1.4, 1);                      // the lit front rim
+  rect(g, shade(trim, -12), 0.7, DEEP - 1.6, W - 1.4, 0.9);          // the far rim
+  rect(g, shade(trim, -25), 26, 2.4, 7, 3); rect(g, shade(trim, 30), 26, 2.4, 7, 0.9);   // a vent box
+  rect(g, shade(trim, -25), 8, 3, 3, 2);
+}
+const FACE = {};
+for (const kind of ['floor', 'foundation', 'balcony']) {
+  const trim = kind === 'balcony' ? BALCONY.trim : BLOCK.cap;
+  const side = canvasOf(DEEP * RES, H * RES), top = canvasOf(W * RES, DEEP * RES), under = canvasOf(8, 8);
+  const gs = side.getContext('2d'), gt = top.getContext('2d');
+  gs.scale(RES, RES); paintSide(gs, BLOCK, trim);
+  gt.scale(RES, RES); paintTop(gt, BLOCK, trim);
+  under.getContext('2d').fillStyle = shade(BLOCK.body, -85); under.getContext('2d').fillRect(0, 0, 8, 8);
+  FACE[kind] = { side, top, under };
+}
+function quad(g, tex, tw, th, ox, oy, ux, uy, vx, vy) {   // texture x along u, texture y along v
+  g.save();
+  g.transform(ux / tw, uy / tw, vx / th, vy / th, ox, oy);
+  g.drawImage(tex, 0, 0, tw, th);
+  g.restore();
+}
+// The faces behind a floor whose front's top-left corner is at (x, y), in a drawing space turned
+// by ang: whichever of the roof, underside and side walls face the way the depth goes.
+function faces(g, kind, x, y, ang = 0) {
+  const c = Math.cos(ang), s = Math.sin(ang), F = FACE[kind];
+  const dx = c * DEPTH.x + s * DEPTH.y, dy = -s * DEPTH.x + c * DEPTH.y;   // the depth, in the turned space
+  if (dy < 0) quad(g, F.top, W, DEEP, x, y, W, 0, dx, dy);
+  else if (dy > 0) quad(g, F.under, W, DEEP, x, y + H, W, 0, dx, dy);
+  if (dx > 0) quad(g, F.side, DEEP, H, x + W, y, dx, dy, 0, H);
+  else if (dx < 0) quad(g, F.side, DEEP, H, x, y, dx, dy, 0, H);
+}
+
+// A floor's front with its top-left corner at (x, y) in the current drawing space (a balcony
+// sticks out a little either side of that).
 function draw(g, kind, x, y) { const o = OUT[kind] || 0; g.drawImage(SPR[kind], x - o, y, W + 2 * o, H); }
+// The whole box: the faces behind, then the front. ang: how the drawing space is turned.
+function draw3d(g, kind, x, y, ang = 0) { faces(g, kind, x, y, ang); draw(g, kind, x, y); }
 
 // A loose floor, centred on (x, y) in screen pixels and turned by ang.
 function drawAt(kind, x, y, ang) {
@@ -101,9 +156,9 @@ function drawAt(kind, x, y, ang) {
   ctx.save();
   ctx.translate(x, y);
   if (ang) ctx.rotate(ang);
-  draw(ctx, kind, -W / 2, -H / 2);
+  draw3d(ctx, kind, -W / 2, -H / 2, ang || 0);
   ctx.restore();
 }
 
-SS.blocks = { W, H, SPR, draw, drawAt };
+SS.blocks = { W, H, DEPTH, SPR, draw, draw3d, faces, drawAt };
 })();

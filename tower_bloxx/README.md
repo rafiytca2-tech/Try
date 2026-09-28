@@ -21,10 +21,10 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Number of lives | `lives/lives.js` |
 | The end of a round: settling on what is left standing, the floors-built count, the rope winding up, the slide down to the street | `round/ending.js` |
 | Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (1 to 10, from the blow; perfect floors never), the tip over the edge and the tumble | `collapse/collapse.js` |
-| The stack of floors and how it is drawn | `tower/tower.js` |
+| The stack of floors and how it is drawn, its shadow on the ground | `tower/tower.js` |
 | Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much perfect drops steady the tower (3 in a row: 90%, 4: still) | `tower/sway.js` |
 | Camera: where the tower top rests, the climb after a landing, the end-of-round slide | `camera/camera.js` |
-| Residents per floor, where a combo's residents go | `score/residents.js` |
+| Residents per floor, the share that moves in (half), where a combo's residents go | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
 | How tenants fly in: one per resident, timing, start and window end points, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
 | How tenants look | `tenants/sprite.js` |
@@ -33,7 +33,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Dust clouds and grit from knocks and landings | `effects/dust.js` |
 | Chips knocked off floors | `effects/chips.js` |
 | Screen jolt on heavy knocks | `effects/shake.js` |
-| Floor, ground-floor and balcony-floor look and size | `art/blocks.js` |
+| Floor, ground-floor and balcony-floor look and size; the 2.5D depth (how far back floors go, roof and wall faces) | `art/blocks.js` |
 | Cracks and chipped corners | `art/damage.js` |
 | Sky colours by height, stars, planets, clouds | `scenery/sky.js` |
 | The city behind the site and its parallax | `scenery/city.js` |
