@@ -12,11 +12,12 @@
 //
 // The floors that go turn over the edge of the floor below as one piece, from where they are and
 // how fast the sway and the blow are moving them, pulled round by gravity; past a certain lean
-// they come apart and tumble to the ground on their own, glancing off the tower that is left.
+// they come apart and tumble on their own as rubble (rubble/rubble.js), knocking into each other
+// and the tower that is left on the way down.
 // The bad floor costs a life as usual; the floors that fall take their residents with them.
 (() => {
 'use strict';
-const { view } = SS.screen, { clamp } = SS;
+const { view, ctx } = SS.screen, { clamp } = SS;
 
 const COLLAPSE = {
   badLanding: 10,     // px off centre: a landing at least this far off is a bad one
@@ -34,18 +35,16 @@ const COLLAPSE = {
   breakAngle: 0.45,   // radians of turn at which the piece comes apart
   spin: 1.2,          // rad/s of random spin each floor picks up as it comes apart
   spread: 30,         // px/s each floor is thrown clear as it comes apart
-  bounce: 0.2,        // share of speed kept glancing off the tower
-  wreckTime: 0.8,     // seconds a wreck blinks on the ground
 };
 
-const gravity = () => SS.fall.FALL.gravity * SS.miss.MISS.gravityShare;
+const gravity = () => SS.fall.FALL.gravity * SS.rubble.RUBBLE.gravityShare;
 
-function init(g) { g.collapse = { pieces: [], bodies: [] }; }
+function init(g) { g.collapse = { pieces: [] }; }
 
 // Where a floor of the standing tower is right now: centre, lean and sideways speed.
 function floorNow(g, i) {
   const { H } = SS.blocks, f = g.tower[i], d0 = SS.sway.bendAt(g, i), d1 = SS.sway.bendAt(g, i + 1);
-  return { kind: f.kind, x: f.x + (d0 + d1) / 2, y: -(i + 0.5) * H, vx: SS.sway.bendVelAt(g, i + 0.5), vy: 0, lean: Math.atan2(d1 - d0, H) };
+  return { kind: f.kind, x: f.x + (d0 + d1) / 2, y: -(i + 0.5) * H, vx: SS.sway.bendVelAt(g, i + 0.5), vy: 0, lean: Math.atan2(d1 - d0, H), dmg: f.dmg };
 }
 
 // A floor just hit the top of the tower (b: the floor, dx: off the top floor's centre; landed:
@@ -112,7 +111,6 @@ function onImpact(g, b, dx, landed) {
   const gone = g.tower.splice(j);
   SS.residents.remove(g, gone.reduce((s, f) => s + (f.residents || 0), 0));
   SS.tenants.dropFrom(g, j);
-  SS.miss.releaseTips(g);
   SS.sway.afterCollapse(g);
   SS.sound.collapse();
   if (landed) SS.lives.lose(g);                             // a tip-over has already cost it
@@ -127,16 +125,17 @@ function partAt(pc, p, pv) {
   return { x: pv.x + rx, y: pv.y + ry, ang: pc.th + p.lean, rx, ry };
 }
 
-// The piece has turned far enough: every floor carries on alone with the speed it had.
+// The piece has turned far enough: every floor carries on alone with the speed it had, as
+// rubble (rubble/rubble.js) that knocks into the others, the tower and the ground.
 function comeApart(g, pc) {
   const C = COLLAPSE, pv = pivotOf(g, pc), pvx = SS.sway.bendVelAt(g, pc.j);
   for (const p of pc.parts) {
     const q = partAt(pc, p, pv);
-    g.collapse.bodies.push({
-      kind: p.kind, x: q.x, y: q.y, ang: q.ang, state: 'fall',
+    SS.rubble.add(g, {
+      kind: p.kind, x: q.x, y: q.y, a: q.ang, dmg: p.dmg,
       vx: -pc.w * q.ry + pvx + pc.sgn * C.spread * (0.5 + Math.random() * 0.5),
       vy: pc.w * q.rx,
-      av: pc.w + (Math.random() - 0.5) * 2 * C.spin,
+      w: pc.w + (Math.random() - 0.5) * 2 * C.spin,
     });
   }
 }
@@ -154,51 +153,18 @@ function turn(g, pc, dt) {
   return true;
 }
 
-// A loose floor: it falls, glances off the tower that is left, and wrecks on the ground.
-function fall(g, d, dt) {
-  const C = COLLAPSE, { W, H } = SS.blocks;
-  if (d.state === 'wreck') { d.t -= dt; return; }
-  const lastBottom = d.y + H / 2;
-  d.vy += gravity() * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.ang += d.av * dt;
-  const n = g.tower.length, topY = -n * H;
-  if (n && d.y + H / 2 > topY) {
-    if (lastBottom <= topY) {                                 // came down on the roof: bounce and roll off
-      const ax = g.tower[n - 1].x + SS.sway.bendAt(g, n), side = Math.sign(d.x - ax) || 1;
-      if (Math.abs(d.x - ax) < W) {
-        d.y = topY - H / 2; d.vy = -Math.abs(d.vy) * C.bounce;
-        d.vx += side * C.spread; d.av += side * C.spin;
-      }
-    } else {                                                // beside the tower: glance off its side
-      const i = Math.min(n - 1, Math.max(0, Math.floor(-d.y / H)));
-      const ax = g.tower[i].x + SS.sway.bendAt(g, i + 0.5), side = Math.sign(d.x - ax) || 1;
-      if (Math.abs(d.x - ax) < W) {
-        d.x = ax + side * W;
-        if (Math.sign(d.vx) !== side) d.vx = -d.vx * C.bounce;
-      }
-    }
-  }
-  if (d.y + H / 2 >= 0) {
-    d.state = 'wreck'; d.y = -H / 2; d.ang = 0; d.t = C.wreckTime + Math.random() * 0.2;
-    SS.dust.puff(g, d.x, 0, 10);
-  }
-}
-
-function update(g, dt) {
-  const k = g.collapse;
-  k.pieces = k.pieces.filter(pc => turn(g, pc, dt));
-  for (const d of k.bodies) fall(g, d, dt);
-  k.bodies = k.bodies.filter(d => (d.state === 'wreck' ? d.t > 0 : d.y - g.camY < view.h + 160));
-}
+function update(g, dt) { g.collapse.pieces = g.collapse.pieces.filter(pc => turn(g, pc, dt)); }
 
 function draw(g, camY) {
-  const cx = view.w / 2, k = g.collapse;
-  for (const pc of k.pieces) {
+  const cx = view.w / 2, { W, H } = SS.blocks;
+  for (const pc of g.collapse.pieces) {
     const pv = pivotOf(g, pc);
-    for (const p of pc.parts) { const q = partAt(pc, p, pv); SS.blocks.drawAt(p.kind, cx + q.x, q.y - camY, q.ang); }
-  }
-  for (const d of k.bodies) {
-    if (d.state === 'wreck' && Math.floor(d.t * 10) % 2) continue;   // wreck blinks out
-    SS.blocks.drawAt(d.kind, cx + d.x, d.y - camY, d.ang);
+    for (const p of pc.parts) {
+      const q = partAt(pc, p, pv);
+      ctx.save(); ctx.translate(cx + q.x, q.y - camY); ctx.rotate(q.ang);
+      SS.damage.draw(ctx, p.kind, p.dmg, -W / 2, -H / 2);
+      ctx.restore();
+    }
   }
 }
 

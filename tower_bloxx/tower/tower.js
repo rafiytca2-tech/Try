@@ -1,11 +1,12 @@
 // The tower itself: the stack of landed floors, where its top is right now, and drawing it bent
-// by the sway (tower/sway.js).
+// by the sway (tower/sway.js), with any knocks it has taken (art/damage.js).
 (() => {
 'use strict';
 const { view, ctx } = SS.screen;
 
 // Each floor: { x: where it sits on a still tower, kind: 'foundation' | 'floor' | 'balcony',
-//               perfect: landed dead centre, residents: how many live there so far }
+//               perfect: landed dead centre, residents: how many live there so far,
+//               dmg: cracks and chips from debris that hit it (art/damage.js), if any }
 function init(g) { g.tower = []; }
 
 // Centre of the top surface, including the sway.
@@ -26,11 +27,11 @@ function draw(g, camY) {
     const f = g.tower[i], d0 = SS.sway.bendAt(g, i), d1 = SS.sway.bendAt(g, i + 1);
     const lean = Math.atan2(d1 - d0, H) + (i === n - 1 ? SS.sway.wobbleAngle(g) : 0);
     const bx = cx + f.x + d0, by = -i * H - camY;
-    if (!lean) { SS.blocks.draw(ctx, f.kind, bx - W / 2, by - H); continue; }
+    if (!lean) { SS.damage.draw(ctx, f.kind, f.dmg, bx - W / 2, by - H); continue; }
     ctx.save();
     ctx.translate(bx, by);
     ctx.rotate(lean);
-    SS.blocks.draw(ctx, f.kind, -W / 2, -H);
+    SS.damage.draw(ctx, f.kind, f.dmg, -W / 2, -H);
     ctx.restore();
   }
 }

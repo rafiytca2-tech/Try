@@ -7,6 +7,7 @@
 
 const LANDING = {
   perfectTol: 2,      // px from dead centre that still snaps into line
+  dust: 0.25,         // how much dust puffs out from under a landing floor (0..1)
 };
 
 function init(g) { g.perfects = 0; }
@@ -27,7 +28,8 @@ function land(g, b, dx) {
   SS.combo.onLand(g, perfect, mult);
   SS.sway.onLand(g, n, dx, perfect, mult);
 
-  const top = SS.tower.top(g);
+  const top = SS.tower.top(g), k = LANDING.dust * (perfect ? 0.6 : 1);
+  for (const side of [-1, 1]) SS.dust.burst(g, top.x + side * SS.blocks.W / 2, top.y + SS.blocks.H, side, 0, k);   // squeezed out from under it
   if (perfect) { SS.stars.burst(g, top); SS.sound.perfect(g.combo.n); }
   SS.sound.land();
   SS.tenants.moveIn(g, n, movingIn);

@@ -28,6 +28,11 @@ const Sound = {
   holdStep(n) { this.tone(420 + n * 110, 0.06, { vol: 0.035, slide: 520 + n * 130 }); },   // the hold reached a new step
   beep() { this.tone(1320, 0.04, { vol: 0.03 }); },                                         // about to drop by itself
   cancel() { this.tone(520, 0.1, { type: 'triangle', vol: 0.05, slide: 300 }); },           // the drop was called off
+  thud(k) {                                                                                   // a floor knocks into something (k: 0..1)
+    this.tone(95 + 40 * k, 0.1 + 0.08 * k, { type: 'triangle', vol: 0.03 + 0.07 * k, slide: 42 });
+    if (k > 0.35) this.tone(210, 0.05, { type: 'square', vol: 0.015 + 0.02 * k, slide: 80 });
+  },
+  crumble() { this.tone(160, 0.22, { type: 'sawtooth', vol: 0.018, slide: 55 }); [0.05, 0.11].forEach(d => this.tone(300, 0.03, { vol: 0.012, delay: d, slide: 150 })); },
   collapse() {                                                                        // the top gives way
     this.tone(120, 0.7, { type: 'sawtooth', vol: 0.05, slide: 38 });
     this.tone(70, 0.8, { type: 'triangle', vol: 0.09, slide: 40 });

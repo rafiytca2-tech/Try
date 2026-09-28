@@ -25,7 +25,9 @@ function newGame(prev) {
   SS.crane.init(g, prev);
   SS.hold.init(g);
   SS.fall.init(g);
-  SS.miss.init(g);
+  SS.rubble.init(g);
+  SS.chips.init(g);
+  SS.shake.init(g);
   SS.lives.init(g);
   SS.ending.init(g);
   SS.landing.init(g);

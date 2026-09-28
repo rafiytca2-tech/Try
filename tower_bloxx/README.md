@@ -14,8 +14,10 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | How the rope, pulley, hook and hanging floor look | `crane/rigging.js` |
 | Press and hold: swing speed steps, multipliers, the auto-drop, cancelling | `hold/hold.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
-| The perfect-drop window (2 px), and what a landing sets off | `landing/landing.js` |
-| Misses: tipping over the edge, falling past, crashing on the ground | `miss/miss.js` |
+| The perfect-drop window (2 px), what a landing sets off, the dust from under it | `landing/landing.js` |
+| Misses: tipping over the edge, falling past, landing off the slab | `miss/miss.js` |
+| Loose floors: how they tumble, knock into each other and the tower, what a knock throws off and cracks, crumbling away | `rubble/rubble.js` |
+| The physics under that: gravity, bounce, friction, contacts between boxes | `physics/rigid.js` |
 | Number of lives | `lives/lives.js` |
 | The end of a round: settling on what is left standing, the floors-built count, the rope winding up, the slide down to the street | `round/ending.js` |
 | Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (1 to 10, from the blow; perfect floors never), the tip over the edge and the tumble | `collapse/collapse.js` |
@@ -28,8 +30,11 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | How tenants look | `tenants/sprite.js` |
 | Perfect-drop stars | `effects/stars.js` |
 | Combo twinkles on the top floors | `effects/twinkles.js` |
-| Dust when a floor crashes | `effects/dust.js` |
+| Dust clouds and grit from knocks and landings | `effects/dust.js` |
+| Chips knocked off floors | `effects/chips.js` |
+| Screen jolt on heavy knocks | `effects/shake.js` |
 | Floor, ground-floor and balcony-floor look and size | `art/blocks.js` |
+| Cracks and chipped corners | `art/damage.js` |
 | Sky colours by height, stars, planets, clouds | `scenery/sky.js` |
 | The city behind the site and its parallax | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |

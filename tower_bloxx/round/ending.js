@@ -18,7 +18,7 @@ function init(g) { g.ending = null; }
 function start(g) { g.ending = { phase: 'settle', t: 0, still: 0 }; }
 
 // Nothing is still landing, turning over the edge, or being followed by the camera.
-const settled = g => !g.falling && !g.cam && !SS.collapse.busy(g) && !SS.miss.busy(g);
+const settled = g => !g.falling && !g.cam && !SS.collapse.busy(g) && !SS.rubble.busy(g);
 
 function update(g, dt) {
   const e = g.ending;
