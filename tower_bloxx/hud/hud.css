@@ -93,6 +93,32 @@
   @keyframes fade{80%{opacity:1}100%{opacity:0}}
 }
 
+/* hold meter: multiplier, risk and time left, bottom centre while the button is held */
+.hold{
+  position:absolute;left:50%;bottom:calc(var(--u) * 19);transform:translateX(-50%);width:max-content;min-width:calc(var(--u) * 62);
+  display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:calc(var(--u) * 3);row-gap:calc(var(--u) * 1.5);
+  padding:calc(var(--u) * 2.5) calc(var(--u) * 5) calc(var(--u) * 2.5) calc(var(--u) * 4);box-sizing:border-box;border-radius:calc(var(--u) * 6);
+  background:linear-gradient(180deg,rgba(24,30,66,.82),rgba(10,14,36,.82));border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0,0,0,.35);font-family:var(--font-hud);
+  --tone:#6fe39a;animation:hold-in .25s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes hold-in{from{opacity:0;transform:translateX(-50%) translateY(calc(var(--u) * 6)) scale(.85)}}
+.hold[data-step="1"]{--tone:#b9e36f}
+.hold[data-step="2"]{--tone:#ffd23f}
+.hold[data-step="3"]{--tone:#ffa227}
+.hold[data-step="4"]{--tone:#ff6a3d}
+.hold[data-step="5"]{--tone:#ff3d7f}
+.hold-x{grid-row:span 2;font-size:calc(var(--u) * 11);font-weight:700;line-height:1;color:var(--tone);font-variant-numeric:tabular-nums;text-shadow:0 0 calc(var(--u) * 5) var(--tone)}
+.hold-x.pop{animation:chip-pop .35s cubic-bezier(.2,1.7,.4,1)}
+.hold-label{font-size:calc(var(--u) * 4.4);font-weight:600;letter-spacing:.12em;text-transform:uppercase;line-height:1;color:#fff;opacity:.9;white-space:nowrap}
+.hold-track{position:relative;height:calc(var(--u) * 3);border-radius:999px;overflow:hidden;background:rgba(255,255,255,.14)}
+.hold-track i{position:absolute;left:0;top:0;bottom:0;border-radius:inherit;background:var(--tone);box-shadow:0 0 calc(var(--u) * 3) var(--tone)}
+.hold.warn{animation:hold-warn .18s ease-in-out infinite alternate}
+@keyframes hold-warn{to{box-shadow:0 0 0 1px #ff3d7f,0 0 calc(var(--u) * 8) rgba(255,61,127,.8)}}
+.hold.cancel{--tone:#aebfe3;animation:none}
+.hold.cancel .hold-x{text-decoration:line-through}
+@media (prefers-reduced-motion: reduce){.hold,.hold-x.pop,.hold.warn{animation:none}}
+
 /* end of the round: floors built, pops up over the tower */
 .built{
   position:absolute;left:0;right:0;top:calc(var(--u) * 92);display:flex;flex-direction:column;align-items:center;

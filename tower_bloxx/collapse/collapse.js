@@ -6,8 +6,9 @@
 // speed are carrying it that way. Going down from the top, each floor that goes uses up some of
 // that blow; one already leaning that way gives easily, one leaning back holds harder, and any
 // floor whose load already hangs past its edge goes regardless. So anything from just the bad
-// floor to 10 floors can fall. Floors landed perfectly never fall: they and everything below them
-// hold, as do the bottom three.
+// floor to 10 floors can fall. A floor dropped while holding (hold/hold.js) hits harder: the tower
+// needs less swing to give, and the blow is multiplied. Floors landed perfectly never fall: they
+// and everything below them hold, as do the bottom three.
 //
 // The floors that go turn over the edge of the floor below as one piece, from where they are and
 // how fast the sway and the blow are moving them, pulled round by gravity; past a certain lean
@@ -75,15 +76,15 @@ function onImpact(g, b, dx, landed) {
   let j = n;
   for (let k = lo; k < n; k++) if (sgn * lean(k) > W / 2 - C.margin) { j = k; break; }
 
-  const swing = SS.sway.swingAt(g, n);
-  if (swing < C.shaky && j === n) return false;             // steady enough, and nothing hangs over
+  const swing = SS.sway.swingAt(g, n), mult = b.hold || 1;  // a held drop hits harder (hold/hold.js)
+  if (swing < C.shaky / mult && j === n) return false;      // steady enough, and nothing hangs over
 
   // the blow: placement x swing x direction, in floors' worth
   const vMax = swing * 2 * Math.PI / SS.sway.SWAY.period;
   const withSway = vMax > 0 ? clamp(sgn * SS.sway.bendVelAt(g, n) / vMax, -1, 1) : 0;
   const withFloor = clamp(sgn * b.vx / C.vxFull, -1, 1);
   const placement = landed ? clamp((Math.abs(dx) - C.badLanding) / (W / 2 - C.badLanding), 0, 1) : 1;
-  let blow = C.power * (0.5 + 0.5 * placement) * clamp(swing / C.fullSwing, 0, 1.5) * (0.6 + 0.3 * withSway + 0.1 * withFloor);
+  let blow = mult * C.power * (0.5 + 0.5 * placement) * clamp(swing / C.fullSwing, 0, 1.5) * (0.6 + 0.3 * withSway + 0.1 * withFloor);
   // going down from the top, each floor that goes uses some of it
   for (let i = j - 1; i >= lo; i--) {
     const leaning = clamp(sgn * (g.tower[i].x - g.tower[i - 1].x) / (W / 2), -1, 1);

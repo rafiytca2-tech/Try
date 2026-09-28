@@ -2,9 +2,10 @@
 // that pops on every step up and a draining bar that flashes on a refill and pulses when it is
 // about to run out), the combo payout (it springs in, counts up, then floats away), the floor
 // gauge (badge shows the next ten) and three life squares bottom-left, the five-digit population
-// bottom-right (it counts up and bumps when residents move in, shakes when they fall), the sound
-// button, the first-round hint, and at the end of a round the number of floors built (it pops
-// up and counts up). Styles are in hud/hud.css.
+// bottom-right (it counts up and bumps as each resident gets in, shakes when they fall), the hold
+// meter while the button is held (multiplier, risk and how long until it drops by itself), the
+// sound button, the first-round hint, and at the end of a round the number of floors built (it
+// pops up and counts up). Styles are in hud/hud.css.
 (() => {
 'use strict';
 const { $, pad, clamp, easeOut } = SS;
@@ -27,6 +28,11 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
       <b class="built-num" id="builtNum">0</b>
       <span class="built-label" id="builtLabel">floors built</span>
     </div>
+    <div class="hold" id="hold" hidden>
+      <b class="hold-x" id="holdX">×1.0</b>
+      <span class="hold-label" id="holdLabel">Safe</span>
+      <span class="hold-track"><i id="holdFill"></i></span>
+    </div>
     <div class="bonus" id="bonus" hidden aria-live="polite">
       <span class="bonus-ring"></span>
       <span class="bonus-label" id="bonusLabel"></span>
@@ -44,7 +50,7 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
       <span class="hud-pop outline" id="hudPop">00000</span>
     </div>
   </div>
-  <p class="tip" id="tip">Tap, click or press Space to drop</p>`);
+  <p class="tip" id="tip">Tap to drop · hold to swing faster<br>drag up and let go to cancel</p>`);
 
 const hud = $('hud');
 $('lives').innerHTML = '<i class="life"></i>'.repeat(SS.lives.LIVES.count);
@@ -87,6 +93,18 @@ function frame(g) {
     if (lastN && left > lastLeft + 0.05) replay($('comboTrack'), 'refill');   // a perfect drop topped it up
     lastN = c.n; lastLeft = left;
   } else { lastN = 0; lastLeft = 0; }
+
+  const ch = g && g.charge;                                   // the hold meter (hold/hold.js)
+  $('hold').hidden = !ch;
+  if (ch) {
+    const H = SS.hold.HOLD, text = '×' + H.mult[ch.step].toFixed(1), label = ch.cancel ? 'Let go to cancel' : H.label[ch.step];
+    if ($('holdX').textContent !== text) { $('holdX').textContent = text; if (ch.step) replay($('holdX'), 'pop'); }
+    if ($('holdLabel').textContent !== label) $('holdLabel').textContent = label;
+    $('holdFill').style.width = Math.min(100, ch.t / H.cap * 100).toFixed(1) + '%';
+    $('hold').dataset.step = ch.step;
+    $('hold').classList.toggle('warn', ch.t >= H.warn);
+    $('hold').classList.toggle('cancel', ch.cancel);
+  }
 
   $('bonus').hidden = !(g && g.bonusT > 0 && bonus);
   if (bonus && !$('bonus').hidden) {

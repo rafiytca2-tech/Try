@@ -7,6 +7,7 @@ const STEP = 1 / 120;   // fixed update step, seconds
 
 function update(dt) {
   const g = SS.game;
+  SS.hold.update(g, dt);
   SS.crane.update(g, dt);
   SS.sway.update(g, dt);
   SS.combo.update(g, dt);

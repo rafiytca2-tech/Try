@@ -1,6 +1,7 @@
 // A floor lands: within 2 px of centre it snaps into line (a perfect drop), it joins the tower,
-// and everything that follows a landing is set off from here: residents, combo, sway, the
-// perfect stars, the tenants, the camera's climb and the next floor on the hook.
+// and everything that follows a landing is set off from here: residents (who fly in as tenants),
+// combo, sway, the perfect stars, the camera's climb and the next floor on the hook. The
+// multiplier the floor carries from a held drop (hold/hold.js) goes to each of them.
 (() => {
 'use strict';
 
@@ -16,19 +17,20 @@ function land(g, b, dx) {
   const perfect = Math.abs(dx) <= LANDING.perfectTol;
   if (perfect) dx = 0;
   const x = n === 0 ? dx : g.tower[n - 1].x + dx;
-  const floor = { x, kind: b.kind, perfect };
+  const mult = b.hold || 1;                          // held before the drop (hold/hold.js)
+  const floor = { x, kind: b.kind, perfect, residents: 0 };
   g.tower.push(floor);
   g.falling = null;
   if (perfect) g.perfects++;
 
-  floor.residents = SS.residents.onLand(g, n, dx);
-  SS.combo.onLand(g, perfect);
-  SS.sway.onLand(g, n, dx, perfect);
+  const movingIn = SS.residents.onLand(g, n, dx, mult);
+  SS.combo.onLand(g, perfect, mult);
+  SS.sway.onLand(g, n, dx, perfect, mult);
 
   const top = SS.tower.top(g);
   if (perfect) { SS.stars.burst(g, top); SS.sound.perfect(g.combo.n); }
   SS.sound.land();
-  SS.tenants.moveIn(g, n);
+  SS.tenants.moveIn(g, n, movingIn);
 
   SS.camera.climb(g);
   SS.crane.reload(g);

@@ -1,7 +1,8 @@
 // The end of a round, once the last life is lost: the camera waits on the top of whatever is
 // still standing (after a collapse it has first moved down to it), the number of floors built
-// pops up, the crane winds its rope up out of sight, the camera slides down to the street, and
-// the results card pops up with Play again (round/round.js).
+// pops up (and stays until every tenant still on the way has got in), the crane winds its rope
+// up out of sight, the camera slides down to the street, and the results card pops up with Play
+// again (round/round.js).
 (() => {
 'use strict';
 
@@ -29,7 +30,7 @@ function update(g, dt) {
     e.phase = 'count'; e.t = 0;
     SS.hud.showBuilt(g.tower.length);
   } else if (e.phase === 'count') {
-    if (e.t < ENDING.count) return;
+    if (e.t < ENDING.count || SS.tenants.busy(g)) return;     // everyone on the way gets in first
     e.phase = 'lift'; e.t = 0;
     SS.crane.raise(g);
   } else if (e.phase === 'lift') {

@@ -23,6 +23,7 @@ function newGame(prev) {
   const g = {};
   SS.tower.init(g);
   SS.crane.init(g, prev);
+  SS.hold.init(g);
   SS.fall.init(g);
   SS.miss.init(g);
   SS.lives.init(g);

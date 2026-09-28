@@ -11,7 +11,7 @@
 // Timing round the loop is evened out so the load never seems to hang at the sides: it turns
 // round each side quicker and crosses the middle a little slower, easing in and out the whole
 // way, and one loop still takes exactly the same time. At the end of a round the rope is wound
-// up out of sight.
+// up out of sight. Holding the button speeds the loop up (hold/hold.js).
 (() => {
 'use strict';
 const { K } = SS, { view } = SS.screen;
@@ -27,6 +27,7 @@ const CRANE = {
   nextDelay: 0.37,             // landing -> the next floor pops onto the moving hook
   missDelay: 0.72,             // the same after a miss
   startPhase: Math.PI / 2,     // where the loop starts on the first round
+  special: 10,                 // every 10th floor is a balcony floor
   liftTime: 1.1,               // end of the round: seconds to wind the rope up out of sight
   liftClear: 60,               //   until the hook is this far above the top of the screen
 };
@@ -39,7 +40,8 @@ function init(g, prev) {
   g.hook = { has: true, wait: 0, lift: null };      // has: a floor hangs on the hook
 }
 
-const nextKind = g => (g.tower.length === 0 ? 'foundation' : 'floor');
+// The ground floor, then plain floors, with a balcony floor for every 10th.
+const nextKind = g => (g.tower.length === 0 ? 'foundation' : (g.tower.length + 1) % CRANE.special === 0 ? 'balcony' : 'floor');
 const pivotY = () => SS.camera.restLine() - CRANE.pivot;
 
 // How far the rope has been wound up (end of the round), px: eases in and out of the move.
@@ -52,7 +54,7 @@ function liftOf(g) {
 
 // The hook point (the rope's end) in screen pixels, its velocity, and the tilt of the load.
 function hookAt(g) {
-  const s = Math.sin(g.phase), co = Math.cos(g.phase), w = rate(g.phase);
+  const s = Math.sin(g.phase), co = Math.cos(g.phase), w = rate(g.phase) * g.swingMult;
   return {
     x: view.w / 2 - CRANE.rx * s, y: SS.camera.restLine() - CRANE.above - CRANE.ry * co - liftOf(g), tilt: CRANE.tilt * s,
     vx: -CRANE.rx * w * co, vy: CRANE.ry * w * s,
@@ -65,7 +67,7 @@ function raise(g) { g.hook.lift = { t: 0 }; }                                   
 const raised = g => !!g.hook.lift && g.hook.lift.t >= CRANE.liftTime;
 
 function update(g, dt) {
-  g.phase += rate(g.phase) * dt;
+  g.phase += rate(g.phase) * g.swingMult * dt;          // faster while held (hold/hold.js)
   if (g.hook.lift) g.hook.lift.t += dt;
   if (!g.hook.has && !g.falling && !g.ending) {
     g.hook.wait -= dt;

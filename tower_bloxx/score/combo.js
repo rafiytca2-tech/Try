@@ -1,7 +1,8 @@
 // Combo. Measured from the recording: a perfect drop starts the combo or refills its bar; every
 // floor that lands while the bar is running raises the multiplier (x2, x3, ...). The bar drains
 // faster at each level (60, 71, 81, 91, 101 px/s on its 413 px). When it runs out the combo pays
-// n x (n + 1) residents (x6 paid 42, x3 paid 12) and the amount blinks at the top. A miss breaks
+// n x (n + 1) residents (x6 paid 42, x3 paid 12), who then fly in, and the amount shows at the
+// top. A perfect drop made while holding (hold/hold.js) counts as several steps. A miss breaks
 // the combo with no bonus.
 (() => {
 'use strict';
@@ -16,10 +17,12 @@ const payout = n => n * (n + 1);
 
 function init(g) { g.combo = { n: 0, left: 0 }; g.maxCombo = 0; g.bonusT = 0; }   // left: share of the bar still full
 
-function onLand(g, perfect) {
-  const c = g.combo;
-  if (c.n > 0) { c.n++; if (perfect) c.left = 1; }
-  else if (perfect) { c.n = 1; c.left = 1; }
+// A floor landed; mult: the hold's multiplier it carried. A perfect one at ×2 counts as two
+// steps of the combo, at ×4 as four.
+function onLand(g, perfect, mult = 1) {
+  const c = g.combo, steps = perfect ? Math.max(1, Math.round(mult)) : 1;
+  if (c.n > 0) { c.n += steps; if (perfect) c.left = 1; }
+  else if (perfect) { c.n = steps; c.left = 1; }
   if (c.n) g.maxCombo = Math.max(g.maxCombo, c.n);
 }
 
@@ -31,7 +34,7 @@ function update(g, dt) {
     c.left -= (COMBO.base + COMBO.perLevel * c.n) / COMBO.bar * dt;
     if (c.left <= 0) {
       const bonus = payout(c.n);
-      SS.residents.add(g, bonus);
+      SS.residents.bonus(g, bonus, c.n);                // they fly in (tenants/flight.js)
       c.n = 0; c.left = 0;
       g.bonusT = COMBO.bonusShow;
       SS.hud.showBonus(bonus);

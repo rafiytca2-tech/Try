@@ -4,8 +4,8 @@
 'use strict';
 const { view, ctx } = SS.screen;
 
-// Each floor: { x: where it sits on a still tower, kind: 'foundation' | 'floor',
-//               perfect: landed dead centre, residents: how many moved in }
+// Each floor: { x: where it sits on a still tower, kind: 'foundation' | 'floor' | 'balcony',
+//               perfect: landed dead centre, residents: how many live there so far }
 function init(g) { g.tower = []; }
 
 // Centre of the top surface, including the sway.

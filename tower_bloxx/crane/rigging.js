@@ -44,9 +44,12 @@ function draw(g) {
   ctx.translate(h.x, h.y);
   ctx.rotate(h.tilt);
   drawRigging(kind, g.hook.has);
-  if (g.hook.has) SS.blocks.draw(ctx, kind, -SS.blocks.W / 2, RIGGING.hang[kind]);
+  if (g.hook.has) SS.blocks.draw(ctx, kind, -SS.blocks.W / 2, hangOf(kind));
   ctx.restore();
 }
 
-SS.rigging = { RIGGING, draw };
+// Rope end to the top of the load (a balcony floor hangs like any floor).
+function hangOf(kind) { return RIGGING.hang[kind] ?? RIGGING.hang.floor; }
+
+SS.rigging = { RIGGING, hangOf, draw };
 })();
