@@ -14,7 +14,8 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | How the rope, pulley, hook and hanging floor look; the hook meeting the floor at the middle of its roof | `crane/rigging.js` |
 | Press and hold: swing speed and size steps, extra momentum, multipliers, the 2 s warning and auto-drop, cancelling | `hold/hold.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
-| The perfect-drop window (2 px), what a landing sets off, the dust from under it | `landing/landing.js` |
+| What a landing sets off, the dust from under it | `landing/landing.js` |
+| How it gets harder as the tower climbs: the perfect window narrowing (2 px → 1 px), bad drops costing more | `difficulty/difficulty.js` |
 | Misses: tipping over the edge, falling past, landing off the slab | `miss/miss.js` |
 | Loose floors: how they tumble, knock into each other and the tower, what a knock throws off and cracks, crumbling away | `rubble/rubble.js` |
 | The physics under that: gravity, bounce, friction, contacts between boxes | `physics/rigid.js` |

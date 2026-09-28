@@ -1,4 +1,5 @@
-// A floor lands: within 2 px of centre it snaps into line (a perfect drop), it joins the tower,
+// A floor lands: close enough to centre it snaps into line (a perfect drop: within 2 px on the
+// ground, narrowing as the tower climbs, see difficulty/difficulty.js), it joins the tower,
 // and everything that follows a landing is set off from here: residents (who fly in as tenants),
 // combo, sway, the perfect stars, the camera's climb and the next floor on the hook. The
 // multiplier the floor carries from a held drop (hold/hold.js) goes to each of them.
@@ -6,7 +7,6 @@
 'use strict';
 
 const LANDING = {
-  perfectTol: 2,      // px from dead centre that still snaps into line
   dust: 0.25,         // how much dust puffs out from under a landing floor (0..1)
 };
 
@@ -15,7 +15,7 @@ function init(g) { g.perfects = 0; }
 // b: the falling floor; dx: how far its centre is from the top floor's (or the slab's) centre.
 function land(g, b, dx) {
   const n = g.tower.length;
-  const perfect = Math.abs(dx) <= LANDING.perfectTol;
+  const perfect = Math.abs(dx) <= SS.difficulty.perfectTol(n);
   if (perfect) dx = 0;
   const x = n === 0 ? dx : g.tower[n - 1].x + dx;
   const mult = b.hold || 1;                          // held before the drop (hold/hold.js)

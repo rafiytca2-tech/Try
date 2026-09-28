@@ -82,21 +82,21 @@ function retarget(g) {
 
 // A floor just landed (index n, dx px off the one below, mult: the hold's multiplier it carried).
 // A perfect one steadies the tower, and at ×2 counts as two in a row, at ×4 as four; an
-// off-centre one breaks the run, shakes it loose (harder at a multiplier), adds a swing that
-// dies down and rocks the top floor.
+// off-centre one breaks the run, shakes it loose (harder at a multiplier, and the higher the
+// tower, see difficulty/difficulty.js), adds a swing that dies down and rocks the top floor.
 function onLand(g, n, dx, perfect, mult = 1) {
-  const s = g.sway;
+  const s = g.sway, hard = SS.difficulty.penalty(n);       // bad drops shake it harder up high
   if (perfect) {
     const steps = Math.max(1, Math.round(mult));
     s.run += steps;
     s.steady = Math.max(1 - (1 - s.steady) * Math.pow(1 - SWAY.perPerfect, steps), SWAY.inARow[Math.min(s.run, SWAY.inARow.length - 1)]);
   } else {
     s.run = 0;
-    s.steady *= Math.max(0, 1 - Math.abs(dx) * mult / SWAY.shakeLoss);
+    s.steady *= Math.max(0, 1 - Math.abs(dx) * mult * hard / SWAY.shakeLoss);
   }
   retarget(g);
   if (!perfect && n > 0) {
-    s.kick = Math.min(SWAY.max, s.kick + Math.abs(dx) * SWAY.kick * mult);
+    s.kick = Math.min(SWAY.max, s.kick + Math.abs(dx) * SWAY.kick * mult * hard);
     g.wobble = { a: clamp(dx * SWAY.wobble, -SWAY.wobbleMax, SWAY.wobbleMax), t: 0 };
   }
 }

@@ -1,5 +1,6 @@
 // Residents (the score). Measured from the recording: 4 for a clean floor and one fewer for
-// every 5 px it lands off centre (never fewer than 1); the ground floor brings none. Only half
+// every 5 px it lands off centre (fewer px as the tower climbs, see difficulty/difficulty.js;
+// never fewer than 1); the ground floor brings none. Only half
 // of that moves in (`share`), for floors and combo payouts alike. A floor
 // dropped while holding (hold/hold.js) gets its multiplier's worth. Each resident is a tenant
 // who flies in (tenants/flight.js) and only counts once through the window. When a combo pays
@@ -24,7 +25,8 @@ function init(g) { g.pop = 0; g.residentCarry = 0; }
 // Fractions carry over to the next floor, so over a round exactly `share` of them come.
 function onLand(g, n, dx, mult = 1) {
   if (n === 0) return RESIDENTS.foundation;
-  const base = Math.max(RESIDENTS.least, RESIDENTS.clean - Math.floor(Math.abs(dx) / RESIDENTS.band));
+  const band = RESIDENTS.band / SS.difficulty.penalty(n);     // up high, fewer px off loses a resident
+  const base = Math.max(RESIDENTS.least, RESIDENTS.clean - Math.floor(Math.abs(dx) / band));
   g.residentCarry += base * mult * RESIDENTS.share;
   const count = Math.floor(g.residentCarry + 1e-9);
   g.residentCarry -= count;

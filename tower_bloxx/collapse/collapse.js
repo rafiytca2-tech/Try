@@ -7,7 +7,8 @@
 // that blow; one already leaning that way gives easily, one leaning back holds harder, and any
 // floor whose load already hangs past its edge goes regardless. So anything from just the bad
 // floor to 10 floors can fall. A floor dropped while holding (hold/hold.js) hits harder: the tower
-// needs less swing to give, and the blow is multiplied. Floors landed perfectly never fall: they
+// needs less swing to give, and the blow is multiplied. So does a higher tower
+// (difficulty/difficulty.js), where a smaller miss already counts as a bad one. Floors landed perfectly never fall: they
 // and everything below them hold, as do the bottom three.
 //
 // The floors that go turn over the edge of the floor below as one piece, from where they are and
@@ -52,7 +53,8 @@ function floorNow(g, i) {
 // way, in which case the floor did not land.
 function onImpact(g, b, dx, landed) {
   const { W, H } = SS.blocks, C = COLLAPSE, n = g.tower.length, fixed = SS.sway.SWAY.fixed;
-  if ((landed && Math.abs(dx) < C.badLanding) || n <= fixed) return false;
+  const hard = SS.difficulty.penalty(n);                      // up high, a smaller miss is a bad one and hits harder
+  if ((landed && Math.abs(dx) < C.badLanding / Math.sqrt(hard)) || n <= fixed) return false;
   const sgn = Math.sign(dx) || 1;                           // the top goes over on the side it was hit
 
   // floors that could go: not the bottom three, nothing at or below a perfect floor, 10 at most
@@ -76,14 +78,14 @@ function onImpact(g, b, dx, landed) {
   for (let k = lo; k < n; k++) if (sgn * lean(k) > W / 2 - C.margin) { j = k; break; }
 
   const swing = SS.sway.swingAt(g, n), mult = b.hold || 1;  // a held drop hits harder (hold/hold.js)
-  if (swing < C.shaky / mult && j === n) return false;      // steady enough, and nothing hangs over
+  if (swing < C.shaky / (mult * hard) && j === n) return false;   // steady enough, and nothing hangs over
 
   // the blow: placement x swing x direction, in floors' worth
   const vMax = swing * 2 * Math.PI / SS.sway.SWAY.period;
   const withSway = vMax > 0 ? clamp(sgn * SS.sway.bendVelAt(g, n) / vMax, -1, 1) : 0;
   const withFloor = clamp(sgn * b.vx / C.vxFull, -1, 1);
-  const placement = landed ? clamp((Math.abs(dx) - C.badLanding) / (W / 2 - C.badLanding), 0, 1) : 1;
-  let blow = mult * C.power * (0.5 + 0.5 * placement) * clamp(swing / C.fullSwing, 0, 1.5) * (0.6 + 0.3 * withSway + 0.1 * withFloor);
+  const bad = C.badLanding / Math.sqrt(hard), placement = landed ? clamp((Math.abs(dx) - bad) / (W / 2 - bad), 0, 1) : 1;
+  let blow = hard * mult * C.power * (0.5 + 0.5 * placement) * clamp(swing / C.fullSwing, 0, 1.5) * (0.6 + 0.3 * withSway + 0.1 * withFloor);
   // going down from the top, each floor that goes uses some of it
   for (let i = j - 1; i >= lo; i--) {
     const leaning = clamp(sgn * (g.tower[i].x - g.tower[i - 1].x) / (W / 2), -1, 1);
