@@ -1,4 +1,4 @@
-/* End-of-round results card. */
+/* End-of-round results card: it pops up, then its Play again button. */
 .screen{
   position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;
   padding:16px;padding-block:16px 24px;overflow-y:auto;cursor:default;
@@ -23,4 +23,9 @@ h2{margin:0;font-family:var(--font-pixel);font-weight:700;font-size:26px;line-he
 }
 .btn:active{transform:translateY(2px)}
 .btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
-@media (prefers-reduced-motion: reduce){.btn:active{transform:none}}
+/* the card pops up, then Play again */
+.screen:not([hidden]) .card{animation:card-pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.screen:not([hidden]) .card .btn{animation:btn-pop .45s .28s cubic-bezier(.2,1.8,.4,1) backwards}
+@keyframes card-pop{from{opacity:0;transform:translateY(40px) scale(.9)}}
+@keyframes btn-pop{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.btn:active{transform:none}.screen:not([hidden]) .card,.screen:not([hidden]) .card .btn{animation:none}}

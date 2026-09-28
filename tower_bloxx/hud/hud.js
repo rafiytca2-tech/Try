@@ -3,7 +3,8 @@
 // about to run out), the combo payout (it springs in, counts up, then floats away), the floor
 // gauge (badge shows the next ten) and three life squares bottom-left, the five-digit population
 // bottom-right (it counts up and bumps when residents move in, shakes when they fall), the sound
-// button, and the first-round hint. Styles are in hud/hud.css.
+// button, the first-round hint, and at the end of a round the number of floors built (it pops
+// up and counts up). Styles are in hud/hud.css.
 (() => {
 'use strict';
 const { $, pad, clamp, easeOut } = SS;
@@ -21,6 +22,10 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
     <div class="combo" id="combo" hidden>
       <div class="combo-chip" id="comboChip"><span class="combo-word">Combo</span><b class="combo-x" id="comboLabel">×1</b></div>
       <div class="combo-track" id="comboTrack"><i id="comboFill"></i></div>
+    </div>
+    <div class="built" id="built" hidden aria-live="polite">
+      <b class="built-num" id="builtNum">0</b>
+      <span class="built-label" id="builtLabel">floors built</span>
     </div>
     <div class="bonus" id="bonus" hidden aria-live="polite">
       <span class="bonus-ring"></span>
@@ -69,8 +74,8 @@ function update(g) {
   [...$('lives').children].forEach((el, i) => el.classList.toggle('lost', i >= g.lives));
 }
 
-// The combo meter, the payout and the population count: every frame.
-let lastN = 0, lastLeft = 0, bonus = null;
+// The combo meter, the payout, the population and floors-built counts: every frame.
+let lastN = 0, lastLeft = 0, bonus = null, built = null;
 function frame(g) {
   const c = g && g.combo, on = !!(c && c.n > 0 && SS.round.state === 'play'), t = now();
   $('combo').hidden = !on;
@@ -88,6 +93,10 @@ function frame(g) {
     const v = Math.round(bonus.amount * easeOut(clamp((t - bonus.t0) / HUD.countUp, 0, 1)));
     if (v !== bonus.v) { bonus.v = v; $('bonusNum').textContent = '+' + v; }
   }
+  if (built && built.v !== built.n) {
+    const v = Math.round(built.n * easeOut(clamp((t - built.t0) / HUD.countUp, 0, 1)));
+    if (v !== built.v) { built.v = v; $('builtNum').textContent = v; }
+  }
   if (pop.shown !== pop.to) {
     const k = clamp((t - pop.t0) / HUD.countUp, 0, 1);
     pop.shown = k >= 1 ? pop.to : Math.round(pop.from + (pop.to - pop.from) * easeOut(k));
@@ -103,8 +112,20 @@ function showBonus(amount) {
   $('bonus').hidden = false;
   replay($('bonus'), 'show');
 }
-function hideTip() { $('tip').hidden = true; }
-function show(on) { hud.hidden = !on; }
+// End of the round: how many floors are standing.
+function showBuilt(n) {
+  built = { n, t0: now(), v: 0 };
+  $('builtNum').textContent = '0';
+  $('builtLabel').textContent = n === 1 ? 'floor built' : 'floors built';
+  $('built').hidden = false;
+  replay($('built'), 'show');
+}
 
-SS.hud = { HUD, update, frame, showBonus, hideTip, show };
+function hideTip() { $('tip').hidden = true; }
+function show(on) {
+  hud.hidden = !on;
+  if (on) { $('built').hidden = true; built = null; }
+}
+
+SS.hud = { HUD, update, frame, showBonus, showBuilt, hideTip, show };
 })();

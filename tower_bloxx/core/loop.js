@@ -18,7 +18,7 @@ function update(dt) {
   SS.stars.update(g, dt);
   SS.twinkles.update(g, dt);
   SS.camera.update(g, dt);
-  SS.lives.update(g, dt);
+  SS.ending.update(g, dt);
 }
 
 // Back to front.

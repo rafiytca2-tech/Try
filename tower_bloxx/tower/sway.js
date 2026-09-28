@@ -4,10 +4,11 @@
 // bendAt() gives how far a height is pushed sideways right now. A floor that lands off centre
 // also rocks on the one below for a moment before it settles.
 //
-// Perfect drops steady the tower: each one takes a share of the remaining sway away, so after a
-// couple in a row it barely moves, and the more of them there are the steadier it gets. A floor
-// landed off centre shakes it loose again, the more the further off it lands. collapse/collapse.js
-// reads how hard the tower is swinging to decide what a bad drop brings down.
+// Perfect drops steady the tower, however hard it is swinging: each one takes a share of the
+// remaining sway away, and perfect drops in a row do more: three in a row take 90% of it away and
+// four stop it completely. A floor landed off centre breaks the run and shakes the tower loose
+// again, the more the further off it lands. The sway grows or dies away smoothly either way.
+// collapse/collapse.js reads how hard the tower is swinging to decide what a bad drop brings down.
 (() => {
 'use strict';
 const { clamp } = SS;
@@ -28,22 +29,27 @@ const SWAY = {
   wobbleMax: 0.08,    // radians
   wobbleDecay: 0.2,   // seconds
   wobblePeriod: 0.3,  // seconds per rock
-  // steadiness: 0 sways fully, 1 would not sway at all
-  perPerfect: 0.55,   // share of the remaining sway each perfect drop takes away
-  steadyMax: 0.95,
+  // steadiness: 0 sways fully, 1 does not sway at all
+  perPerfect: 0.5,    // share of the remaining sway each perfect drop takes away
+  inARow: [0, 0.5, 0.75, 0.9, 1],   // steadiness at least, after this many perfect drops in a row
   shakeLoss: 24,      // px off centre at which a landing throws all the steadiness away
+  calmRate: 2.5,      // 1/s: how fast the sway follows a change of steadiness
 };
 
 function init(g) {
-  g.sway = { phase: 0, amp: SWAY.base, target: SWAY.base, kick: 0, steady: 0 };
+  g.sway = { phase: 0, amp: SWAY.base, target: SWAY.base, kick: 0, steady: 0, calm: 0, run: 0 };
   g.wobble = null;
 }
 
 function bendShape(y) {               // y: height above the ground, in floors
   return y <= SWAY.fixed ? 0 : Math.pow((y - SWAY.fixed) / SWAY.span, SWAY.power);
 }
-// How far a height swings either way at the moment (px): grows with the sway, easing up to max.
-function swingAt(g, y) { return SWAY.max * Math.tanh((g.sway.amp + g.sway.kick) * bendShape(y) / SWAY.max); }
+// How far a height swings either way at the moment (px): grows with the sway, easing up to max,
+// less whatever share the tower's steadiness takes away.
+function swingAt(g, y) {
+  const s = g.sway;
+  return (1 - s.calm) * SWAY.max * Math.tanh((s.amp + s.kick) * bendShape(y) / SWAY.max);
+}
 function bendAt(g, y) { return swingAt(g, y) * Math.sin(g.sway.phase); }
 // How fast a height is being pushed sideways right now, in px/s.
 function bendVelAt(g, y) { return swingAt(g, y) * Math.cos(g.sway.phase) * 2 * Math.PI / SWAY.period; }
@@ -60,27 +66,34 @@ function update(g, dt) {
   s.phase += dt * 2 * Math.PI / SWAY.period;
   s.amp += (s.target - s.amp) * Math.min(1, dt * SWAY.settle);
   s.kick *= Math.exp(-dt / SWAY.kickDecay);
+  s.calm += (s.steady - s.calm) * Math.min(1, dt * SWAY.calmRate);
+  if (Math.abs(s.steady - s.calm) < 1e-4) s.calm = s.steady;
   if (g.wobble && (g.wobble.t += dt) > 0.8) g.wobble = null;
 }
 
-// How big the sway should be for the floors as they stand: the floors' average offset keeps
-// the building rocking harder, and steadiness takes its share off.
+// How big the sway would be for the floors as they stand, before steadiness: the floors'
+// average offset keeps the building rocking harder.
 function retarget(g) {
   const s = g.sway;
-  if (!g.tower.length) { s.target = SWAY.base * (1 - s.steady); return; }
+  if (!g.tower.length) { s.target = SWAY.base; return; }
   const p0 = g.tower[0].x, com = g.tower.reduce((sum, f) => sum + f.x - p0, 0) / g.tower.length;
-  s.target = Math.min(SWAY.max, (SWAY.base + SWAY.comGain * Math.abs(com)) * (1 - s.steady));
+  s.target = Math.min(SWAY.max, SWAY.base + SWAY.comGain * Math.abs(com));
 }
 
 // A floor just landed (index n, dx px off the one below). A perfect one steadies the tower; an
-// off-centre one shakes it loose, adds a swing that dies down and rocks the top floor.
+// off-centre one breaks the run, shakes it loose, adds a swing that dies down and rocks the top floor.
 function onLand(g, n, dx, perfect) {
   const s = g.sway;
-  if (perfect) s.steady += (SWAY.steadyMax - s.steady) * SWAY.perPerfect;
-  else s.steady *= Math.max(0, 1 - Math.abs(dx) / SWAY.shakeLoss);
+  if (perfect) {
+    s.run++;
+    s.steady = Math.max(s.steady + (1 - s.steady) * SWAY.perPerfect, SWAY.inARow[Math.min(s.run, SWAY.inARow.length - 1)]);
+  } else {
+    s.run = 0;
+    s.steady *= Math.max(0, 1 - Math.abs(dx) / SWAY.shakeLoss);
+  }
   retarget(g);
   if (!perfect && n > 0) {
-    s.kick = Math.min(SWAY.max, s.kick + Math.abs(dx) * SWAY.kick * (1 - s.steady));
+    s.kick = Math.min(SWAY.max, s.kick + Math.abs(dx) * SWAY.kick);
     g.wobble = { a: clamp(dx * SWAY.wobble, -SWAY.wobbleMax, SWAY.wobbleMax), t: 0 };
   }
 }

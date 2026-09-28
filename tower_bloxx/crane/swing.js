@@ -10,7 +10,8 @@
 //
 // Timing round the loop is evened out so the load never seems to hang at the sides: it turns
 // round each side quicker and crosses the middle a little slower, easing in and out the whole
-// way, and one loop still takes exactly the same time.
+// way, and one loop still takes exactly the same time. At the end of a round the rope is wound
+// up out of sight.
 (() => {
 'use strict';
 const { K } = SS, { view } = SS.screen;
@@ -26,6 +27,8 @@ const CRANE = {
   nextDelay: 0.37,             // landing -> the next floor pops onto the moving hook
   missDelay: 0.72,             // the same after a miss
   startPhase: Math.PI / 2,     // where the loop starts on the first round
+  liftTime: 1.1,               // end of the round: seconds to wind the rope up out of sight
+  liftClear: 60,               //   until the hook is this far above the top of the screen
 };
 const OMEGA = 2 * Math.PI / CRANE.period;
 const EVEN_NORM = 1 / Math.sqrt(1 + CRANE.even);   // keeps the loop time unchanged
@@ -33,31 +36,42 @@ const rate = ph => OMEGA * EVEN_NORM * (1 + CRANE.even * Math.sin(ph) ** 2);   /
 
 function init(g, prev) {
   g.phase = prev ? prev.phase : CRANE.startPhase;   // a new round carries on the swing
-  g.hook = { has: true, wait: 0 };                  // has: a floor hangs on the hook
+  g.hook = { has: true, wait: 0, lift: null };      // has: a floor hangs on the hook
 }
 
 const nextKind = g => (g.tower.length === 0 ? 'foundation' : 'floor');
 const pivotY = () => SS.camera.restLine() - CRANE.pivot;
 
+// How far the rope has been wound up (end of the round), px: eases in and out of the move.
+function liftOf(g) {
+  const l = g.hook.lift;
+  if (!l) return 0;
+  const k = Math.min(1, l.t / CRANE.liftTime);
+  return (SS.camera.restLine() - CRANE.above + CRANE.ry + CRANE.liftClear) * k * k * (3 - 2 * k);
+}
+
 // The hook point (the rope's end) in screen pixels, its velocity, and the tilt of the load.
 function hookAt(g) {
   const s = Math.sin(g.phase), co = Math.cos(g.phase), w = rate(g.phase);
   return {
-    x: view.w / 2 - CRANE.rx * s, y: SS.camera.restLine() - CRANE.above - CRANE.ry * co, tilt: CRANE.tilt * s,
+    x: view.w / 2 - CRANE.rx * s, y: SS.camera.restLine() - CRANE.above - CRANE.ry * co - liftOf(g), tilt: CRANE.tilt * s,
     vx: -CRANE.rx * w * co, vy: CRANE.ry * w * s,
   };
 }
 
 function take(g) { g.hook.has = false; }                                              // the floor was let go
 function reload(g, afterMiss) { g.hook.wait = afterMiss ? CRANE.missDelay : CRANE.nextDelay; }
+function raise(g) { g.hook.lift = { t: 0 }; }                                         // wind the rope up
+const raised = g => !!g.hook.lift && g.hook.lift.t >= CRANE.liftTime;
 
 function update(g, dt) {
   g.phase += rate(g.phase) * dt;
+  if (g.hook.lift) g.hook.lift.t += dt;
   if (!g.hook.has && !g.falling && !g.ending) {
     g.hook.wait -= dt;
     if (g.hook.wait <= 0) g.hook.has = true;
   }
 }
 
-SS.crane = { CRANE, init, update, hookAt, pivotY, nextKind, take, reload };
+SS.crane = { CRANE, init, update, hookAt, pivotY, nextKind, take, reload, raise, raised };
 })();

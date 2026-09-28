@@ -66,5 +66,8 @@ function draw(g, camY) {
   }
 }
 
-SS.miss = { MISS, init, offSite, fallPast, tipOver, releaseTips, update, draw };
+// A floor is still turning over the tower's edge (the end of the round waits for it).
+const busy = g => g.debris.some(d => d.state === 'tip');
+
+SS.miss = { MISS, init, offSite, fallPast, tipOver, releaseTips, busy, update, draw };
 })();

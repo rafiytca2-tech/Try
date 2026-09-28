@@ -1,6 +1,6 @@
-// A round: setting up a fresh game from every part's starting state, and the results card when
-// the last life is gone (floors, residents, perfect drops, longest combo, best tower). Styles are
-// in round/result.css.
+// A round: setting up a fresh game from every part's starting state, and the results card at
+// the end of the sequence round/ending.js plays out (floors, residents, perfect drops, longest
+// combo, best tower). Styles are in round/result.css.
 (() => {
 'use strict';
 const { $, fmt } = SS;
@@ -26,6 +26,7 @@ function newGame(prev) {
   SS.fall.init(g);
   SS.miss.init(g);
   SS.lives.init(g);
+  SS.ending.init(g);
   SS.landing.init(g);
   SS.residents.init(g);
   SS.combo.init(g);

@@ -10,15 +10,16 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 
 | To change | Edit |
 |---|---|
-| How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears | `crane/swing.js` |
+| How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears, winding the rope up at the end | `crane/swing.js` |
 | How the rope, pulley, hook and hanging floor look | `crane/rigging.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
 | The perfect-drop window (2 px), and what a landing sets off | `landing/landing.js` |
 | Misses: tipping over the edge, falling past, crashing on the ground | `miss/miss.js` |
-| Number of lives, the pause before the round ends | `lives/lives.js` |
-| Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (10 at most), the tip over the edge and the tumble | `collapse/collapse.js` |
+| Number of lives | `lives/lives.js` |
+| The end of a round: settling on what is left standing, the floors-built count, the rope winding up, the slide down to the street | `round/ending.js` |
+| Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (1 to 10, from the blow; perfect floors never), the tip over the edge and the tumble | `collapse/collapse.js` |
 | The stack of floors and how it is drawn | `tower/tower.js` |
-| Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much each perfect drop steadies the tower | `tower/sway.js` |
+| Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much perfect drops steady the tower (3 in a row: 90%, 4: still) | `tower/sway.js` |
 | Camera: where the tower top rests, the climb after a landing, the end-of-round slide | `camera/camera.js` |
 | Residents per floor | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
@@ -31,9 +32,9 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Sky colours by height, stars, planets, clouds | `scenery/sky.js` |
 | The city behind the site and its parallax | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
-| What the HUD shows and when, the payout and population count-up | `hud/hud.js` |
-| How the HUD looks: the combo meter and payout animations | `hud/hud.css` |
-| Starting a round, the results card | `round/round.js`, `round/result.css` |
+| What the HUD shows and when, the payout, population and floors-built count-ups | `hud/hud.js` |
+| How the HUD looks: the combo meter, payout and floors-built animations | `hud/hud.css` |
+| Starting a round, the results card and how it pops up | `round/round.js`, `round/result.css` |
 | Controls | `input/input.js` |
 | Sounds | `audio/sound.js` |
 | Screen shape, pixel scale and drawing resolution | `core/screen.js` |
