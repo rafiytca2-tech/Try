@@ -1,7 +1,9 @@
 // The sky: its colour by height (day, dusk, night, space), with a warm glow along the bottom at
 // sunset, the sun sinking and reddening as the tower climbs, soft shaded clouds drifting by, and
-// stars and planets high up. Also tells the rest of the game how dark it is (for lit windows)
-// and what colour the haze is (for the city's depth).
+// stars, the moon and planets high up. The sun, moon and planets are far off, so they move with
+// the camera's climb less than the city does, but still a little (parallax), and drift slowly
+// sideways on their own. Also tells the rest of the game how dark it is (for lit windows) and what
+// colour the haze is (for the city's depth).
 (() => {
 'use strict';
 const { clamp } = SS, { circle, mulberry32 } = SS.px, { ctx, view } = SS.screen;
@@ -15,7 +17,21 @@ const SKY = [
   [4800, [0x05, 0x08, 0x1a], [0x0e, 0x15, 0x36]],
 ];
 
-const SUN = { x: 0.8, y: 0.26, sink: 0.13, size: 9, glow: 70, gone: 3200 };   // sun: across, down the screen; px it sinks per px climbed
+const SUN = {
+  x: 0.8, y: 0.1,     // across and down the screen at the start
+  sink: 0.2,          // px it moves down per px the camera climbs (the far city moves 0.35): it
+                      //   reaches the bottom of the sky about when the sunset glow is at its height
+  size: 9, glow: 70,  // px
+  gone: 3200,         // height climbed by which it has faded out
+  drift: 6, driftTime: 50,   // px it drifts either way, and seconds to drift there and back
+};
+// The moon and planets: across the screen, and the height climbed at which each comes down past
+// the top of the screen. From there they move `parallax` of the camera's climb, the stars less.
+const SPACE = {
+  parallax: 0.2, stars: 0.12,
+  moon: [0.8, 2350], ringed: [0.2, 3150], giant: [0.66, 4050],
+  drift: 4, driftTime: 70,   // px either way, seconds there and back
+};
 const DUSK = { at: 2300, width: 1000, color: [255, 150, 90], strength: 0.6 };   // sunset glow along the bottom of the sky
 
 const rand = mulberry32(2005);   // this file's own seeded generator: the same clouds and stars every visit
@@ -32,6 +48,8 @@ function skyAt(alt) {
   const l = SKY[SKY.length - 1]; return [l[1], l[2]];
 }
 
+// A slow sideways drift: px from the resting place at the moment (phase: where in the drift it starts).
+const drift = (px, time, phase) => px * Math.sin(SS.time * 2 * Math.PI / time + phase);
 const duskAt = alt => Math.max(0, 1 - Math.abs(alt - DUSK.at) / DUSK.width);
 function drawSky(alt) {
   const [top, bot] = skyAt(alt), grad = ctx.createLinearGradient(0, 0, 0, view.h), d = duskAt(alt) * DUSK.strength;
@@ -44,7 +62,7 @@ function drawSky(alt) {
 function drawSun(alt) {
   const fade = 1 - clamp((alt - SUN.gone + 600) / 600, 0, 1);
   if (fade <= 0) return;
-  const x = view.w * SUN.x, y = view.h * SUN.y + alt * SUN.sink, d = duskAt(alt);
+  const x = view.w * SUN.x + drift(SUN.drift, SUN.driftTime, 0), y = view.h * SUN.y + alt * SUN.sink, d = duskAt(alt);
   const core = mix([255, 250, 225], [255, 170, 90], d), glowC = mix([255, 240, 190], [255, 140, 70], d);
   const glow = ctx.createRadialGradient(x, y, 0, x, y, SUN.glow);
   glow.addColorStop(0, `rgba(${glowC},${0.55 * fade})`); glow.addColorStop(0.25, `rgba(${glowC},${0.22 * fade})`); glow.addColorStop(1, `rgba(${glowC},0)`);
@@ -54,7 +72,7 @@ function drawSun(alt) {
 function drawStars(alt, camY) {
   const a = clamp((alt - 1800) / 1600, 0, 1);
   if (a <= 0) return;
-  const oy = Math.floor(-camY * 0.08);
+  const oy = Math.floor(-camY * SPACE.stars);
   ctx.fillStyle = '#ffffff';
   for (let ty = 0; ty < view.h + 320; ty += 320) {
     for (let tx = 0; tx < view.w; tx += 320) {
@@ -84,20 +102,21 @@ function ringHalf(cx, cy, side) {
   ctx.strokeStyle = '#cdb57a'; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.ellipse(cx, cy, 22, 4, 0, side < 0 ? Math.PI : 0, side < 0 ? Math.PI * 2 : Math.PI); ctx.stroke();
 }
-function drawSpace(alt, camY) {
+function drawSpace(alt) {
   if (alt < 1800) return;
-  const mx = view.w * 0.8 + 0.5, my = -260 - camY * 0.1 + 0.5;                        // moon
+  const P = SPACE.parallax, at = ([ax, ay], ph) => [view.w * ax + drift(SPACE.drift, SPACE.driftTime, ph) + 0.5, (alt - ay) * P + 0.5];
+  const [mx, my] = at(SPACE.moon, 0);                                                   // moon
   if (my > -20 && my < view.h + 20) {
     circle(ctx, mx, my, 12.5, '#e6e2d3');
     circle(ctx, mx - 4, my - 3, 3.5, '#c9c4b2'); circle(ctx, mx + 5, my + 4, 2.5, '#c9c4b2'); circle(ctx, mx + 2, my - 6, 1.5, '#c9c4b2');
   }
-  const sx = view.w * 0.2 + 0.5, sy = -420 - camY * 0.1 + 0.5;                        // ringed planet
+  const [sx, sy] = at(SPACE.ringed, 2);                                                 // ringed planet
   if (sy > -30 && sy < view.h + 30) {
     ringHalf(sx, sy, -1);
     discBands(sx, sy, 9.5, dy => (Math.round(dy) % 4 === 0 ? '#c9a86a' : '#e3c68a'));
     ringHalf(sx, sy, 1);
   }
-  const jx = view.w * 0.66 + 0.5, jy = -600 - camY * 0.1 + 0.5, jr = 26;               // banded giant
+  const [jx, jy] = at(SPACE.giant, 4), jr = 26;                                        // banded giant
   if (jy > -40 && jy < view.h + 40) {
     const bands = ['#e9d6b3', '#c99a6b', '#f1e3c9', '#b7794d', '#ecd9b8', '#c28e61', '#e9d6b3'];
     discBands(jx, jy, jr + 0.5, dy => bands[Math.max(0, Math.min(bands.length - 1, Math.floor((dy + jr) / (2 * jr + 1) * bands.length)))]);
@@ -146,7 +165,7 @@ function draw(camY) {
   drawSky(alt);
   drawSun(alt);
   drawStars(alt, camY);
-  drawSpace(alt, camY);
+  drawSpace(alt);
   drawClouds(alt, camY);
 }
 
@@ -154,5 +173,5 @@ function draw(camY) {
 const nightAt = camY => clamp((altOf(camY) - 1900) / 1700, 0, 1);
 const hazeAt = camY => { const alt = altOf(camY); return mix(skyAt(alt)[1], DUSK.color, duskAt(alt) * DUSK.strength * 0.6); };
 
-SS.sky = { SKY, SUN, DUSK, draw, nightAt, hazeAt };
+SS.sky = { SKY, SUN, SPACE, DUSK, draw, nightAt, hazeAt };
 })();

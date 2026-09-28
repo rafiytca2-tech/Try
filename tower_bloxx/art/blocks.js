@@ -224,5 +224,5 @@ function drawAt(kind, x, y, ang) {
   ctx.restore();
 }
 
-SS.blocks = { W, H, BOX, NIGHT, SPR, draw, draw3d, faces, lights, setNight, drawAt };
+SS.blocks = { W, H, BOX, BLOCK, NIGHT, SPR, draw, draw3d, faces, lights, setNight, drawAt };
 })();

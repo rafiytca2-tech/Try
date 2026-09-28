@@ -1,9 +1,10 @@
 // The city behind the site: three layers of buildings, near, middle and far, each scrolling
 // slower than the tower the further back it is (the near one at 0.82 of the camera's climb, as
 // measured from the recording). Buildings come in all sizes, from squat blocks to skyscrapers
-// that step back as they rise, in a warm, lively palette (the player's teal tower still stands
-// out), with window grids, ribbon windows, glass curtain walls, vertical strips or brick, and
-// spires with a red light, domes, water tanks, stepped crowns or parapets on top. They're seen in
+// that step back as they rise, in a warm, lively palette of corals, oranges, golds, pinks and
+// violets: nothing near the tower's teal, so the player's building always stands out against them.
+// Facades have window grids, ribbon windows, champagne glass curtain walls, vertical strips or
+// brick, with spires with a red light, gold domes, water tanks, stepped crowns or parapets on top. They're seen in
 // 3D through the camera's eye like the floors (the side facing the middle, and the roof once
 // you're above it), hazed by the air in front of them, and their windows light up at night.
 (() => {
@@ -13,18 +14,23 @@ const { canvasOf, rect, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
 const CITY = {
   layers: [   // back to front; res: the most screen px per game px a layer is painted at
     { parallax: 0.35, haze: 0.4, deep: 40, width: [18, 46], height: [110, 560], res: 2, lights: 0.35,
-      colors: ['#f3c9b0', '#e8d6a8', '#bcd8c8', '#b8cfe6', '#d9c2e0', '#f0b8b0', '#cfe0a8', '#e6c9a0'] },
+      colors: ['#f3c9b0', '#e8d6a8', '#f0b8b0', '#d9c2e0', '#e6c9a0', '#f2d4c4', '#e3c0d6', '#efdcb4'] },
     { parallax: 0.6, haze: 0.22, deep: 55, width: [24, 70], height: [140, 900], res: 2, lights: 0.4,
-      colors: ['#e89a7a', '#e8c170', '#8fc0a4', '#7fa8d6', '#b99acb', '#f2a38e', '#d8d27a', '#9fd0d0', '#e4b58a'] },
+      colors: ['#e89a7a', '#e8c170', '#b99acb', '#f2a38e', '#d8d27a', '#e4b58a', '#d98fa8', '#c9a3e0', '#f0b56a'] },
     { parallax: 0.82, haze: 0.15, deep: 70, width: [32, 100], height: [170, 1100], res: 3, lights: 0.45,
-      colors: ['#e07a5f', '#f2cc8f', '#81b29a', '#5b7fb3', '#e9c46a', '#b5838d', '#f4a261', '#8e7cc3', '#ffb4a2', '#c96f53', '#a3c46b', '#6aa6c8'] },
+      colors: ['#e07a5f', '#f2cc8f', '#e9c46a', '#b5838d', '#f4a261', '#9a72c0', '#ffb4a2', '#c96f53', '#d4708f', '#a86fb0', '#e8a33d', '#f6d6a8', '#8a5a78', '#b0584a'] },
   ],
   tallBias: 2.1,        // >1: most buildings are low or middling, a few are very tall
+  hazeFade: 140,        // px down from a layer's tallest roofs over which its haze thickens
   gapChance: 0.35,      // chance of a gap after a building
   gap: [2, 9],          // px
   styles: ['grid', 'grid', 'bands', 'glass', 'columns', 'brick'],
   roofs: ['flat', 'flat', 'setback', 'setback', 'spire', 'dome', 'tank', 'crown'],
-  glassTint: '#9fd3ec',
+  avoid: 55,            // degrees: no building colour within this of the tower's hue (art/blocks.js)
+  glassTint: '#fbd9b0', // champagne glass, warm like the rest
+  windowDark: '#3a2f45',   // window glass on light buildings,
+  windowLight: '#fff4e6',  //   and on darker ones
+  dome: ['#f6d88a', '#b8862e'],   // gilded domes, lit side to shaded side
   lightColors: ['255,214,140', '255,236,180', '255,196,120', '210,230,255'],
 };
 
@@ -37,6 +43,20 @@ const mixHex = (a, b, t) => {
   return `rgb(${[16, 8, 0].map(s => Math.round(ch(pa, s) + (ch(pb, s) - ch(pa, s)) * t)).join(',')})`;
 };
 const bright = hex => { const p = parseInt(hex.slice(1), 16); return ((p >> 16) * 0.3 + ((p >> 8) & 255) * 0.59 + (p & 255) * 0.11) / 255; };
+// A colour's hue in degrees, or null for a grey (which clashes with nothing).
+const hueOf = hex => {
+  const p = parseInt(hex.slice(1), 16), r = p >> 16, g = (p >> 8) & 255, b = p & 255, hi = Math.max(r, g, b), c = hi - Math.min(r, g, b);
+  if (c < 24) return null;
+  const h = hi === r ? (g - b) / c : hi === g ? (b - r) / c + 2 : (r - g) / c + 4;
+  return (h * 60 + 360) % 360;
+};
+// Too close in hue to the tower's own colour to stand apart from it.
+function nearTower(hex) {
+  const a = hueOf(hex), t = hueOf(SS.blocks.BLOCK.body);
+  if (a === null || t === null) return false;
+  const d = Math.abs(a - t);
+  return Math.min(d, 360 - d) < CITY.avoid;
+}
 
 // A building: its tiers (from the ground up; each narrower one stands on the one below), its
 // colour, facade and what's on its roof. Sizes in px; y is height above the ground.
@@ -57,7 +77,8 @@ function makeBuilding(L) {
 }
 
 function makeLayer(L) {
-  const arr = [];
+  const ok = L.colors.filter(c => !nearTower(c)), arr = [];
+  L = { ...L, colors: ok.length ? ok : L.colors };
   let total = 0;
   while (total < 720) {
     const b = makeBuilding(L);
@@ -74,7 +95,7 @@ function makeLayer(L) {
 function paintFacade(g, b, tier, x, ground, lights, L) {
   const l = x + tier.x0, w = tier.x1 - tier.x0, top = ground - tier.top, bottom = ground;
   const dark = bright(b.c) > 0.62;                          // light buildings get darker glass
-  const glass = dark ? mixHex(b.c, '#23364a', 0.62) : mixHex(b.c, '#eef8ff', 0.62);
+  const glass = mixHex(b.c, dark ? CITY.windowDark : CITY.windowLight, 0.62);
   const r = mulberry32(Math.floor(b.seed * 1e9) + tier.top);
   const light = (px, py, pw, ph) => { if (r() < L.lights) { lights.fillStyle = `rgba(${CITY.lightColors[Math.floor(r() * CITY.lightColors.length)]},0.95)`; lights.fillRect(px, py, pw, ph); } };
   const body = g.createLinearGradient(0, top, 0, bottom);   // lit from above
@@ -127,7 +148,7 @@ function paintRoof(g, b, x, ground, lights) {
     g.fillStyle = '#e8453c'; g.beginPath(); g.arc(mid, top - 6 - 30 - b.seed * 25, 1.1, 0, Math.PI * 2); g.fill();
   } else if (b.roof === 'dome') {
     const r = Math.min(w * 0.32, 16), dome = g.createLinearGradient(mid - r, 0, mid + r, 0);
-    dome.addColorStop(0, '#9fd6c4'); dome.addColorStop(1, '#4f8f82');                       // weathered copper
+    dome.addColorStop(0, CITY.dome[0]); dome.addColorStop(1, CITY.dome[1]);
     rect(g, shade(b.c, -10), mid - r - 1, top - 3, 2 * r + 2, 3);
     g.fillStyle = dome; g.beginPath(); g.ellipse(mid, top - 3, r, r * 0.9, 0, Math.PI, 0); g.fill();
     rect(g, '#3b4a52', mid - 0.5, top - 3 - r * 0.9 - 6, 1, 6);
@@ -202,11 +223,13 @@ function drawLights(layer, night) {
   ctx.globalAlpha = 1;
 }
 
-// Air between here and the buildings: the colour of the low sky laid over them, thicker further back.
+// Air between here and the buildings: the colour of the low sky laid over them, thicker further
+// back, thickening down from the tallest roofs so it leaves no edge across the sky.
 function haze(top, amount, color) {
   if (top === null || top > view.h) return;
-  const y = Math.max(0, top);
-  ctx.fillStyle = `rgba(${color},${amount})`; ctx.fillRect(0, y, view.w, view.h - y);
+  const y = Math.max(0, top), grad = ctx.createLinearGradient(0, top, 0, top + CITY.hazeFade);
+  grad.addColorStop(0, `rgba(${color},0)`); grad.addColorStop(1, `rgba(${color},${amount})`);
+  ctx.fillStyle = grad; ctx.fillRect(0, y, view.w, view.h - y);
 }
 
 function draw(camY) {

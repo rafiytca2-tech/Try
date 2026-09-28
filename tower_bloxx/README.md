@@ -37,8 +37,8 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Darkened edges of the view | `effects/vignette.js` |
 | Floor, ground-floor and balcony-floor look and size; how deep floors are and how their roof, underside and side walls look in 3D | `art/blocks.js` |
 | Cracks and chipped corners | `art/damage.js` |
-| Sky colours by height, sunset glow, the sun, stars, planets, soft clouds, how dark it is | `scenery/sky.js` |
-| The city behind the site: its three layers, building sizes, colours, facades and rooftops, parallax, haze and night lights | `scenery/city.js` |
+| Sky colours by height, sunset glow, the sun, moon, stars and planets (and how far they move as the camera climbs), soft clouds, how dark it is | `scenery/sky.js` |
+| The city behind the site: its three layers, building sizes, colours (kept clear of the tower's teal), facades and rooftops, parallax, haze and night lights | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
 | What the HUD shows and when, the payout, population and floors-built count-ups | `hud/hud.js` |
 | How the HUD looks: glass chips, icons, hearts, the combo meter, hold meter, payout and floors-built animations | `hud/hud.css` |
