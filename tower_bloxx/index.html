@@ -6,342 +6,1045 @@
 <title>Skyline Stack</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen:wght@400;700&display=swap">
 <style>
 :root{
-  color-scheme: light;
-  --sky:#8fcbee;
+  color-scheme: dark;
+  --night:#0a1230;
+  --panel:#13204a;
+  --panel-2:#22336b;
+  --edge:#060a1a;
+  --crane:#f5c518;
   --ink:#fff6d6;
-  --edge:#0b1733;
-  --hat:#f5c518;
-  --font:"Silkscreen","Courier New",ui-monospace,monospace;
+  --muted:#aebfe3;
+  --danger:#ff7a66;
+  --good:#8be89a;
+  --combo:#9ff0ff;
+  --gauge:#cfe04c;
+  --font-pixel:"Silkscreen","Courier New",ui-monospace,monospace;
+  --font-body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
 }
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
-  margin:0;overflow:hidden;background:var(--sky);color:var(--ink);font-family:var(--font);
-  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  margin:0;background:var(--night);
+  background-image:radial-gradient(circle at 1px 1px,#1a2a5e 1px,transparent 1.5px);background-size:12px 12px;
+  color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.4;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
 }
 #stage{
-  position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
-  overflow:hidden;touch-action:manipulation;cursor:pointer;
+  position:fixed;left:0;width:100%;
+  top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;background:#0a0a0a;touch-action:manipulation;cursor:pointer;
 }
+#stage.framed{box-shadow:0 0 0 4px var(--edge),0 0 0 8px var(--panel-2),0 0 0 12px var(--edge)}
 #view{position:absolute;left:0;top:0;display:block;image-rendering:crisp-edges;image-rendering:pixelated}
-.hud{
-  position:absolute;left:0;right:0;padding-inline:16px;text-align:center;pointer-events:none;
+#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pop{
+  position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;
+  font-family:var(--font-pixel);font-weight:700;font-size:13px;letter-spacing:.04em;color:var(--ink);
   text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
 }
-#top{top:16px;display:flex;flex-direction:column;align-items:center;gap:10px}
-#floors{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-#lives{display:flex;gap:6px}
-.life{width:20px;height:14px;color:var(--hat);filter:drop-shadow(2px 2px 0 var(--edge))}
-.life.lost{color:var(--edge);opacity:.35}
-#msg{bottom:24px;font-size:14px;letter-spacing:.06em}
+.pop.perfect{color:var(--crane);font-size:18px}
+.pop.combo{color:var(--combo);font-size:12px}
+.pop.miss{color:var(--danger);font-size:16px}
+
+/* HUD: floors bottom-left, people and lives bottom-right, like the phone original */
+#hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-pixel);text-shadow:2px 2px 0 var(--edge)}
+.icon-btn{
+  pointer-events:auto;position:absolute;top:10px;right:10px;width:36px;height:36px;padding:0;display:grid;place-items:center;cursor:pointer;
+  color:var(--ink);background:rgba(19,32,74,.85);border:3px solid var(--edge);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35);
+}
+.icon-btn svg{width:18px;height:18px}
+.icon-btn .off{display:none}
+.icon-btn[aria-pressed="true"] .on{display:none}
+.icon-btn[aria-pressed="true"] .off{display:inline}
+.gauge{position:absolute;left:12px;bottom:14px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.gauge-badge{
+  min-width:32px;box-sizing:border-box;text-align:center;padding:2px 5px;font-weight:700;font-size:15px;line-height:1.1;
+  color:#f1ffb8;background:#17320f;border:2px solid var(--gauge);box-shadow:0 0 0 2px var(--edge);
+  text-shadow:1px 1px 0 var(--edge);font-variant-numeric:tabular-nums;
+}
+.gauge-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;text-shadow:1px 1px 0 var(--edge)}
+.hud-br{position:absolute;right:12px;bottom:14px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.hud-pop{font-weight:700;font-size:20px;line-height:1;display:flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums}
+.hud-pop svg{width:22px;height:16px;filter:drop-shadow(2px 2px 0 var(--edge))}
+.lives{display:flex;gap:5px}
+.life{width:20px;height:14px;color:var(--crane);filter:drop-shadow(2px 2px 0 var(--edge))}
+.life.lost{color:#3a4570}
+.combo{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.combo-bar{width:84px;height:6px;background:var(--edge);box-shadow:0 0 0 2px var(--edge),0 0 0 4px var(--combo)}
+.combo-bar i{display:block;height:100%;margin-left:auto;background:var(--combo)}
+.combo span{font-size:11px;color:var(--combo);letter-spacing:.08em}
+.tip{
+  position:absolute;left:16px;right:16px;top:70%;margin:0;text-align:center;pointer-events:none;
+  font-family:var(--font-pixel);font-size:13px;letter-spacing:.04em;
+  text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
+}
+
+/* Result card */
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;
+  padding:16px;padding-block:16px 24px;overflow-y:auto;cursor:default;
+}
+.card{
+  width:100%;max-width:380px;box-sizing:border-box;background:var(--panel);border:3px solid var(--edge);
+  box-shadow:0 0 0 3px var(--crane),0 0 0 6px var(--edge),8px 10px 0 6px rgba(6,10,26,.5);
+  padding:18px;display:flex;flex-direction:column;gap:14px;
+}
+.eyebrow{margin:0;font-family:var(--font-pixel);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--crane)}
+h2{margin:0;font-family:var(--font-pixel);font-weight:700;font-size:26px;line-height:1.05;text-wrap:balance}
+.stats{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 16px}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font-family:var(--font-pixel);font-weight:700;font-variant-numeric:tabular-nums}
+.note{margin:0;color:var(--good);font-size:15px}
+.note:empty{display:none}
+.btn{
+  min-height:48px;padding:10px 14px;cursor:pointer;
+  font-family:var(--font-pixel);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  color:#1a1606;background:var(--crane);border:3px solid var(--edge);
+  box-shadow:inset 0 -4px 0 rgba(0,0,0,.35),inset 0 3px 0 rgba(255,255,255,.1);
+}
+.btn:active{transform:translateY(2px)}
+.btn:focus-visible,.icon-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media (prefers-reduced-motion: reduce){.btn:active{transform:none}}
 </style>
 </head>
 <body>
 <div id="stage">
-  <canvas id="view" aria-label="Tower site. Tap, click or press Space to drop the next floor."></canvas>
-  <div class="hud" id="top">
-    <div id="floors">0</div>
-    <div id="lives"></div>
+  <canvas id="view" aria-label="Skyline Stack playfield. Tap, click or press Space to drop a floor."></canvas>
+  <div id="fx" aria-hidden="true"></div>
+
+  <div id="hud">
+    <button class="icon-btn" id="soundBtn" type="button" aria-label="Mute sound" aria-pressed="false">
+      <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="3" width="2" height="3" fill="currentColor"/><rect x="2" y="2" width="1" height="5" fill="currentColor"/><rect x="3" y="1" width="1" height="7" fill="currentColor"/><g class="on"><rect x="5" y="3" width="1" height="3" fill="currentColor"/><rect x="7" y="2" width="1" height="5" fill="currentColor"/></g><g class="off"><rect x="5" y="3" width="1" height="1" fill="currentColor"/><rect x="6" y="4" width="1" height="1" fill="currentColor"/><rect x="7" y="5" width="1" height="1" fill="currentColor"/><rect x="7" y="3" width="1" height="1" fill="currentColor"/><rect x="5" y="5" width="1" height="1" fill="currentColor"/></g></svg>
+    </button>
+    <div class="gauge">
+      <span class="gauge-badge" id="hudFloors">0</span>
+      <span class="gauge-label">Floors</span>
+    </div>
+    <div class="hud-br">
+      <div class="combo" id="combo" hidden>
+        <span id="comboLabel">combo ×1</span>
+        <div class="combo-bar"><i id="comboFill"></i></div>
+      </div>
+      <div class="lives" id="lives" aria-label="Lives"></div>
+      <span class="hud-pop" aria-label="Residents">
+        <svg viewBox="0 0 11 8" aria-hidden="true"><rect x="1" y="0" width="3" height="3" fill="#e0b060"/><rect x="0" y="3" width="5" height="3" fill="#c98a2e"/><rect x="1" y="6" width="1" height="2" fill="#c98a2e"/><rect x="3" y="6" width="1" height="2" fill="#c98a2e"/><rect x="7" y="0" width="3" height="3" fill="#e0b060"/><rect x="6" y="3" width="5" height="3" fill="#c98a2e"/><rect x="7" y="6" width="1" height="2" fill="#c98a2e"/><rect x="9" y="6" width="1" height="2" fill="#c98a2e"/></svg>
+        <span id="hudPop">0</span>
+      </span>
+    </div>
   </div>
-  <div class="hud" id="msg" aria-live="polite">Tap, click or press Space to drop</div>
+  <p class="tip" id="tip">Tap, click or press Space to drop</p>
+
+  <section id="result" class="screen" hidden>
+    <div class="card">
+      <p class="eyebrow">Game over</p>
+      <h2 id="resTitle">0 floors</h2>
+      <dl class="stats" id="resStats"></dl>
+      <p class="note" id="resNote"></p>
+      <button id="btnAgain" class="btn" type="button">Play again</button>
+    </div>
+  </section>
 </div>
 
 <script>
 (() => {
 'use strict';
 
-// Feel tuning from Skyline Stack. Units are low-res canvas pixels and seconds.
+/* ------------------------------------------------------------------ *
+ * Feel tuning. Units are low-res canvas pixels (the buffer is about   *
+ * 240x320 at its smallest, like the phones the original ran on) and   *
+ * seconds. Ratios are shares of the screen height. Matched by eye to  *
+ * City Bloxx gameplay footage, not taken from the original code.      *
+ * ------------------------------------------------------------------ */
 const CFG = {
   blockW: 40,
   blockH: 46,
-  towerTop: 0.58,   // the tower top sits this far down the screen
-  gap: 0.14,        // hanging floor bottom -> tower top, as a share of screen height
+  towerTopRatio: 0.58,   // the tower top always sits this far down the screen
+  gapRatio: 0.14,        // hanging block bottom -> tower top
   minGap: 60,
-  dropTime: 0.36,   // seconds to fall the gap (sets gravity)
-  swingReach: 40,   // px either side of centre
-  swingSpeed: 2.6,  // swing phase speed, rad/s
-  nextDelay: 0.35,  // seconds before the next floor hangs on the hook
-  missDelay: 0.7,   // the same after a miss, so the lost floor can fall away first
-  cameraRate: 7,
+  ropeRatio: 0.48,       // rope length; the crane stays above the top edge during play
+  dropTime: 0.36,        // seconds to fall the gap (sets gravity per screen size)
+  swingReach: { start: 30, perFloor: 0.6, max: 62 },    // px either side of centre
+  swingSpeed: { start: 2.3, perFloor: 0.03, max: 3.8 },  // phase speed, rad/s
+  hookLowerTime: 0.5,
+  nextDelay: 0.2,
+  perfectTol: 5,         // px from dead centre that still counts as perfect
+  slabHalf: 52,          // half-width of the concrete slab the first floor must land on
+  sway: {
+    period: 2.8,         // seconds per full swing of the building
+    gain: 0.7,           // top-of-tower sway added per px of misalignment
+    perfectKeep: 0.45,   // a perfect drop keeps this share of the sway
+    max: 30,             // px at the top of the tower
+    maxTilt: 0.06,       // radians; short towers can only lean this far
+  },
+  residents: { base: 6, accuracy: 14, perfect: 25 },
+  comboTime: 4.2,
+  comboBonus: 8,
   lives: 3,
-  tenantTime: 1.3,  // seconds for a tenant to float down to the new floor
-  maxTenants: 4,    // a dead-centre drop brings this many, an edge drop brings one
+  cameraRate: 7,
+  intro: { hold: 0.55, pan: 1.35, craneAt: 0.11 },   // show the crane, then slide down to the rope
+  tenants: { per: 4, max: 12, stagger: 0.12, time: 1.6 },  // one umbrella flyer per 4 residents
 };
-const W = CFG.blockW, H = CFG.blockH, HOOK = 8, PIVOT_ABOVE = 30, SLAB = 52;
 
-const stage = document.getElementById('stage');
-const canvas = document.getElementById('view');
-const ctx = canvas.getContext('2d', { alpha: false });
-const floorsEl = document.getElementById('floors');
-const livesEl = document.getElementById('lives');
-const msgEl = document.getElementById('msg');
+const BLOCK = { body: '#3b7fe0', light: '#86b6f5', dark: '#2356a8', outline: '#0c2250' };
 
-function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
-function pixLine(color, x0, y0, x1, y1, width) {
-  const dx = x1 - x0, dy = y1 - y0, steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
-  ctx.fillStyle = color;
-  for (let i = 0; i <= steps; i++) ctx.fillRect(Math.round(x0 + dx * i / steps), Math.round(y0 + dy * i / steps), width, 1);
-}
+const $ = id => document.getElementById(id);
+const stage = $('stage'), canvas = $('view'), ctx = canvas.getContext('2d', { alpha: false });
+const fx = $('fx'), hud = $('hud');
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const smooth = t => t * t * (3 - 2 * t);
 const pick = list => list[Math.floor(Math.random() * list.length)];
 
-// One floor, painted once: the blue City Bloxx block with two windows.
-const floorSprite = document.createElement('canvas');
-floorSprite.width = W; floorSprite.height = H;
-{
-  const g = floorSprite.getContext('2d');
-  rect(g, '#0c2250', 0, 0, W, H);           // outline
-  rect(g, '#3b7fe0', 1, 1, W - 2, H - 2);   // body
-  rect(g, '#86b6f5', 1, 5, 2, H - 9);       // lit edge
-  rect(g, '#2356a8', W - 3, 5, 2, H - 9);   // shaded edge
-  rect(g, '#2356a8', 1, H - 4, W - 2, 3);
-  rect(g, '#d4bb7c', 1, 1, W - 2, 3);       // floor slab
-  for (const x of [6, 22]) {
-    rect(g, '#0b1733', x, 8, 12, 31);       // window frame
-    rect(g, '#58a6e8', x + 2, 10, 8, 27);   // glass
-    rect(g, '#c4e8ff', x + 2, 10, 8, 9);
-    rect(g, '#eef9ff', x + 2, 10, 1, 11);   // glint
+/* ---------------- Pixel helpers ---------------- */
+function canvasOf(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function rect(g, color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
+function pixLine(g, color, x0, y0, x1, y1, width = 1) {
+  const dx = x1 - x0, dy = y1 - y0, steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))));
+  g.fillStyle = color;
+  for (let i = 0; i <= steps; i++) g.fillRect(Math.round(x0 + dx * i / steps), Math.round(y0 + dy * i / steps), width, 1);
+}
+function disc(g, cx, cy, r, color) {
+  g.fillStyle = color;
+  for (let dy = -r; dy <= r; dy++) { const h = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - h, cy + dy, h * 2 + 1, 1); }
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => clamp(v + amt, 0, 255));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/* ---------------- Block sprites ---------------- */
+const W = CFG.blockW, H = CFG.blockH;
+const NAVY = '#0b1733', NAVY_2 = '#22427f';
+const GLASS = [['#c4e8ff', 7], ['#86c7f5', 7], ['#58a6e8', 5], ['#428fd4', 3], ['#3ea37c', 4]];   // sky reflection, top to bottom
+const HANG = { foundation: 24, floor: 15 };   // rope end -> block top (pulley + sling, or pulley + hook), straight down
+
+function paintGlass(g, x, y, w, h) {
+  let yy = y;
+  for (const [c, n] of GLASS) { const rows = Math.min(Math.round(n * h / 26), y + h - yy); if (rows > 0) rect(g, c, x, yy, w, rows); yy += rows; }
+  if (yy < y + h) rect(g, GLASS[GLASS.length - 1][0], x, yy, w, y + h - yy);
+  rect(g, '#eef9ff', x, y + 1, 1, Math.round(h * 0.4));
+}
+function paintBlock(g, t, door) {
+  rect(g, t.outline, 0, 0, W, H);
+  rect(g, t.body, 1, 1, W - 2, H - 2);
+  rect(g, t.light, 1, 5, 2, H - 9);
+  rect(g, t.dark, W - 3, 5, 2, H - 9);
+  rect(g, t.dark, 1, H - 4, W - 2, 3);
+  rect(g, '#efe0b2', 1, 1, W - 2, 1);          // concrete floor slab along the top
+  rect(g, '#d4bb7c', 1, 2, W - 2, 2);
+  rect(g, '#8c7644', 1, 4, W - 2, 1);
+  if (door) {
+    rect(g, NAVY, 7, 8, 26, H - 11);
+    rect(g, NAVY_2, 8, 9, 24, 1);
+    paintGlass(g, 9, 10, 22, 5);                 // transom
+    rect(g, NAVY, 9, 15, 22, 2);
+    paintGlass(g, 9, 17, 10, H - 21);            // door leaves
+    paintGlass(g, 21, 17, 10, H - 21);
+    rect(g, '#d8e6f5', 17, 28, 1, 3); rect(g, '#d8e6f5', 22, 28, 1, 3);
+  } else {
+    for (const x of [6, 22]) {
+      rect(g, NAVY, x, 8, 12, 31);
+      rect(g, NAVY_2, x + 1, 9, 10, 1);
+      paintGlass(g, x + 2, 10, 8, 27);
+      rect(g, t.light, x, 39, 12, 1);
+    }
   }
 }
+const SPR = {};
+for (const kind of ['floor', 'foundation']) {
+  SPR[kind] = canvasOf(W, H);
+  paintBlock(SPR[kind].getContext('2d'), BLOCK, kind === 'foundation');
+}
 
-// Hard hats for the lives row.
-const LIFE_SVG = '<svg class="life" viewBox="0 0 10 7" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="1" width="6" height="4" fill="currentColor"/><rect x="0" y="5" width="10" height="2" fill="currentColor"/><rect x="4" y="0" width="2" height="1" fill="currentColor"/></svg>';
-livesEl.innerHTML = LIFE_SVG.repeat(CFG.lives);
+/* ---------------- Scenery ---------------- */
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = mulberry32(2005);
+const clouds = Array.from({ length: 34 }, () => ({ ly: -300 - rand() * 1700, bx: rand() * 2400, w: 18 + Math.floor(rand() * 30), sp: 2 + rand() * 5, puff: rand() < 0.5 }));
+const stars = Array.from({ length: 150 }, () => ({ x: Math.floor(rand() * 320), y: Math.floor(rand() * 320), big: rand() < 0.1, ph: rand() * 6.28 }));
+const rocks = Array.from({ length: 22 }, () => ({ x: Math.round(rand() * 560 - 280), y: 8 + Math.round(rand() * 56), s: 2 + Math.floor(rand() * 4) }));
 
-/* ---------------- View ---------------- */
-const view = { w: 240, h: 320 };
-const rig = { top: 0, gap: 0, L: 0 };
+// Grey city blocks behind the site, the way the phone original framed its street.
+function makeBackdrop(pal, minW, maxW, minH, maxH, detail) {
+  const arr = []; let total = 0;
+  while (total < 720) {
+    const b = {
+      w: minW + Math.floor(rand() * (maxW - minW)), h: minH + Math.floor(rand() * (maxH - minH)),
+      gap: rand() < 0.3 ? 2 : 0, c: pal[Math.floor(rand() * pal.length)],
+      kind: ['bands', 'glass', 'grid', 'bands', 'plain'][Math.floor(rand() * 5)], cap: rand() < 0.35, gx: rand(),
+    };
+    arr.push(b); total += b.w + b.gap;
+  }
+  const tall = maxH + 12, c = canvasOf(total, tall), g = c.getContext('2d');
+  let x = 0;
+  for (const b of arr) {
+    const top = tall - b.h;
+    rect(g, b.c, x, top, b.w, b.h);
+    if (b.cap) rect(g, shade(b.c, -12), x + 5, top - 8, Math.round(b.w * 0.4), 8);
+    if (b.kind === 'bands') for (let y = top + 14; y < tall - 8; y += 22) rect(g, shade(b.c, -20 * detail), x, y, b.w, 6);
+    if (b.kind === 'glass') { const gw = Math.min(12, b.w - 10), gx = x + 4 + Math.floor(b.gx * (b.w - gw - 8)); rect(g, detail > 0.7 ? '#9fcdf0' : '#c4dcee', gx, top + 6, gw, b.h - 8); rect(g, '#d6ecfb', gx, top + 6, 3, b.h - 8); }
+    if (b.kind === 'grid') for (let y = top + 8; y < tall - 8; y += 9) for (let xx = x + 4; xx < x + b.w - 6; xx += 7) rect(g, shade(b.c, -26 * detail), xx, y, 3, 4);
+    rect(g, shade(b.c, 16), x, top, b.w, 2);
+    rect(g, shade(b.c, -14), x + b.w - 3, top, 3, b.h);
+    rect(g, b.c, x, tall - 2, b.w - 3, 2);
+    x += b.w + b.gap;
+  }
+  return { img: c, total, tall };
+}
+const FAR = makeBackdrop(['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], 24, 60, 220, 520, 0.5);
+const NEAR = makeBackdrop(['#8e8e8e', '#a4a4a4', '#7d7d7d', '#b0b0b0', '#9d8e8e', '#939ba3'], 34, 84, 300, 700, 1);
+
+const meshTile = canvasOf(6, 6);
+{ const g = meshTile.getContext('2d'); for (let i = 0; i < 6; i++) { rect(g, '#b9b9b9', i, i, 1, 1); rect(g, '#b9b9b9', 5 - i, i, 1, 1); } }
+const MESH = ctx.createPattern(meshTile, 'repeat');
+
+const SKY = [
+  [0,    [0x6c, 0xb8, 0xe8], [0xc4, 0xe3, 0xf4]],
+  [1400, [0x3f, 0x8f, 0xd6], [0x9e, 0xd2, 0xf0]],
+  [2600, [0x28, 0x47, 0x9a], [0x6d, 0x8f, 0xd0]],
+  [3600, [0x12, 0x1c, 0x4a], [0x2c, 0x3d, 0x80]],
+  [4800, [0x05, 0x08, 0x1a], [0x0e, 0x15, 0x36]],
+];
+const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+function skyAt(alt) {
+  if (alt <= SKY[0][0]) return [SKY[0][1], SKY[0][2]];
+  for (let i = 1; i < SKY.length; i++) {
+    if (alt <= SKY[i][0]) { const a = SKY[i - 1], b = SKY[i], t = (alt - a[0]) / (b[0] - a[0]); return [mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
+  }
+  const l = SKY[SKY.length - 1]; return [l[1], l[2]];
+}
+
+/* ---------------- View, framing and the crane rig ---------------- */
+const view = { w: 270, h: 360, scale: 1 };
+let RIG = null;
 function layout() {
+  const vw = window.innerWidth;
+  const sh = stage.clientHeight || window.innerHeight;
+  const framed = vw / sh > 0.8;
+  const sw = framed ? Math.round(sh * 0.75) : vw;
+  stage.style.width = sw + 'px';
+  stage.style.left = Math.round((vw - sw) / 2) + 'px';
+  stage.classList.toggle('framed', framed);
   const dpr = window.devicePixelRatio || 1;
-  const devW = stage.clientWidth * dpr, devH = stage.clientHeight * dpr;
-  const s = Math.max(1, Math.floor(Math.min(devW / 240, devH / 320)));   // whole-pixel upscale
-  view.w = Math.ceil(devW / s); view.h = Math.ceil(devH / s);
+  const devW = Math.round(sw * dpr), devH = Math.round(sh * dpr);
+  const s = Math.max(1, Math.floor(Math.min(devW / 240, devH / 320)));
+  view.w = Math.ceil(devW / s); view.h = Math.ceil(devH / s); view.scale = s / dpr;
   canvas.width = view.w; canvas.height = view.h;
-  canvas.style.width = (view.w * s / dpr) + 'px';
-  canvas.style.height = (view.h * s / dpr) + 'px';
+  canvas.style.width = (view.w * view.scale) + 'px';
+  canvas.style.height = (view.h * view.scale) + 'px';
   ctx.imageSmoothingEnabled = false;
 
-  rig.top = Math.round(view.h * CFG.towerTop);
-  rig.gap = Math.max(CFG.minGap, Math.round(view.h * CFG.gap));
-  // Rope long enough that the pivot sits just above the top edge of the screen.
-  rig.L = Math.max(60, rig.top - rig.gap - H - HOOK + PIVOT_ABOVE);
+  // All in screen pixels for the play framing.
+  const topScreen = Math.round(view.h * CFG.towerTopRatio);
+  const gap = Math.max(CFG.minGap, Math.round(view.h * CFG.gapRatio));
+  const ropeEnd = topScreen - gap - H - HANG.floor;
+  const L = Math.max(Math.round(view.h * CFG.ropeRatio), ropeEnd + 40);
+  RIG = { topScreen, gap, ropeEnd, L, pivot: ropeEnd - L, lowerDist: Math.min(L - 10, ropeEnd + H + HANG.foundation + 30) };
+}
+const gravity = () => 2 * RIG.gap / (CFG.dropTime * CFG.dropTime);
+
+/* ---------------- Save (best tower and the mute switch) ---------------- */
+const SAVE_KEY = 'skyline-stack/v1';
+const save = { best: { floors: 0, pop: 0 }, muted: false };
+function readSave() {
+  try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return d && typeof d === 'object' ? d : {}; }
+  catch (e) { return {}; }
+}
+function load() {
+  const d = readSave();
+  if (d.best) save.best = { floors: +d.best.floors || 0, pop: +d.best.pop || 0 };
+  save.muted = !!d.muted;
+}
+function persist() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...readSave(), best: save.best, muted: save.muted })); }
+  catch (e) { /* storage unavailable: play without saving */ }
 }
 
-/* ---------------- Game ---------------- */
-let game;
+/* ---------------- Sound (square-wave blips) ---------------- */
+const Sound = {
+  ctx: null, muted: false,
+  ensure() {
+    if (this.muted) return;
+    try {
+      if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; this.ctx = new AC(); }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { /* no audio */ }
+  },
+  tone(freq, dur, { type = 'square', vol = 0.06, slide = 0, delay = 0 } = {}) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const c = this.ctx, t0 = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+      g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* ignore */ }
+  },
+  release() { this.tone(760, 0.05, { vol: 0.03, slide: 520 }); },
+  land() { this.tone(160, 0.09, { vol: 0.09, slide: 70 }); this.tone(90, 0.07, { type: 'triangle', vol: 0.08 }); },
+  perfect(streak) { const b = 660 + Math.min(streak, 6) * 60; [1, 1.26, 1.5].forEach((m, i) => this.tone(b * m, 0.08, { vol: 0.05, delay: i * 0.06 })); },
+  tenant() { this.tone(1320 + Math.random() * 260, 0.03, { vol: 0.012 }); },
+  miss() { this.tone(420, 0.4, { type: 'sawtooth', vol: 0.045, slide: 70 }); },
+  over() { [392, 330, 262].forEach((f, i) => this.tone(f, 0.18, { vol: 0.05, delay: i * 0.14 })); },
+};
+
+/* ---------------- Game state ---------------- */
+let state = 'play';         // play | result
+let game = null;
+let sceneTime = 0;
+
 function newGame() {
-  game = {
-    tower: [],      // x of each floor's centre, 0 = middle of the site
-    lives: CFG.lives,
-    phase: 0,       // swing phase
-    loaded: true,   // a floor hangs on the hook
-    reload: 0,
-    falling: null,
-    debris: [],     // missed floors on their way down
-    tenants: [],
-    over: false, overT: 0,
-    camY: 0,        // world y at the top edge of the screen (up is negative)
+  const g = {
+    tower: [], lives: CFG.lives, pop: 0, shownPop: 0, perfects: 0, maxCombo: 0,
+    combo: { timer: 0, streak: 0 },
+    swingPhase: game ? game.swingPhase : 0,
+    hook: { has: true, next: false, e: 0.55, wait: 0 },   // e: 0 = reeled up out of sight, 1 = fully lowered
+    falling: null, debris: [], parts: [], tenants: [],
+    sway: { phase: 0, amp: 0, target: 0 },
+    camY: 0, shake: 0,
+    intro: { t: 0 }, ending: null, pan: null, hold: false, finished: false,
   };
-  game.camY = camTarget();
-  floorsEl.textContent = '0';
-  showLives();
+  g.camY = introCam(g);
+  g.intro.from = g.camY;
+  return g;
 }
 
-const topY = () => -game.tower.length * H;
-const topX = () => game.tower[game.tower.length - 1];
-const camTarget = () => topY() - rig.top;
-const pivotY = () => game.camY - PIVOT_ABOVE;   // the crane rides along with the camera
-const gravity = () => 2 * rig.gap / (CFG.dropTime * CFG.dropTime);
-function ropeEnd() {
-  const a = Math.asin(Math.min(0.9, CFG.swingReach / rig.L)) * Math.sin(game.phase);
-  return { x: rig.L * Math.sin(a), y: pivotY() + rig.L * Math.cos(a) };
+const cameraTarget = g => -g.tower.length * H - RIG.topScreen;
+const introCam = g => cameraTarget(g) + RIG.pivot - Math.round(view.h * CFG.intro.craneAt);
+const pivotWorldY = g => cameraTarget(g) + RIG.pivot;     // the crane climbs with the tower
+function swingParams(g) {
+  const n = g.tower.length;
+  return {
+    reach: Math.min(CFG.swingReach.max, CFG.swingReach.start + n * CFG.swingReach.perFloor),
+    w: Math.min(CFG.swingSpeed.max, CFG.swingSpeed.start + n * CFG.swingSpeed.perFloor),
+  };
 }
+function ropeAngle(g) { return Math.asin(Math.min(0.9, swingParams(g).reach / RIG.L)) * Math.sin(g.swingPhase); }
+function ropeLength(g) {
+  const h = g.hook, k = h.has ? smooth(h.e) : h.e;
+  return RIG.L - RIG.lowerDist * (1 - k);
+}
+const nextKind = g => (g.tower.length === 0 ? 'foundation' : 'floor');
 
-function showLives() {
-  [...livesEl.children].forEach((el, i) => el.classList.toggle('lost', i >= game.lives));
-  livesEl.setAttribute('aria-label', `${game.lives} of ${CFG.lives} lives left`);
+// The building rocks as one rigid piece about the middle of its base.
+function swayAngle(g) {
+  const n = g.tower.length;
+  if (!n) return 0;
+  const d = g.sway.amp * Math.sin(g.sway.phase);
+  return clamp(Math.atan2(d, n * H), -CFG.sway.maxTilt, CFG.sway.maxTilt);
+}
+function toWorld(g, lx, ly, a) {
+  const p0 = g.tower[0].x, x = lx - p0;
+  return { x: p0 + x * Math.cos(a) - ly * Math.sin(a), y: x * Math.sin(a) + ly * Math.cos(a) };
+}
+function towerTop(g) {
+  const n = g.tower.length;
+  if (!n) return { x: 0, y: 0 };
+  return toWorld(g, g.tower[n - 1].x, -n * H, swayAngle(g));
 }
 
 function drop() {
   const g = game;
-  if (g.over || !g.loaded || g.falling) return;
-  const e = ropeEnd();
-  g.falling = { x: e.x, y: e.y + HOOK + H / 2, vx: 0, vy: 0, ang: 0, spin: 0 };
-  g.loaded = false;
-  msgEl.hidden = true;
+  if (state !== 'play' || g.intro || !g.hook.has || g.hook.e < 1 || g.falling || g.ending) return;
+  const th = ropeAngle(g), kind = nextKind(g), L = RIG.L;
+  const ex = L * Math.sin(th), ey = pivotWorldY(g) + L * Math.cos(th);
+  g.falling = { x: ex, y: ey + HANG[kind] + H / 2, vx: 0, vy: 0, ang: 0, kind };   // drops straight down from where you let go
+  g.hook.has = false; g.hook.next = false; g.hook.wait = 0;
+  $('tip').hidden = true;
+  Sound.release();
 }
 
-function land(f) {
-  const g = game, n = g.tower.length, dx = f.x - (n ? topX() : 0);
-  if (n && Math.abs(dx) > W / 2) { miss(f, dx); return; }   // centre past the edge
-  g.tower.push(f.x);
-  g.falling = null;
-  g.reload = CFG.nextDelay;
-  floorsEl.textContent = String(g.tower.length);
-  const accuracy = 1 - Math.min(1, Math.abs(dx) / (n ? W / 2 : SLAB));
-  moveIn(n, 1 + Math.round(accuracy * (CFG.maxTenants - 1)));
+function stepFalling(g, dt) {
+  const b = g.falling;
+  b.vy += gravity() * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+  b.ang *= Math.exp(-14 * dt);
+  const n = g.tower.length, top = towerTop(g);
+  if (b.y + H / 2 < top.y) return;
+  b.y = top.y - H / 2;
+  if (n === 0) {
+    if (Math.abs(b.x) > CFG.slabHalf) {
+      g.falling = null;
+      g.debris.push({ state: 'wreck', x: b.x, y: -H / 2, ang: 0, t: 0.9, kind: b.kind });
+      dust(g, b.x, 0, 14);
+      loseLife(g, b.x, -H, 'Off site');
+      return;
+    }
+    settle(g, b, b.x);
+    return;
+  }
+  const dx = b.x - top.x;
+  if (Math.abs(dx) >= W) {                       // clean miss: keeps falling past the tower
+    g.falling = null;
+    g.debris.push({ state: 'fall', x: b.x, y: b.y, vx: b.vx, vy: b.vy, ang: b.ang, spin: Math.sign(dx) * 1.5, kind: b.kind });
+    loseLife(g, b.x, top.y, 'Miss');
+  } else if (Math.abs(dx) > W / 2) {             // centre past the edge: tips over the side
+    const sgn = Math.sign(dx), ex = top.x + sgn * W / 2;
+    g.falling = null;
+    g.debris.push({ state: 'tip', x: b.x, y: b.y, ang: 0, av: 0, sgn, px: ex, py: top.y, rx: b.x - ex, ry: -H / 2, kind: b.kind });
+    loseLife(g, b.x, top.y, 'Miss');
+  } else {
+    settle(g, b, dx);
+  }
 }
 
-function miss(f, dx) {
-  const g = game, side = Math.sign(dx);
-  f.spin = side * 5;
-  if (Math.abs(dx) < W) { f.vy = 0; f.vx = side * 140; }   // clipped the edge: knocked off sideways
-  g.debris.push(f);
-  g.falling = null;
-  g.lives--;
-  showLives();
-  if (g.lives > 0) { g.reload = CFG.missDelay; return; }
+function settle(g, b, dx) {
   const n = g.tower.length;
-  g.over = true; g.overT = 0;
-  msgEl.textContent = `${n} ${n === 1 ? 'floor' : 'floors'}. Tap to build again`;
-  msgEl.hidden = false;
+  const perfect = Math.abs(dx) <= CFG.perfectTol;
+  if (perfect) dx = 0;
+  const x = n === 0 ? dx : g.tower[n - 1].x + dx;
+  const acc = 1 - Math.min(1, Math.abs(dx) / (n === 0 ? CFG.slabHalf : W / 2));
+  const c = g.combo, active = c.timer > 0;
+  const raw = perfect ? CFG.residents.perfect : Math.round(CFG.residents.base + CFG.residents.accuracy * acc);
+  const bonus = active ? c.streak * CFG.comboBonus : 0;
+  if (perfect) { c.streak = active ? c.streak + 1 : 1; c.timer = CFG.comboTime; g.perfects++; g.maxCombo = Math.max(g.maxCombo, c.streak); }
+  const residents = raw + bonus;
+  g.tower.push({ x, kind: b.kind });
+  g.pop += residents;
+  g.falling = null;
+
+  // Instability: every sloppy floor makes the whole building swing more, a perfect one calms it.
+  const s = g.sway;
+  if (perfect) s.target *= CFG.sway.perfectKeep;
+  else if (n > 0) {
+    if (s.amp < 1.5) s.phase = dx > 0 ? 0 : Math.PI;   // start swinging toward the heavy side
+    s.target = Math.min(CFG.sway.max, s.target + Math.abs(dx) * CFG.sway.gain);
+  }
+
+  const top = towerTop(g);
+  if (!reduceMotion) g.shake = 1;
+  dust(g, top.x - W / 2, top.y + H, 5); dust(g, top.x + W / 2, top.y + H, 5);
+  if (perfect) {
+    sparkle(g, top.x, top.y);
+    popup('Perfect', top.x, top.y - 16, 'perfect');
+    if (c.streak >= 2) popup(`Combo ×${c.streak}`, top.x, top.y - 30, 'combo', 0.08);
+    Sound.perfect(c.streak);
+  }
+  popup(`+${residents}`, top.x, top.y - 3, 'plus', perfect ? 0.1 : 0);
+  Sound.land();
+  moveIn(g, n, residents);
+
+  g.hook.next = true; g.hook.wait = CFG.nextDelay;
+  updateHud();
+}
+
+function loseLife(g, x, y, label) {
+  g.lives--;
+  g.combo.timer = 0; g.combo.streak = 0;
+  popup(label, x, y - 10, 'miss');
+  Sound.miss();
+  if (g.lives <= 0) { g.ending = { t: 1.1 }; setTimeout(() => Sound.over(), 500); }
+  else { g.hook.next = true; g.hook.wait = CFG.nextDelay + 0.35; }
+  updateHud();
+}
+
+function stepDebris(g, d, dt) {
+  if (d.state === 'tip') {
+    d.av += d.sgn * 18 * dt; d.ang += d.av * dt;
+    const c = Math.cos(d.ang), s = Math.sin(d.ang);
+    d.x = d.px + d.rx * c - d.ry * s; d.y = d.py + d.rx * s + d.ry * c;
+    if (Math.abs(d.ang) > 0.9) { d.state = 'fall'; d.vx = d.sgn * 70; d.vy = 40; d.spin = d.av; }
+  } else if (d.state === 'fall') {
+    d.vy += gravity() * 0.8 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.ang += d.spin * dt;
+    if (d.y + H / 2 >= 0) { d.state = 'wreck'; d.y = -H / 2; d.ang = 0; d.t = 0.8; dust(g, d.x, 0, 12); }
+  } else {
+    d.t -= dt;
+  }
+}
+
+function dust(g, x, y, count) {
+  const n = reduceMotion ? Math.ceil(count / 3) : count;
+  for (let i = 0; i < n; i++) g.parts.push({ x: x + (Math.random() - 0.5) * 6, y: y - 1, vx: (Math.random() - 0.5) * 90, vy: -(15 + Math.random() * 45), t: 0, life: 0.35 + Math.random() * 0.25, c: '#efe8d6', s: Math.random() < 0.3 ? 2 : 1, g: 380 });
+}
+function sparkle(g, x, y) {
+  const n = reduceMotion ? 4 : 14;
+  for (let i = 0; i < n; i++) g.parts.push({ x: x + (Math.random() - 0.5) * W, y, vx: (Math.random() - 0.5) * 60, vy: -(40 + Math.random() * 90), t: 0, life: 0.5 + Math.random() * 0.3, c: Math.random() < 0.5 ? '#fff3a0' : '#ffffff', s: 1, g: 160 });
 }
 
 /* ---------------- Tenants ---------------- */
-// As in Tower Bloxx: new tenants float down from the sky under umbrellas
-// and step in through the windows of the floor that just landed.
+// New residents drift in from both sides of the sky under little umbrellas, in two
+// streams, and step in through the windows of the floor that just landed. The
+// people counter ticks up as each one arrives.
 const UMBRELLAS = [['#e8452c', '#9c2b1e'], ['#f5c518', '#a67d12'], ['#ff7fb0', '#b2477a'], ['#3cbf3c', '#23862a'], ['#f4f4f4', '#a8a8a8']];
 const SHIRTS = ['#dc4a3a', '#3b7fe0', '#ecbd2f', '#8b5fd0', '#2e9e8f'];
-function moveIn(i, count) {
-  const fx = game.tower[i], fy = -(i + 1) * H;
+const SKIN = ['#f0c090', '#c98a5a', '#8a5a3a'];
+function moveIn(g, floor, residents) {
+  const T = CFG.tenants, count = clamp(Math.round(residents / T.per), 1, T.max);
+  const share = Math.floor(residents / count);
   for (let k = 0; k < count; k++) {
-    const tx = fx + (k % 2 ? 8 : -8) - 1, ty = fy + 37;   // feet at the bottom of a window
-    const side = Math.random() < 0.5 ? -1 : 1;
-    game.tenants.push({
-      sx: tx + side * (40 + Math.random() * 70), sy: ty - rig.top - 60,   // just above the screen
-      tx, ty, t: -k * 0.18, dur: CFG.tenantTime * (0.85 + Math.random() * 0.3), ph: Math.random() * 6.28,
-      umbrella: pick(UMBRELLAS), shirt: pick(SHIRTS),
+    const side = k % 2 ? 1 : -1;               // alternate sides: two streams, one per window
+    g.tenants.push({
+      floor, win: side * 8 - 1,
+      sx: side * (view.w / 2 + 14), sy: cameraTarget(g) + view.h * (0.08 + Math.random() * 0.22),
+      t: -k * T.stagger, dur: T.time * (0.85 + Math.random() * 0.3),
+      ph: Math.random() * 6.28, share: share + (k === 0 ? residents - share * count : 0),
+      umbrella: pick(UMBRELLAS), shirt: pick(SHIRTS), skin: pick(SKIN),
     });
   }
 }
-function tenantPos(p) {
-  const k = Math.max(0, p.t) / p.dur, glide = 1 - (1 - k) * (1 - k);
+function tenantPos(g, p) {
+  const f = g.tower[p.floor];
+  const end = toWorld(g, f.x + p.win, -(p.floor + 1) * H + 37, swayAngle(g));   // feet at the bottom of the window
+  const k = clamp(p.t / p.dur, 0, 1), e = 1 - (1 - k) * (1 - k), u = 1 - e;   // glide in, slowing at the window
+  const cx = (p.sx + end.x) / 2, cy = Math.min(p.sy, end.y) - 14;              // a shallow arc over the top
   return {
-    x: p.sx + (p.tx - p.sx) * glide + Math.sin(p.t * 4 + p.ph) * 3 * (1 - k),   // drifts in, swaying
-    y: p.sy + (p.ty - p.sy) * k,                                               // sinks at a steady rate
+    x: u * u * p.sx + 2 * u * e * cx + e * e * end.x + Math.sin(p.t * 3 + p.ph) * 4 * u,
+    y: u * u * p.sy + 2 * u * e * cy + e * e * end.y,
   };
 }
 function drawTenant(p, x, y) {   // x, y: screen pixel under the tenant's feet
   const [top, rim] = p.umbrella;
+  const sw = Math.round(Math.sin(p.t * 6 + p.ph) * 1.2), px = x + sw;   // the tenant swings under the umbrella
   rect(ctx, '#2a2a2a', x + 1, y - 18, 1, 1);   // umbrella tip
   rect(ctx, top, x - 1, y - 17, 5, 1);
   rect(ctx, top, x - 3, y - 16, 9, 1);
   rect(ctx, top, x - 4, y - 15, 11, 1);
   rect(ctx, rim, x - 4, y - 14, 11, 1);
-  rect(ctx, '#2a2a2a', x + 1, y - 13, 1, 4);   // handle
-  rect(ctx, '#f0c090', x + 1, y - 9, 1, 2);    // raised arm
-  rect(ctx, '#f0c090', x - 1, y - 9, 2, 2);    // head
-  rect(ctx, p.shirt, x - 1, y - 7, 3, 4);      // body
-  rect(ctx, '#2a2a2a', x - 1, y - 3, 1, 3);    // legs
-  rect(ctx, '#2a2a2a', x + 1, y - 3, 1, 3);
+  pixLine(ctx, '#2a2a2a', x + 1, y - 13, px + 1, y - 10);   // handle
+  rect(ctx, p.skin, px + 1, y - 9, 1, 2);      // raised arm
+  rect(ctx, p.skin, px - 1, y - 9, 2, 2);      // head
+  rect(ctx, p.shirt, px - 1, y - 7, 3, 4);     // body
+  rect(ctx, '#2a2a2a', px - 1, y - 3, 1, 3);   // legs
+  rect(ctx, '#2a2a2a', px + 1, y - 3, 1, 3);
+}
+function stepTenants(g, dt) {
+  let arrived = false;
+  for (const p of g.tenants) {
+    p.t += dt;
+    if (p.t >= p.dur) { g.shownPop += p.share; arrived = true; Sound.tenant(); }
+  }
+  if (!arrived) return;
+  g.tenants = g.tenants.filter(p => p.t < p.dur);
+  updateHud();
 }
 
-/* ---------------- Update ---------------- */
-function fall(b, dt) {
-  b.vy += gravity() * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.ang += b.spin * dt;
-}
+const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
 function update(dt) {
   const g = game;
-  g.phase += CFG.swingSpeed * dt;
-  if (!g.loaded && !g.falling && !g.over) { g.reload -= dt; if (g.reload <= 0) g.loaded = true; }
+  g.swingPhase += swingParams(g).w * dt;
 
-  const f = g.falling;
-  if (f) {
-    fall(f, dt);
-    if (f.y + H / 2 >= topY()) { f.y = topY() - H / 2; land(f); }
+  const hk = g.hook;
+  if (hk.has) hk.e = Math.min(1, hk.e + dt / CFG.hookLowerTime);
+  else {
+    hk.e = Math.max(0, hk.e - dt * 4);                 // empty hook reels up out of sight
+    if (hk.next) {
+      hk.wait -= dt;
+      if (hk.wait <= 0 && hk.e <= 0) { hk.has = true; hk.next = false; hk.e = 0; }   // next floor comes down
+    }
   }
-  for (const d of g.debris) {
-    if (d.rest) { d.t -= dt; continue; }
-    fall(d, dt);
-    if (d.y + H / 2 >= 0) { d.y = -H / 2; d.rest = true; d.t = 0.8; }   // crashes on the ground, then clears
-  }
-  g.debris = g.debris.filter(d => (d.rest ? d.t > 0 : d.y - g.camY < view.h + H));
-  for (const p of g.tenants) p.t += dt;
-  g.tenants = g.tenants.filter(p => p.t < p.dur);
 
-  g.camY += (camTarget() - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
-  if (g.over) g.overT += dt;
+  const s = g.sway;
+  s.phase += dt * 2 * Math.PI / CFG.sway.period;
+  s.amp += (s.target - s.amp) * Math.min(1, dt * 1.5);
+
+  if (g.combo.timer > 0) { g.combo.timer -= dt; if (g.combo.timer <= 0) { g.combo.timer = 0; g.combo.streak = 0; } }
+
+  if (g.falling) stepFalling(g, dt);
+  for (const d of g.debris) stepDebris(g, d, dt);
+  g.debris = g.debris.filter(d => (d.state === 'wreck' ? d.t > 0 : d.y - g.camY < view.h + 120));
+  for (const p of g.parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.t += dt; }
+  g.parts = g.parts.filter(p => p.t < p.life);
+  stepTenants(g, dt);
+
+  if (g.pan) {
+    const d = g.pan.to - g.camY, step = g.pan.speed * dt;
+    if (Math.abs(d) <= step) { g.camY = g.pan.to; g.pan = null; g.hold = true; finishRound(g); }
+    else g.camY += Math.sign(d) * step;
+  } else if (g.intro) {
+    g.intro.t += dt;
+    const { hold, pan } = CFG.intro, k = clamp((g.intro.t - hold) / pan, 0, 1);
+    g.camY = g.intro.from + (cameraTarget(g) - g.intro.from) * easeInOut(k);
+    if (k >= 1) g.intro = null;
+  } else if (!g.hold) {
+    g.camY += (cameraTarget(g) - g.camY) * (1 - Math.exp(-CFG.cameraRate * dt));
+  }
+  if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 9);
+
+  if (g.ending && !g.ending.started) {
+    g.ending.t -= dt;
+    if (g.ending.t <= 0 && !g.falling) { g.ending.started = true; startPan(g); }
+  }
 }
 
-/* ---------------- Drawing ---------------- */
-function drawFloor(x, y, ang) {
+// After the round, the camera slides back down the whole tower to the street,
+// which ends just above the results card.
+const endCam = () => -Math.round(view.h * 0.55);
+function startPan(g) {
+  const to = endCam(), dist = Math.abs(to - g.camY);
+  if (dist < 4) { g.hold = true; finishRound(g); return; }
+  g.pan = { to, speed: Math.max(260, dist / 1.8) };
+}
+
+/* ---------------- Rendering ---------------- */
+function drawSky(alt) {
+  const [top, bot] = skyAt(alt), bands = 16, bh = Math.ceil(view.h / bands);
+  for (let i = 0; i < bands; i++) rect(ctx, rgb(mix(top, bot, i / (bands - 1))), 0, i * bh, view.w, bh);
+}
+function drawStars(alt, camY) {
+  const a = clamp((alt - 1800) / 1600, 0, 1);
+  if (a <= 0) return;
+  const oy = Math.floor(-camY * 0.08);
+  ctx.fillStyle = '#ffffff';
+  for (let ty = 0; ty < view.h + 320; ty += 320) {
+    for (let tx = 0; tx < view.w; tx += 320) {
+      for (const s of stars) {
+        const x = tx + s.x, y = ty + ((s.y + oy) % 320) - 320;
+        if (x >= view.w || y < 0 || y >= view.h) continue;
+        ctx.globalAlpha = a * (s.big ? 1 : 0.55 + 0.45 * Math.sin(sceneTime * 2.2 + s.ph));
+        ctx.fillRect(x, y, 1, 1);
+        if (s.big) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function discBands(cx, cy, r, colorAt) {
+  for (let dy = -r; dy <= r; dy++) { const h = Math.floor(Math.sqrt(r * r - dy * dy)); ctx.fillStyle = colorAt(dy); ctx.fillRect(cx - h, cy + dy, h * 2 + 1, 1); }
+}
+function drawSpace(alt, camY) {
+  if (alt < 1800) return;
+  const mx = Math.round(view.w * 0.8), my = Math.round(-260 - camY * 0.1);
+  if (my > -20 && my < view.h + 20) {
+    disc(ctx, mx, my, 12, '#e6e2d3');
+    disc(ctx, mx - 4, my - 3, 3, '#c9c4b2'); disc(ctx, mx + 5, my + 4, 2, '#c9c4b2'); disc(ctx, mx + 2, my - 6, 1, '#c9c4b2');
+  }
+  const sx = Math.round(view.w * 0.2), sy = Math.round(-420 - camY * 0.1);
+  if (sy > -30 && sy < view.h + 30) {
+    const ring = side => { ctx.fillStyle = '#cdb57a'; for (let dx = -22; dx <= 22; dx++) ctx.fillRect(sx + dx, sy + side * Math.round(Math.sqrt(1 - (dx / 22) ** 2) * 4), 1, 1); };
+    ring(-1);
+    discBands(sx, sy, 9, dy => (dy % 4 === 0 ? '#c9a86a' : '#e3c68a'));
+    ring(1);
+  }
+  const jx = Math.round(view.w * 0.66), jy = Math.round(-600 - camY * 0.1), jr = 26;
+  if (jy > -40 && jy < view.h + 40) {
+    const bands = ['#e9d6b3', '#c99a6b', '#f1e3c9', '#b7794d', '#ecd9b8', '#c28e61', '#e9d6b3'];
+    discBands(jx, jy, jr, dy => bands[Math.min(bands.length - 1, Math.floor((dy + jr) / (2 * jr + 1) * bands.length))]);
+    rect(ctx, '#b8503a', jx + 6, jy + 7, 8, 4); rect(ctx, '#b8503a', jx + 7, jy + 6, 6, 6);
+  }
+}
+function drawClouds(alt, camY) {
+  const fade = 1 - clamp((alt - 2600) / 800, 0, 1);
+  if (fade <= 0) return;
+  const RW = view.w + 140;
+  ctx.globalAlpha = fade;
+  for (const c of clouds) {
+    const sy = Math.round(c.ly - camY * 0.55);
+    if (sy < -12 || sy > view.h + 10) continue;
+    const sx = Math.round((((c.bx + c.sp * sceneTime) % RW) + RW) % RW - 70);
+    rect(ctx, '#ffffff', sx, sy, c.w, 6);
+    rect(ctx, '#ffffff', sx + 4, sy - 4, Math.floor(c.w * 0.45), 4);
+    rect(ctx, '#ffffff', sx + Math.floor(c.w * 0.4), sy - 7, Math.floor(c.w * 0.35), 7);
+    if (c.puff) rect(ctx, '#ffffff', sx + c.w - 10, sy - 3, 8, 3);
+    rect(ctx, '#d3e9f5', sx + 2, sy + 6, c.w - 4, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawBackdrop(layer, camY, p) {
+  const base = Math.round(-camY * p + (1 - p) * RIG.topScreen);
+  if (base - layer.tall > view.h) return;
+  const x0 = Math.round(view.w / 2) - layer.total * Math.ceil(view.w / 2 / layer.total + 1);
+  for (let x = x0; x < view.w; x += layer.total) {
+    ctx.drawImage(layer.img, x, base - layer.tall);
+    if (base < view.h) ctx.drawImage(layer.img, 0, layer.tall - 1, layer.total, 1, x, base, layer.total, view.h - base);
+  }
+}
+function cone(x, yb) {
+  rect(ctx, '#2a1a10', x - 4, yb - 1, 9, 2);
+  rect(ctx, '#e8452c', x - 3, yb - 3, 7, 2);
+  rect(ctx, '#ffffff', x - 2, yb - 5, 5, 2);
+  rect(ctx, '#e8452c', x - 2, yb - 7, 5, 2);
+  rect(ctx, '#e8452c', x - 1, yb - 9, 3, 2);
+  rect(ctx, '#ffd0c4', x, yb - 10, 1, 1);
+}
+function drawGround(camY) {
+  const gy = Math.round(-camY);
+  if (gy - 80 > view.h) return;
+  const cx = Math.round(view.w / 2), S = CFG.slabHalf, back = gy - 6;
+
+  // chain-link fence with a hedge behind it, left of the site
+  const leftEnd = cx - S - 8, fTop = back - 26;
+  if (leftEnd > 0) {
+    rect(ctx, '#2c5e28', 0, back - 16, leftEnd, 16);
+    for (let x = 0; x < leftEnd; x += 6) rect(ctx, '#3b7a33', x, back - 18, 4, 2);
+    ctx.save(); ctx.translate(0, fTop); ctx.fillStyle = MESH; ctx.fillRect(0, 0, leftEnd, 26); ctx.restore();
+    rect(ctx, '#d0d0d0', 0, fTop, leftEnd, 1); rect(ctx, '#7a7a7a', 0, fTop + 1, leftEnd, 1);
+    for (let x = leftEnd - 3; x > -3; x -= 22) { rect(ctx, '#5e5e5e', x, fTop - 2, 3, 28); rect(ctx, '#a8a8a8', x, fTop - 2, 1, 28); }
+  }
+
+  // tree and wooden hoarding, right of the site
+  const rs = cx + S + 10, wTop = back - 30, tx = cx + S + 50;
+  rect(ctx, '#3b2716', tx - 2, back - 40, 5, 40);
+  disc(ctx, tx, back - 50, 17, '#1f4a1c');
+  disc(ctx, tx - 10, back - 44, 11, '#2c6526'); disc(ctx, tx + 11, back - 45, 12, '#2c6526'); disc(ctx, tx + 1, back - 58, 12, '#2c6526');
+  disc(ctx, tx - 5, back - 57, 6, '#3f8a36'); disc(ctx, tx - 12, back - 47, 5, '#3f8a36'); disc(ctx, tx + 7, back - 52, 5, '#3f8a36');
+  rect(ctx, '#6dbb58', tx - 7, back - 61, 2, 2); rect(ctx, '#6dbb58', tx + 5, back - 55, 2, 1);
+  if (rs < view.w) {
+    for (let x = rs; x < view.w; x += 5) { rect(ctx, '#d7b978', x, wTop, 4, 30); rect(ctx, '#a8864c', x + 4, wTop, 1, 30); rect(ctx, '#ecd9a4', x, wTop, 4, 1); }
+    rect(ctx, '#bf9f5f', rs, wTop + 8, view.w - rs, 2); rect(ctx, '#bf9f5f', rs, wTop + 21, view.w - rs, 2);
+    rect(ctx, '#1a1a1a', rs + 12, wTop + 10, 16, 9); rect(ctx, '#f0d23a', rs + 13, wTop + 11, 14, 7);
+    rect(ctx, '#1a1a1a', rs + 15, wTop + 13, 4, 1); rect(ctx, '#1a1a1a', rs + 21, wTop + 13, 4, 1); rect(ctx, '#1a1a1a', rs + 15, wTop + 15, 10, 1);
+  }
+
+  // dirt, then nothing but black below it (like the original's bottom bar)
+  const depth = Math.max(78, Math.round(view.h * 0.2));
+  rect(ctx, '#8b6a3c', 0, back, view.w, depth); rect(ctx, '#9c7a48', 0, back, view.w, 1);
+  for (const r of rocks) {
+    const x = cx + r.x, y = gy + Math.round(r.y * depth / 78);
+    if (x < -8 || x > view.w + 8) continue;
+    for (let k = 0; k < r.s; k++) rect(ctx, '#5c4526', x - k, y + k, k * 2 + 1, 1);
+    rect(ctx, '#b08d5c', x, y, 1, 1);
+  }
+  rect(ctx, '#5a4428', 0, back + depth, view.w, 14);
+  if (back + depth + 14 < view.h) rect(ctx, '#0a0a0a', 0, back + depth + 14, view.w, view.h - back - depth - 14);
+
+  // concrete slab, drawn in the original's slight top-down perspective
+  for (let r = 0; r < 12; r++) { const half = Math.round(S - 6 + r * 10 / 11); rect(ctx, shade('#b4b4b4', -r * 2), cx - half, back + r, half * 2, 1); }
+  rect(ctx, '#5d5d5d', cx - S - 4, gy + 6, 2 * (S + 4), 6);
+  rect(ctx, '#2e2e2e', cx - S - 4, gy + 12, 2 * (S + 4), 1);
+
+  cone(cx - S - 16, back + 1); cone(cx + S + 18, back + 1);
+}
+function drawTower(g, camY) {
+  const n = g.tower.length;
+  if (!n) return;
+  const p0 = g.tower[0].x, a = swayAngle(g);
+  ctx.save();
+  ctx.translate(Math.round(view.w / 2 + p0), Math.round(-camY));
+  if (a) ctx.rotate(a);
+  const iMin = Math.max(0, Math.floor(-(camY + view.h) / H) - 2), iMax = Math.min(n - 1, Math.ceil(-camY / H) + 2);
+  for (let i = iMin; i <= iMax; i++) {
+    const f = g.tower[i];
+    ctx.drawImage(SPR[f.kind], Math.round(f.x - p0 - W / 2), -(i + 1) * H);
+  }
+  ctx.restore();
+}
+function drawBlock(kind, x, y, ang) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   if (ang) ctx.rotate(ang);
-  ctx.drawImage(floorSprite, -W / 2, -H / 2);
+  ctx.drawImage(SPR[kind], -W / 2, -H / 2);
   ctx.restore();
 }
 
+// Yellow tower-crane jib: only on screen at the start of a round.
+function drawJib(px, py) {
+  if (py < -30 || py > view.h + 20) return;
+  const OUT = '#4a3510', BODY = '#e2b132', LIGHT = '#f6d86a', SHADE = '#a77d16';
+  const yb = x => Math.round(py - 7 - (px - x) * 0.07);
+  pixLine(ctx, '#3a3226', 0, yb(0) - 26, px - 2, py - 13);
+  pixLine(ctx, '#3a3226', 0, yb(0) - 21, px - 40, yb(px - 40) - 13);
+  for (let x = 0; x < px - 22; x++) { const y = yb(x) - 15; rect(ctx, OUT, x, y, 1, 3); rect(ctx, BODY, x, y + 1, 1, 1); }
+  for (let x = px - 26; x > 0; x -= 15) {
+    rect(ctx, OUT, x, yb(x) - 14, 3, 9); rect(ctx, BODY, x + 1, yb(x) - 13, 1, 8);
+    pixLine(ctx, OUT, x + 2, yb(x) - 13, x + 14, yb(x + 14) - 6);
+  }
+  for (let x = 0; x <= px + 3; x++) {
+    const y = yb(x);
+    rect(ctx, OUT, x, y - 6, 1, 1); rect(ctx, LIGHT, x, y - 5, 1, 1); rect(ctx, BODY, x, y - 4, 1, 3); rect(ctx, SHADE, x, y - 1, 1, 1); rect(ctx, OUT, x, y, 1, 1);
+  }
+  rect(ctx, OUT, px - 5, py - 13, 11, 12); rect(ctx, BODY, px - 4, py - 12, 9, 10); rect(ctx, LIGHT, px - 4, py - 12, 9, 1); rect(ctx, SHADE, px - 4, py - 4, 9, 2);
+  rect(ctx, '#3a3a3a', px - 1, py - 2, 3, 2);
+  const wx = 13, wy = yb(13) - 16;
+  disc(ctx, wx, wy, 10, OUT); disc(ctx, wx, wy, 9, '#d4a22c'); disc(ctx, wx, wy, 6, SHADE);
+  rect(ctx, OUT, wx - 6, wy, 13, 1); rect(ctx, OUT, wx, wy - 6, 1, 13); disc(ctx, wx, wy, 2, '#2a2418');
+}
+function drawRigging(kind, empty) {
+  rect(ctx, '#2a2418', -3, 0, 7, 7); rect(ctx, '#c9a445', -2, 1, 5, 5); rect(ctx, '#8a6a24', -1, 2, 3, 3); rect(ctx, '#f0d88a', -2, 1, 2, 1);
+  if (kind === 'foundation' && !empty) {           // two-cable sling for the first floor
+    pixLine(ctx, '#1a1a1a', 0, 7, -(W / 2 - 4), HANG.foundation);
+    pixLine(ctx, '#1a1a1a', 1, 7, W / 2 - 4, HANG.foundation);
+  } else {                                           // crane hook for every floor after it
+    rect(ctx, '#2a2a2a', -1, 7, 4, 5); rect(ctx, '#bdbdbd', 0, 7, 2, 4);
+    rect(ctx, '#2a2a2a', -4, 11, 9, 4); rect(ctx, '#bdbdbd', -3, 12, 7, 2);
+    rect(ctx, '#2a2a2a', -5, 8, 3, 4); rect(ctx, '#bdbdbd', -4, 9, 1, 3);
+  }
+}
+function drawCrane(g, camY) {
+  const cx = Math.round(view.w / 2), py = Math.round(pivotWorldY(g) - camY);
+  drawJib(cx, py);
+  const th = ropeAngle(g), len = ropeLength(g);
+  const rx = cx + len * Math.sin(th), ry = py + len * Math.cos(th);
+  if (ry < -40) return;
+  const y0 = Math.max(py, -2), k0 = (y0 - py) / Math.max(1, ry - py);
+  pixLine(ctx, '#111111', cx + (rx - cx) * k0, y0, rx, ry, 2);
+  // The load hangs level while the rope swings, as in the phone original.
+  const kind = nextKind(g);
+  ctx.save();
+  ctx.translate(Math.round(rx), Math.round(ry));
+  drawRigging(kind, !g.hook.has);
+  if (g.hook.has) ctx.drawImage(SPR[kind], -W / 2, HANG[kind]);
+  ctx.restore();
+}
 function render() {
-  const g = game, cx = Math.round(view.w / 2), camY = Math.round(g.camY);
-
-  const sky = ctx.createLinearGradient(0, 0, 0, view.h);
-  sky.addColorStop(0, '#6cb8e8'); sky.addColorStop(1, '#c4e3f4');
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, view.w, view.h);
-
-  const gy = -camY;                             // ground line on screen
-  if (gy < view.h + 4) {
-    rect(ctx, '#4f8a3a', 0, gy - 3, view.w, 3);                // grass
-    rect(ctx, '#8b6a3c', 0, gy, view.w, view.h - gy);          // dirt
-    rect(ctx, '#b4b4b4', cx - SLAB, gy, SLAB * 2, 5);          // concrete slab
-    rect(ctx, '#6d6d6d', cx - SLAB, gy + 5, SLAB * 2, 2);
-  }
-
-  g.tower.forEach((x, i) => {
-    const y = -(i + 1) * H - camY;
-    if (y < view.h && y + H > 0) ctx.drawImage(floorSprite, Math.round(cx + x - W / 2), y);
-  });
-
+  const g = game;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  let camY = Math.round(g.camY);
+  if (g.shake > 0) camY += (Math.floor(sceneTime * 60) % 2 ? 1 : -1) * Math.ceil(g.shake);
+  const alt = Math.max(0, -camY - view.h / 2);
+  drawSky(alt);
+  drawStars(alt, camY);
+  drawSpace(alt, camY);
+  drawClouds(alt, camY);
+  drawBackdrop(FAR, camY, 0.35);
+  drawBackdrop(NEAR, camY, 0.6);
+  drawGround(camY);
+  drawTower(g, camY);
+  const cx = view.w / 2;
   for (const d of g.debris) {
-    if (d.rest && Math.floor(d.t * 10) % 2) continue;   // wreck blinks out
-    drawFloor(cx + d.x, d.y - camY, d.ang);
+    if (d.state === 'wreck' && Math.floor(d.t * 10) % 2) continue;
+    drawBlock(d.kind, cx + d.x, d.y - camY, d.ang);
   }
-  if (g.falling) drawFloor(cx + g.falling.x, g.falling.y - camY, g.falling.ang);
-
+  if (g.falling) drawBlock(g.falling.kind, cx + g.falling.x, g.falling.y - camY, g.falling.ang);
+  for (const p of g.parts) {
+    ctx.globalAlpha = 1 - p.t / p.life;
+    rect(ctx, p.c, Math.round(cx + p.x), Math.round(p.y - camY), p.s, p.s);
+  }
+  ctx.globalAlpha = 1;
   for (const p of g.tenants) {
     if (p.t < 0) continue;
-    const pos = tenantPos(p);
+    const pos = tenantPos(g, p);
     drawTenant(p, Math.round(cx + pos.x), Math.round(pos.y - camY));
   }
-
-  // Crane rope, hook and the floor waiting on it. The load hangs level while the rope swings.
-  const e = ropeEnd(), ex = Math.round(cx + e.x), ey = Math.round(e.y - camY);
-  pixLine('#111111', cx, pivotY() - camY, ex, ey, 2);
-  rect(ctx, '#2a2a2a', ex - 1, ey, 3, HOOK - 2);
-  rect(ctx, '#2a2a2a', ex - 5, ey + HOOK - 3, 11, 3);
-  if (g.loaded) ctx.drawImage(floorSprite, ex - W / 2, ey + HOOK);
+  drawCrane(g, camY);
 }
 
-/* ---------------- Input and loop ---------------- */
-function tap() {
-  if (!game.over) drop();
-  else if (game.overT > 0.5) { newGame(); msgEl.hidden = true; }
+/* ---------------- Floating text ---------------- */
+const pops = [];
+function popup(text, x, y, cls, delay = 0) {
+  const el = document.createElement('div');
+  el.className = 'pop ' + cls; el.textContent = text; el.style.opacity = '0';
+  fx.appendChild(el);
+  pops.push({ el, x, y, t: -delay, life: cls === 'perfect' ? 1.1 : 0.95 });
+}
+function updatePops(dt) {
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i];
+    p.t += dt;
+    if (p.t >= p.life || !game) { p.el.remove(); pops.splice(i, 1); continue; }
+    if (p.t < 0) continue;
+    const k = p.t / p.life, rise = reduceMotion ? 0 : 24 * Math.min(1, k * 1.6);
+    const sx = (view.w / 2 + p.x) * view.scale, sy = (p.y - game.camY) * view.scale - rise;
+    p.el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-50%)`;
+    p.el.style.opacity = String(k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3);
+  }
+}
+function clearPops() { for (const p of pops) p.el.remove(); pops.length = 0; }
+
+/* ---------------- HUD ---------------- */
+const LIFE_SVG = '<svg class="life" viewBox="0 0 10 7" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="1" width="6" height="4" fill="currentColor"/><rect x="0" y="5" width="10" height="2" fill="currentColor"/><rect x="4" y="0" width="2" height="1" fill="currentColor"/></svg>';
+$('lives').innerHTML = LIFE_SVG.repeat(CFG.lives);
+function updateHud() {
+  const g = game;
+  $('hudFloors').textContent = g.tower.length;
+  $('hudPop').textContent = fmt(g.shownPop);
+  $('lives').setAttribute('aria-label', `${g.lives} of ${CFG.lives} lives left`);
+  [...$('lives').children].forEach((el, i) => el.classList.toggle('lost', i >= g.lives));
+}
+let lastComboText = '';
+function updateCombo() {
+  const c = game && game.combo, on = !!(c && c.timer > 0 && state === 'play');
+  $('combo').hidden = !on;
+  if (!on) return;
+  $('comboFill').style.width = (c.timer / CFG.comboTime * 100).toFixed(1) + '%';
+  const text = `combo ×${c.streak}`;
+  if (text !== lastComboText) { $('comboLabel').textContent = text; lastComboText = text; }
+}
+
+/* ---------------- Rounds ---------------- */
+function startRound() {
+  clearPops();
+  game = newGame();
+  state = 'play';
+  $('result').hidden = true;
+  hud.hidden = false;
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  updateHud();
+}
+
+function finishRound(g) {
+  if (g.finished) return;
+  g.finished = true;
+  g.shownPop = g.pop; g.tenants.length = 0;
+  const n = g.tower.length;
+  const bestF = n > save.best.floors, bestP = g.pop > save.best.pop;
+  if (bestF) save.best.floors = n;
+  if (bestP) save.best.pop = g.pop;
+  persist();
+  $('resTitle').textContent = `${n} ${n === 1 ? 'floor' : 'floors'}`;
+  const stats = [
+    ['Residents', fmt(g.pop)],
+    ['Perfect drops', g.perfects],
+    ['Longest combo', g.maxCombo ? `×${g.maxCombo}` : 'none'],
+    ['Best tower', `${save.best.floors} ${save.best.floors === 1 ? 'floor' : 'floors'}`],
+  ];
+  $('resStats').innerHTML = '';
+  for (const [k, v] of stats) {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = k; dd.textContent = v;
+    $('resStats').append(dt, dd);
+  }
+  $('resNote').textContent = bestF ? 'New tallest tower.' : bestP ? 'New population record.' : '';
+  state = 'result';
+  hud.hidden = true;
+  $('result').hidden = false;
+  $('btnAgain').focus({ preventScroll: true });
+}
+
+/* ---------------- Input ---------------- */
+function tapAction() {
+  Sound.ensure();
+  if (state !== 'play' || !game) return;
+  if (game.pan) { game.camY = game.pan.to; return; }
+  if (game.intro) { game.intro.t = CFG.intro.hold + CFG.intro.pan; return; }
+  drop();
 }
 stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, .screen')) return;
   if (e.button > 0) return;
   e.preventDefault();
-  tap();
+  tapAction();
 });
 window.addEventListener('keydown', e => {
-  if (e.key !== ' ' && e.key !== 'Enter' && e.key !== 'ArrowDown') return;
-  e.preventDefault();
-  if (!e.repeat) tap();
+  if (state !== 'play') return;
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); if (!e.repeat) tapAction(); }
 });
-window.addEventListener('resize', () => { layout(); game.camY = camTarget(); });
+$('btnAgain').addEventListener('click', () => { Sound.ensure(); startRound(); });
+function setMuted(m) {
+  save.muted = m; Sound.muted = m;
+  $('soundBtn').setAttribute('aria-pressed', String(m));
+  $('soundBtn').setAttribute('aria-label', m ? 'Unmute sound' : 'Mute sound');
+}
+$('soundBtn').addEventListener('click', () => { setMuted(!save.muted); persist(); Sound.ensure(); });
+window.addEventListener('resize', () => {
+  layout();
+  if (game && state !== 'play') game.camY = endCam();
+});
 
-let last = performance.now();
+/* ---------------- Loop ---------------- */
+const STEP = 1 / 120;
+let last = performance.now(), acc = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  update(dt);
+  sceneTime += dt;
+  acc += dt;
+  while (acc >= STEP) { update(STEP); acc -= STEP; }
+  updatePops(dt);
+  if (state === 'play') updateCombo(); else $('combo').hidden = true;
   render();
   requestAnimationFrame(frame);
 }
 
+load();
+setMuted(save.muted);
 layout();
-newGame();
+startRound();
 requestAnimationFrame(frame);
 })();
 </script>
