@@ -45,14 +45,17 @@ function update(g, dt) {
   g.tenants = g.tenants.filter(p => p.t < p.dur);
 }
 
+// Floors from this one up have gone (tower collapse): their tenants turn back.
+function dropFrom(g, floor) { g.tenants = g.tenants.filter(p => p.floor < floor); }
+
 function draw(g, camY) {
   const cx = view.w / 2;
   for (const p of g.tenants) {
     if (p.t < 0) continue;
     const q = pos(g, p);
-    SS.tenantSprite.draw(p, Math.round(cx + q.x), Math.round(q.y - camY));
+    SS.tenantSprite.draw(p, cx + q.x, q.y - camY);
   }
 }
 
-SS.tenants = { TENANTS, init, moveIn, update, draw };
+SS.tenants = { TENANTS, init, moveIn, update, dropFrom, draw };
 })();

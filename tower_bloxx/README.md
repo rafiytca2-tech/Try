@@ -10,14 +10,15 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 
 | To change | Edit |
 |---|---|
-| How the hook swings: loop size and speed, load tilt, rope pivot, when the next floor appears | `crane/swing.js` |
+| How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears | `crane/swing.js` |
 | How the rope, pulley, hook and hanging floor look | `crane/rigging.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
-| The perfect-drop snap, and what a landing sets off | `landing/landing.js` |
+| The perfect-drop window (2 px), and what a landing sets off | `landing/landing.js` |
 | Misses: tipping over the edge, falling past, crashing on the ground | `miss/miss.js` |
 | Number of lives, the pause before the round ends | `lives/lives.js` |
+| Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (10 at most), the tip over the edge and the tumble | `collapse/collapse.js` |
 | The stack of floors and how it is drawn | `tower/tower.js` |
-| Tower sway: floors that never move, how the bend grows with height, the landing wobble | `tower/sway.js` |
+| Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much each perfect drop steadies the tower | `tower/sway.js` |
 | Camera: where the tower top rests, the climb after a landing, the end-of-round slide | `camera/camera.js` |
 | Residents per floor | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
@@ -30,12 +31,13 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Sky colours by height, stars, planets, clouds | `scenery/sky.js` |
 | The city behind the site and its parallax | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
-| What the HUD shows and when | `hud/hud.js` |
-| How the HUD looks | `hud/hud.css` |
+| What the HUD shows and when, the payout and population count-up | `hud/hud.js` |
+| How the HUD looks: the combo meter and payout animations | `hud/hud.css` |
 | Starting a round, the results card | `round/round.js`, `round/result.css` |
 | Controls | `input/input.js` |
 | Sounds | `audio/sound.js` |
-| Screen shape and pixel scale | `core/screen.js` |
+| Screen shape, pixel scale and drawing resolution | `core/screen.js` |
+| Shared drawing shapes (rectangles, circles, lines) | `core/pixels.js` |
 | What the browser remembers (best tower, mute) | `core/storage.js` |
 | Update order and drawing order | `core/loop.js` |
 | Page colours, the phone frame, the first-round hint | `styles/page.css` |
@@ -44,7 +46,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 
 - `core/namespace.js` creates the `SS` namespace. Every other file adds one part to it (`SS.crane`, `SS.sway`, `SS.tenants`, …) and reads other parts only through it, when it runs, never by copying their numbers.
 - Each game part has `init(g)` for its starting state in a new round (called from `round/round.js`), `update(g, dt)` and/or `draw(g, camY)` (called from `core/loop.js` in a fixed order).
-- A landing is the one place several parts react together; `landing/landing.js` calls each of them in turn.
+- A landing is the one place several parts react together; `landing/landing.js` calls each of them in turn. A collapse (`collapse/collapse.js`) is the other: it takes floors off the tower and tells residents, tenants, sway, lives and the camera.
 - `index.html` loads the scripts in order; `core/loop.js` is last and starts the game.
 
-Units are game pixels and seconds. `SS.K` (46/110) converts pixels of the recording to game pixels.
+Units are game pixels and seconds. `SS.K` (46/110) converts pixels of the recording to game pixels. The canvas has as many pixels as the screen really has, so everything is drawn sharp and moving things sit between pixels.

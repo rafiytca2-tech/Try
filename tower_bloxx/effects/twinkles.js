@@ -2,7 +2,7 @@
 // top two floors, moving with the sway.
 (() => {
 'use strict';
-const { rect } = SS.px, { ctx, view } = SS.screen;
+const { circle } = SS.px, { ctx, view } = SS.screen;
 
 const TWINKLES = {
   every: [0.09, 0.21],   // seconds between glints, random in this range
@@ -27,20 +27,24 @@ function update(g, dt) {
   g.twinkles.push({ floor: i, lx, ly, t: 0, life: T.life[0] + Math.random() * (T.life[1] - T.life[0]), big: Math.random() < 0.5 });
 }
 
-function drawTwinkle(x, y, big) {
-  rect(ctx, '#ffffff', x, y, 1, 1);
-  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    rect(ctx, '#ffe34a', x + a, y + b, 1, 1);
-    if (big) rect(ctx, '#ffd21f', x + 2 * a, y + 2 * b, 1, 1);
-  }
+// A four-pointed glint that grows and shrinks over its life.
+function drawTwinkle(x, y, big, s) {
+  const r = (big ? 3.2 : 2.2) * s, w = r * 0.22;
+  ctx.fillStyle = '#ffd21f';
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x + w, y - w, x + r, y);
+  ctx.quadraticCurveTo(x + w, y + w, x, y + r); ctx.quadraticCurveTo(x - w, y + w, x - r, y);
+  ctx.quadraticCurveTo(x - w, y - w, x, y - r);
+  ctx.fill();
+  circle(ctx, x, y, r * 0.28, '#ffffff');
 }
 
 function draw(g, camY) {
   const cx = view.w / 2;
   for (const k of g.twinkles) {
-    if (!g.tower[k.floor] || Math.floor(k.t * 20) % 3 === 2) continue;
+    if (!g.tower[k.floor]) continue;
     const p = SS.sway.bent(g, k.lx, k.ly);
-    drawTwinkle(Math.round(cx + p.x), Math.round(p.y - camY), k.big);
+    drawTwinkle(cx + p.x, p.y - camY, k.big, Math.sin(Math.PI * k.t / k.life));
   }
 }
 

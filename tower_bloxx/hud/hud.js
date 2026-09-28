@@ -1,10 +1,17 @@
-// The HUD, laid out like the phone original: the combo bar with its xN across the top, the
-// blinking combo payout, the floor gauge (badge shows the next ten) and three life squares
-// bottom-left, the five-digit population bottom-right, the sound button, and the first-round
-// hint. Styles are in hud/hud.css.
+// The HUD, laid out like the phone original: the combo meter across the top (a multiplier chip
+// that pops on every step up and a draining bar that flashes on a refill and pulses when it is
+// about to run out), the combo payout (it springs in, counts up, then floats away), the floor
+// gauge (badge shows the next ten) and three life squares bottom-left, the five-digit population
+// bottom-right (it counts up and bumps when residents move in, shakes when they fall), the sound
+// button, and the first-round hint. Styles are in hud/hud.css.
 (() => {
 'use strict';
-const { $, pad } = SS;
+const { $, pad, clamp, easeOut } = SS;
+
+const HUD = {
+  countUp: 0.45,      // seconds the payout and the population take to count up
+  low: 0.25,          // bar share left at which the combo bar starts to pulse
+};
 
 SS.screen.stage.insertAdjacentHTML('beforeend', `
   <div id="hud">
@@ -12,10 +19,14 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
       <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="3" width="2" height="3" fill="currentColor"/><rect x="2" y="2" width="1" height="5" fill="currentColor"/><rect x="3" y="1" width="1" height="7" fill="currentColor"/><g class="on"><rect x="5" y="3" width="1" height="3" fill="currentColor"/><rect x="7" y="2" width="1" height="5" fill="currentColor"/></g><g class="off"><rect x="5" y="3" width="1" height="1" fill="currentColor"/><rect x="6" y="4" width="1" height="1" fill="currentColor"/><rect x="7" y="5" width="1" height="1" fill="currentColor"/><rect x="7" y="3" width="1" height="1" fill="currentColor"/><rect x="5" y="5" width="1" height="1" fill="currentColor"/></g></svg>
     </button>
     <div class="combo" id="combo" hidden>
-      <span class="combo-x outline" id="comboLabel"></span>
-      <div class="combo-track"><i id="comboFill"></i></div>
+      <div class="combo-chip" id="comboChip"><span class="combo-word">Combo</span><b class="combo-x" id="comboLabel">×1</b></div>
+      <div class="combo-track" id="comboTrack"><i id="comboFill"></i></div>
     </div>
-    <div class="bonus outline" id="bonus" hidden></div>
+    <div class="bonus" id="bonus" hidden aria-live="polite">
+      <span class="bonus-ring"></span>
+      <span class="bonus-label" id="bonusLabel"></span>
+      <b class="bonus-num" id="bonusNum"></b>
+    </div>
     <div class="hud-bl">
       <div class="gauge" id="gauge">
         <span class="gauge-badge" id="gaugeBadge">10</span>
@@ -32,6 +43,20 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
 
 const hud = $('hud');
 $('lives').innerHTML = '<i class="life"></i>'.repeat(SS.lives.LIVES.count);
+$('bonus').style.setProperty('--bonus-time', SS.combo.COMBO.bonusShow + 's');
+
+const now = () => performance.now() / 1000;
+// Restart a one-off CSS animation on an element.
+function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
+// The population counts up (or down) to its new value.
+const pop = { shown: 0, from: 0, to: 0, t0: 0 };
+function setPop(value, instant) {
+  if (value === pop.to && !instant) return;
+  if (!instant) replay($('hudPop'), value > pop.to ? 'bump' : 'drop');
+  pop.from = instant ? value : pop.shown; pop.to = value; pop.t0 = now();
+  if (instant) { pop.shown = value; $('hudPop').textContent = pad(value, 5); }
+}
 
 // Floors, population and lives: called whenever one of them changes.
 function update(g) {
@@ -39,26 +64,47 @@ function update(g) {
   $('gaugeBadge').textContent = goal;                       // the next ten floors, like the original's target gauge
   $('gaugeFill').style.height = `calc(${(n % 10) * 10}% - 2px)`;
   $('gauge').setAttribute('aria-label', `${n} ${n === 1 ? 'floor' : 'floors'}`);
-  $('hudPop').textContent = pad(g.pop, 5);
+  setPop(g.pop, g.pop === 0);
   $('lives').setAttribute('aria-label', `${g.lives} of ${SS.lives.LIVES.count} lives left`);
   [...$('lives').children].forEach((el, i) => el.classList.toggle('lost', i >= g.lives));
 }
 
-// The combo bar and the payout: every frame.
-let lastComboText = '';
+// The combo meter, the payout and the population count: every frame.
+let lastN = 0, lastLeft = 0, bonus = null;
 function frame(g) {
-  const c = g && g.combo, on = !!(c && c.n > 0 && SS.round.state === 'play');
+  const c = g && g.combo, on = !!(c && c.n > 0 && SS.round.state === 'play'), t = now();
   $('combo').hidden = !on;
-  $('bonus').hidden = !(g && g.bonusT > 0);
-  if (!on) return;
-  $('comboFill').style.width = (Math.max(0, Math.min(1, c.left)) * 100).toFixed(1) + '%';
-  const text = c.n >= 2 ? `x${c.n}` : '';
-  if (text !== lastComboText) { $('comboLabel').textContent = text; lastComboText = text; }
+  if (on) {
+    const left = clamp(c.left, 0, 1);
+    $('comboFill').style.width = (left * 100).toFixed(2) + '%';
+    $('combo').classList.toggle('low', left < HUD.low);
+    if (c.n !== lastN) { $('comboLabel').textContent = '×' + c.n; replay($('comboChip'), 'pop'); }
+    if (lastN && left > lastLeft + 0.05) replay($('comboTrack'), 'refill');   // a perfect drop topped it up
+    lastN = c.n; lastLeft = left;
+  } else { lastN = 0; lastLeft = 0; }
+
+  $('bonus').hidden = !(g && g.bonusT > 0 && bonus);
+  if (bonus && !$('bonus').hidden) {
+    const v = Math.round(bonus.amount * easeOut(clamp((t - bonus.t0) / HUD.countUp, 0, 1)));
+    if (v !== bonus.v) { bonus.v = v; $('bonusNum').textContent = '+' + v; }
+  }
+  if (pop.shown !== pop.to) {
+    const k = clamp((t - pop.t0) / HUD.countUp, 0, 1);
+    pop.shown = k >= 1 ? pop.to : Math.round(pop.from + (pop.to - pop.from) * easeOut(k));
+    $('hudPop').textContent = pad(pop.shown, 5);
+  }
 }
 
-function showBonus(amount) { $('bonus').textContent = '+' + pad(amount, 3); }
+// A combo ran out and paid: amount residents for a combo of lastN.
+function showBonus(amount) {
+  bonus = { amount, t0: now(), v: -1 };
+  $('bonusLabel').textContent = lastN > 1 ? `Combo ×${lastN}` : 'Combo';
+  $('bonusNum').textContent = '+0';
+  $('bonus').hidden = false;
+  replay($('bonus'), 'show');
+}
 function hideTip() { $('tip').hidden = true; }
 function show(on) { hud.hidden = !on; }
 
-SS.hud = { update, frame, showBonus, hideTip, show };
+SS.hud = { HUD, update, frame, showBonus, hideTip, show };
 })();

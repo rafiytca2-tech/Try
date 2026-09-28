@@ -31,6 +31,14 @@ function tipOver(g, b, dx, top) {
   SS.lives.lose(g);
 }
 
+// The floor a tipping floor was turning on has gone (collapse/collapse.js): it drops off.
+function releaseTips(g) {
+  for (const d of g.debris) {
+    if (d.state !== 'tip') continue;
+    d.state = 'fall'; d.vx = d.sgn * MISS.tipOffSpeed[0]; d.vy = MISS.tipOffSpeed[1]; d.spin = d.av || d.sgn * 2;
+  }
+}
+
 function step(g, d, dt) {
   const { H } = SS.blocks;
   if (d.state === 'tip') {
@@ -58,5 +66,5 @@ function draw(g, camY) {
   }
 }
 
-SS.miss = { MISS, init, offSite, fallPast, tipOver, update, draw };
+SS.miss = { MISS, init, offSite, fallPast, tipOver, releaseTips, update, draw };
 })();

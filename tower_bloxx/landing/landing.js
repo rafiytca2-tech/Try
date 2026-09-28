@@ -1,11 +1,11 @@
-// A floor lands: within 5 px of centre it snaps into line (a perfect drop), it joins the tower,
+// A floor lands: within 2 px of centre it snaps into line (a perfect drop), it joins the tower,
 // and everything that follows a landing is set off from here: residents, combo, sway, the
 // perfect stars, the tenants, the camera's climb and the next floor on the hook.
 (() => {
 'use strict';
 
 const LANDING = {
-  perfectTol: 5,      // px from dead centre that still snaps into line (a 5.9 px landing in the recording did not)
+  perfectTol: 2,      // px from dead centre that still snaps into line
 };
 
 function init(g) { g.perfects = 0; }
@@ -16,11 +16,12 @@ function land(g, b, dx) {
   const perfect = Math.abs(dx) <= LANDING.perfectTol;
   if (perfect) dx = 0;
   const x = n === 0 ? dx : g.tower[n - 1].x + dx;
-  g.tower.push({ x, kind: b.kind });
+  const floor = { x, kind: b.kind, perfect };
+  g.tower.push(floor);
   g.falling = null;
   if (perfect) g.perfects++;
 
-  SS.residents.onLand(g, n, dx);
+  floor.residents = SS.residents.onLand(g, n, dx);
   SS.combo.onLand(g, perfect);
   SS.sway.onLand(g, n, dx, perfect);
 

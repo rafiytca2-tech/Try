@@ -17,6 +17,11 @@ const CITY = {
 // skyline looks exactly as it did before the game was split into files.
 const rand = mulberry32((2005 + 836 * 0x6D2B79F5) | 0);
 
+// Where each block goes is chosen once, at load, so the skyline never changes. It is painted
+// onto its own canvas at up to MAX_RES screen pixels per game pixel (enough to stay sharp), and
+// repainted if the screen's resolution changes.
+const MAX_RES = 3;
+
 function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
   const arr = []; let total = 0;
   while (total < 720) {
@@ -27,7 +32,12 @@ function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
     };
     arr.push(b); total += b.w + b.gap;
   }
-  const tall = maxH + 12, c = canvasOf(total, tall), g = c.getContext('2d');
+  return { arr, total, tall: maxH + 12, detail, glass, img: null, res: 0 };
+}
+
+function paint(layer, res) {
+  const { arr, total, tall, detail, glass } = layer, c = canvasOf(total * res, tall * res), g = c.getContext('2d');
+  g.scale(res, res);
   let x = 0;
   for (const b of arr) {
     const top = tall - b.h;
@@ -41,18 +51,21 @@ function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
     rect(g, b.c, x, tall - 2, b.w - 3, 2);
     x += b.w + b.gap;
   }
-  return { img: c, total, tall };
+  layer.img = c; layer.res = res;
 }
 const FAR = makeBackdrop(CITY.far);
 const NEAR = makeBackdrop(CITY.near);
 
 function drawLayer(layer, camY, p) {
-  const base = Math.round(-camY * p + (1 - p) * SS.camera.restLine());
+  const base = -camY * p + (1 - p) * SS.camera.restLine();
   if (base - layer.tall > view.h) return;
-  const x0 = Math.round(view.w / 2) - layer.total * Math.ceil(view.w / 2 / layer.total + 1);
-  for (let x = x0; x < view.w; x += layer.total) {
-    ctx.drawImage(layer.img, x, base - layer.tall);
-    if (base < view.h) ctx.drawImage(layer.img, 0, layer.tall - 1, layer.total, 1, x, base, layer.total, view.h - base);
+  const res = Math.min(MAX_RES, Math.max(1, Math.ceil(view.m - 0.01)));
+  if (layer.res !== res) paint(layer, res);
+  const { img, total, tall } = layer;
+  const x0 = Math.round(view.w / 2) - total * Math.ceil(view.w / 2 / total + 1);
+  for (let x = x0; x < view.w; x += total) {
+    ctx.drawImage(img, x, base - tall, total, tall);
+    if (base < view.h) ctx.drawImage(img, 0, (tall - 1) * res, total * res, res, x, base - 0.5, total, view.h - base + 0.5);
   }
 }
 

@@ -34,6 +34,7 @@ function newGame(prev) {
   SS.stars.init(g);
   SS.twinkles.init(g);
   SS.dust.init(g);
+  SS.collapse.init(g);
   SS.camera.init(g);
   return g;
 }

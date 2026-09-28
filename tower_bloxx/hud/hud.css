@@ -1,6 +1,10 @@
-/* HUD, laid out like the phone original: combo bar across the top, floor gauge and lives
+/* HUD, laid out like the phone original: combo meter across the top, floor gauge and lives
    bottom-left, population bottom-right. Sizes are in game pixels (--u). */
-#hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-pixel);font-weight:700;color:#fff}
+#hud{
+  position:absolute;inset:0;pointer-events:none;font-family:var(--font-pixel);font-weight:700;color:#fff;
+  --font-hud:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --hot:linear-gradient(135deg,#ffd23f 0%,#ff8a00 52%,#ff3d7f 100%);
+}
 .outline{text-shadow:1px 1px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge),0 1px 0 var(--edge),0 -1px 0 var(--edge),1px 0 0 var(--edge),-1px 0 0 var(--edge)}
 
 /* sound on/off */
@@ -15,16 +19,79 @@
 .icon-btn[aria-pressed="true"] .off{display:inline}
 .icon-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
 
-/* combo bar and multiplier */
-.combo{position:absolute;left:14.1%;right:14.7%;top:calc(var(--u) * 53)}
-.combo-track{height:calc(var(--u) * 6.5);background:var(--track);border-radius:calc(var(--u) * 3.5);overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.35)}
-.combo-track i{display:block;height:100%;width:100%;background:var(--combo);border-radius:inherit}
-.combo-x{position:absolute;right:0;bottom:calc(100% + var(--u) * 1);font-size:calc(var(--u) * 6);line-height:1}
+/* combo meter: a glass pill with the multiplier chip and the draining bar */
+.combo{
+  position:absolute;left:11%;right:11%;top:calc(var(--u) * 44);display:flex;align-items:center;gap:calc(var(--u) * 4);
+  padding:calc(var(--u) * 2.5) calc(var(--u) * 5) calc(var(--u) * 2.5) calc(var(--u) * 2.5);
+  background:linear-gradient(180deg,rgba(24,30,66,.78),rgba(10,14,36,.78));border:1px solid rgba(255,255,255,.16);border-radius:999px;
+  box-shadow:0 calc(var(--u) * 2) calc(var(--u) * 7) rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  font-family:var(--font-hud);animation:combo-in .38s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes combo-in{from{opacity:0;transform:translateY(calc(var(--u) * -8)) scale(.85)}}
+.combo-chip{
+  flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:calc(var(--u) * 23);height:calc(var(--u) * 17);padding:0 calc(var(--u) * 3);box-sizing:border-box;border-radius:999px;
+  background:var(--hot);color:#fff;box-shadow:0 0 calc(var(--u) * 6) rgba(255,140,40,.55),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(120,20,40,.35);
+}
+.combo-word{font-size:calc(var(--u) * 3.6);font-weight:600;letter-spacing:.16em;text-transform:uppercase;line-height:1;opacity:.92}
+.combo-x{font-size:calc(var(--u) * 9);font-weight:700;line-height:.95;font-variant-numeric:tabular-nums;text-shadow:0 1px 0 rgba(110,20,0,.45)}
+.combo-chip.pop{animation:chip-pop .45s cubic-bezier(.2,1.7,.4,1)}
+@keyframes chip-pop{0%{transform:scale(.55) rotate(-8deg)}55%{transform:scale(1.2) rotate(3deg)}100%{transform:none}}
+.combo-track{
+  position:relative;flex:1;height:calc(var(--u) * 6);border-radius:999px;overflow:hidden;
+  background:rgba(255,255,255,.12);box-shadow:inset 0 1px 2px rgba(0,0,0,.55);
+}
+.combo-track i{
+  position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:inherit;overflow:hidden;
+  background:linear-gradient(90deg,#ff3d7f,#ff8a00 55%,#ffd23f);box-shadow:0 0 calc(var(--u) * 4) rgba(255,170,40,.8);
+}
+.combo-track i::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.65) 50%,transparent 65%) no-repeat;background-size:60% 100%;
+  animation:shine 1.3s linear infinite;
+}
+@keyframes shine{from{background-position:-120% 0}to{background-position:260% 0}}
+.combo-track.refill::before{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit;background:#fff;animation:refill .45s ease-out forwards}
+@keyframes refill{from{opacity:.95}to{opacity:0}}
+.combo.low .combo-track i{animation:low .32s ease-in-out infinite alternate}
+.combo.low .combo-chip{animation:low .32s ease-in-out infinite alternate}
+@keyframes low{to{filter:brightness(1.45) saturate(1.4)}}
 
-/* combo payout, blinking */
-.bonus{position:absolute;left:0;right:0;top:calc(var(--u) * 70);text-align:center;font-size:calc(var(--u) * 9);line-height:1;letter-spacing:.04em;animation:blink .24s steps(1) infinite}
-@keyframes blink{50%{visibility:hidden}}
-@media (prefers-reduced-motion: reduce){.bonus{animation:none}}
+/* combo payout: springs in, counts up, floats away */
+.bonus{
+  position:absolute;left:0;right:0;top:calc(var(--u) * 66);display:flex;flex-direction:column;align-items:center;
+  font-family:var(--font-hud);color:#fff;animation:none;
+}
+.bonus.show{animation:bonus var(--bonus-time,1.3s) cubic-bezier(.2,.9,.3,1) forwards}
+.bonus-label{
+  font-size:calc(var(--u) * 4.6);font-weight:600;letter-spacing:.16em;text-transform:uppercase;line-height:1;
+  padding:calc(var(--u) * 1.4) calc(var(--u) * 4);border-radius:999px;background:var(--hot);
+  box-shadow:0 calc(var(--u) * 1) calc(var(--u) * 4) rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.5);
+}
+.bonus-num{
+  font-size:calc(var(--u) * 18);font-weight:700;line-height:1;margin-top:calc(var(--u) * 1);font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#fff 25%,#ffd23f 62%,#ff8a00);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 calc(var(--u) * 1) 0 rgba(100,30,0,.65)) drop-shadow(0 0 calc(var(--u) * 5) rgba(255,180,60,.55));
+}
+.bonus-ring{
+  position:absolute;left:50%;top:60%;width:calc(var(--u) * 30);height:calc(var(--u) * 30);margin:calc(var(--u) * -15) 0 0 calc(var(--u) * -15);
+  border-radius:50%;border:calc(var(--u) * 1.5) solid rgba(255,210,63,.9);box-shadow:0 0 calc(var(--u) * 6) rgba(255,160,40,.7);opacity:0;
+}
+.bonus.show .bonus-ring{animation:ring .6s ease-out forwards}
+@keyframes bonus{
+  0%{opacity:0;transform:translateY(calc(var(--u) * 6)) scale(.5)}
+  14%{opacity:1;transform:translateY(0) scale(1.14)}
+  26%{transform:scale(1)}
+  72%{opacity:1;transform:translateY(0)}
+  100%{opacity:0;transform:translateY(calc(var(--u) * -16)) scale(.96)}
+}
+@keyframes ring{from{opacity:1;transform:scale(.3)}to{opacity:0;transform:scale(2.6)}}
+@media (prefers-reduced-motion: reduce){
+  .combo,.combo-chip.pop,.combo-track i::after,.combo.low .combo-track i,.combo.low .combo-chip,.bonus.show .bonus-ring{animation:none}
+  .bonus.show{animation:fade var(--bonus-time,1.3s) linear forwards}
+  @keyframes fade{80%{opacity:1}100%{opacity:0}}
+}
 
 /* bottom-left: floor gauge and lives */
 .hud-bl{position:absolute;left:calc(var(--u) * 15);bottom:calc(var(--u) * 20);display:flex;align-items:flex-end;gap:calc(var(--u) * 6)}
@@ -46,4 +113,9 @@
 /* bottom-right: population */
 .hud-br{position:absolute;right:calc(var(--u) * 14);bottom:calc(var(--u) * 21);display:flex;align-items:center;gap:calc(var(--u) * 2.5)}
 .hud-br svg{width:calc(var(--u) * 13);height:calc(var(--u) * 10);filter:drop-shadow(1px 1px 0 var(--edge))}
-.hud-pop{font-size:calc(var(--u) * 7.5);line-height:1;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.hud-pop{display:inline-block;font-size:calc(var(--u) * 7.5);line-height:1;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.hud-pop.bump{animation:bump .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes bump{40%{transform:scale(1.2);color:#ffd23f}}
+.hud-pop.drop{animation:drop .5s ease-out}
+@keyframes drop{20%,60%{transform:translateX(calc(var(--u) * -1.5));color:#ff6a6a}40%,80%{transform:translateX(calc(var(--u) * 1.5));color:#ff6a6a}}
+@media (prefers-reduced-motion: reduce){.hud-pop.bump,.hud-pop.drop{animation:none}}

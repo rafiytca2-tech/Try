@@ -25,6 +25,11 @@ const Sound = {
   perfect(n) { const b = 660 + Math.min(n, 6) * 60; [1, 1.26, 1.5].forEach((m, i) => this.tone(b * m, 0.08, { vol: 0.05, delay: i * 0.06 })); },
   bonus() { [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.09, { vol: 0.045, delay: i * 0.07 })); },
   miss() { this.tone(420, 0.4, { type: 'sawtooth', vol: 0.045, slide: 70 }); },
+  collapse() {                                                                        // the top gives way
+    this.tone(120, 0.7, { type: 'sawtooth', vol: 0.05, slide: 38 });
+    this.tone(70, 0.8, { type: 'triangle', vol: 0.09, slide: 40 });
+    [0.12, 0.27, 0.41].forEach((d, i) => this.tone(190 - i * 30, 0.08, { vol: 0.05, slide: 60, delay: d }));
+  },
   over() { [392, 330, 262].forEach((f, i) => this.tone(f, 0.18, { vol: 0.05, delay: i * 0.14 })); },
 };
 SS.sound = Sound;

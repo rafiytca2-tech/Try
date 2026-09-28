@@ -12,6 +12,7 @@ function update(dt) {
   SS.combo.update(g, dt);
   SS.fall.update(g, dt);
   SS.miss.update(g, dt);
+  SS.collapse.update(g, dt);
   SS.dust.update(g, dt);
   SS.tenants.update(g, dt);
   SS.stars.update(g, dt);
@@ -24,13 +25,15 @@ function update(dt) {
 function render() {
   const g = SS.game;
   ctx.setTransform(view.m, 0, 0, view.m, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  const camY = Math.round(g.camY);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  const camY = g.camY;   // not rounded: the scene scrolls smoothly between pixels
   SS.sky.draw(camY);
   SS.city.draw(camY);
   SS.ground.draw(camY);
   SS.tower.draw(g, camY);
   SS.miss.draw(g, camY);
+  SS.collapse.draw(g, camY);
   SS.fall.draw(g, camY);
   SS.dust.draw(g, camY);
   SS.twinkles.draw(g, camY);

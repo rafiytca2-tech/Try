@@ -2,7 +2,7 @@
 // drifting clouds.
 (() => {
 'use strict';
-const { clamp } = SS, { rect, disc, mulberry32 } = SS.px, { ctx, view } = SS.screen;
+const { clamp } = SS, { rrect, circle, mulberry32 } = SS.px, { ctx, view } = SS.screen;
 
 // Top and bottom colour of the sky at each height (game pixels climbed).
 const SKY = [
@@ -28,8 +28,9 @@ function skyAt(alt) {
 }
 
 function drawSky(alt) {
-  const [top, bot] = skyAt(alt), bands = 16, bh = Math.ceil(view.h / bands);
-  for (let i = 0; i < bands; i++) rect(ctx, rgb(mix(top, bot, i / (bands - 1))), 0, i * bh, view.w, bh);
+  const [top, bot] = skyAt(alt), grad = ctx.createLinearGradient(0, 0, 0, view.h);
+  grad.addColorStop(0, rgb(top)); grad.addColorStop(1, rgb(bot));
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, view.w, view.h);
 }
 function drawStars(alt, camY) {
   const a = clamp((alt - 1800) / 1600, 0, 1);
@@ -42,35 +43,46 @@ function drawStars(alt, camY) {
         const x = tx + s.x, y = ty + ((s.y + oy) % 320) - 320;
         if (x >= view.w || y < 0 || y >= view.h) continue;
         ctx.globalAlpha = a * (s.big ? 1 : 0.55 + 0.45 * Math.sin(SS.time * 2.2 + s.ph));
-        ctx.fillRect(x, y, 1, 1);
-        if (s.big) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+        ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, s.big ? 0.8 : 0.5, 0, Math.PI * 2); ctx.fill();
+        if (s.big) { ctx.fillRect(x - 1, y + 0.3, 3, 0.4); ctx.fillRect(x + 0.3, y - 1, 0.4, 3); }
       }
     }
   }
   ctx.globalAlpha = 1;
 }
+// A round planet painted in horizontal stripes: colorAt(dy) gives the colour dy px from its centre.
 function discBands(cx, cy, r, colorAt) {
-  for (let dy = -r; dy <= r; dy++) { const h = Math.floor(Math.sqrt(r * r - dy * dy)); ctx.fillStyle = colorAt(dy); ctx.fillRect(cx - h, cy + dy, h * 2 + 1, 1); }
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  let y0 = -r, c = colorAt(-r);
+  for (let dy = -r + 1; dy <= r + 1; dy++) {
+    const n = dy <= r ? colorAt(dy) : null;
+    if (n !== c) { ctx.fillStyle = c; ctx.fillRect(cx - r, cy + y0, 2 * r, dy - y0); y0 = dy; c = n; }
+  }
+  ctx.restore();
+}
+function ringHalf(cx, cy, side) {
+  ctx.strokeStyle = '#cdb57a'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(cx, cy, 22, 4, 0, side < 0 ? Math.PI : 0, side < 0 ? Math.PI * 2 : Math.PI); ctx.stroke();
 }
 function drawSpace(alt, camY) {
   if (alt < 1800) return;
-  const mx = Math.round(view.w * 0.8), my = Math.round(-260 - camY * 0.1);          // moon
+  const mx = view.w * 0.8 + 0.5, my = -260 - camY * 0.1 + 0.5;                        // moon
   if (my > -20 && my < view.h + 20) {
-    disc(ctx, mx, my, 12, '#e6e2d3');
-    disc(ctx, mx - 4, my - 3, 3, '#c9c4b2'); disc(ctx, mx + 5, my + 4, 2, '#c9c4b2'); disc(ctx, mx + 2, my - 6, 1, '#c9c4b2');
+    circle(ctx, mx, my, 12.5, '#e6e2d3');
+    circle(ctx, mx - 4, my - 3, 3.5, '#c9c4b2'); circle(ctx, mx + 5, my + 4, 2.5, '#c9c4b2'); circle(ctx, mx + 2, my - 6, 1.5, '#c9c4b2');
   }
-  const sx = Math.round(view.w * 0.2), sy = Math.round(-420 - camY * 0.1);          // ringed planet
+  const sx = view.w * 0.2 + 0.5, sy = -420 - camY * 0.1 + 0.5;                        // ringed planet
   if (sy > -30 && sy < view.h + 30) {
-    const ring = side => { ctx.fillStyle = '#cdb57a'; for (let dx = -22; dx <= 22; dx++) ctx.fillRect(sx + dx, sy + side * Math.round(Math.sqrt(1 - (dx / 22) ** 2) * 4), 1, 1); };
-    ring(-1);
-    discBands(sx, sy, 9, dy => (dy % 4 === 0 ? '#c9a86a' : '#e3c68a'));
-    ring(1);
+    ringHalf(sx, sy, -1);
+    discBands(sx, sy, 9.5, dy => (Math.round(dy) % 4 === 0 ? '#c9a86a' : '#e3c68a'));
+    ringHalf(sx, sy, 1);
   }
-  const jx = Math.round(view.w * 0.66), jy = Math.round(-600 - camY * 0.1), jr = 26; // banded giant
+  const jx = view.w * 0.66 + 0.5, jy = -600 - camY * 0.1 + 0.5, jr = 26;               // banded giant
   if (jy > -40 && jy < view.h + 40) {
     const bands = ['#e9d6b3', '#c99a6b', '#f1e3c9', '#b7794d', '#ecd9b8', '#c28e61', '#e9d6b3'];
-    discBands(jx, jy, jr, dy => bands[Math.min(bands.length - 1, Math.floor((dy + jr) / (2 * jr + 1) * bands.length))]);
-    rect(ctx, '#b8503a', jx + 6, jy + 7, 8, 4); rect(ctx, '#b8503a', jx + 7, jy + 6, 6, 6);
+    discBands(jx, jy, jr + 0.5, dy => bands[Math.max(0, Math.min(bands.length - 1, Math.floor((dy + jr) / (2 * jr + 1) * bands.length)))]);
+    ctx.fillStyle = '#b8503a'; ctx.beginPath(); ctx.ellipse(jx + 10, jy + 9, 4.5, 3, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
 function drawClouds(alt, camY) {
@@ -79,14 +91,14 @@ function drawClouds(alt, camY) {
   const RW = view.w + 140;
   ctx.globalAlpha = fade;
   for (const c of clouds) {
-    const sy = Math.round(c.ly - camY * 0.55);
+    const sy = c.ly - camY * 0.55;
     if (sy < -12 || sy > view.h + 10) continue;
-    const sx = Math.round((((c.bx + c.sp * SS.time) % RW) + RW) % RW - 70);
-    rect(ctx, '#ffffff', sx, sy, c.w, 6);
-    rect(ctx, '#ffffff', sx + 4, sy - 4, Math.floor(c.w * 0.45), 4);
-    rect(ctx, '#ffffff', sx + Math.floor(c.w * 0.4), sy - 7, Math.floor(c.w * 0.35), 7);
-    if (c.puff) rect(ctx, '#ffffff', sx + c.w - 10, sy - 3, 8, 3);
-    rect(ctx, '#d3e9f5', sx + 2, sy + 6, c.w - 4, 2);
+    const sx = (((c.bx + c.sp * SS.time) % RW) + RW) % RW - 70;
+    rrect(ctx, '#d3e9f5', sx + 2, sy + 4, c.w - 4, 4, 2);
+    rrect(ctx, '#ffffff', sx, sy, c.w, 6, 3);
+    rrect(ctx, '#ffffff', sx + 4, sy - 4, c.w * 0.45, 7, 3.5);
+    rrect(ctx, '#ffffff', sx + c.w * 0.4, sy - 7, c.w * 0.35, 10, 4);
+    if (c.puff) rrect(ctx, '#ffffff', sx + c.w - 10, sy - 3, 8, 6, 3);
   }
   ctx.globalAlpha = 1;
 }

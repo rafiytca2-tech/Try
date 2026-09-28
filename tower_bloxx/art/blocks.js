@@ -1,11 +1,13 @@
 // How a floor looks: its size, the teal body with a concrete cap and a shaded side, the beige
-// window frames with sky-reflecting glass, and the glass doors on the ground floor. Also draws a
-// loose floor (falling or wrecked) at an angle.
+// window frames with sky-reflecting glass, and the glass doors on the ground floor. Floors are
+// painted once at 8x detail so they stay sharp at any screen size and when they turn. Also draws
+// a floor at any position and angle.
 (() => {
 'use strict';
 const { canvasOf, rect, shade } = SS.px;
 
 const W = 40, H = 46;   // one floor, in game pixels (97 x 110 px in the recording)
+const RES = 8;          // detail the floors are painted at
 const BLOCK = { body: '#479cab', light: '#72c3cf', dark: '#1a5f6f', outline: '#0e3440', frame: '#a2ae8e', frameDark: '#2c3526', cap: '#a8a89c' };
 const GLASS = [['#c9f3fa', 6], ['#8fdbea', 7], ['#52bbd1', 6], ['#3899b3', 4], ['#2a7b93', 3]];   // sky reflection, top to bottom
 
@@ -42,19 +44,24 @@ function paintBlock(g, t, door) {
 }
 const SPR = {};
 for (const kind of ['floor', 'foundation']) {
-  SPR[kind] = canvasOf(W, H);
-  paintBlock(SPR[kind].getContext('2d'), BLOCK, kind === 'foundation');
+  SPR[kind] = canvasOf(W * RES, H * RES);
+  const g = SPR[kind].getContext('2d');
+  g.scale(RES, RES);
+  paintBlock(g, BLOCK, kind === 'foundation');
 }
+
+// A floor with its top-left corner at (x, y) in the current drawing space.
+function draw(g, kind, x, y) { g.drawImage(SPR[kind], x, y, W, H); }
 
 // A loose floor, centred on (x, y) in screen pixels and turned by ang.
 function drawAt(kind, x, y, ang) {
   const { ctx } = SS.screen;
   ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
+  ctx.translate(x, y);
   if (ang) ctx.rotate(ang);
-  ctx.drawImage(SPR[kind], -W / 2, -H / 2);
+  draw(ctx, kind, -W / 2, -H / 2);
   ctx.restore();
 }
 
-SS.blocks = { W, H, SPR, drawAt };
+SS.blocks = { W, H, SPR, draw, drawAt };
 })();

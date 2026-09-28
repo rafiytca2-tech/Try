@@ -1,7 +1,7 @@
 // Dust: a puff of pale specks where a missed floor crashes on the ground.
 (() => {
 'use strict';
-const { rect } = SS.px, { ctx, view } = SS.screen;
+const { circle } = SS.px, { ctx, view } = SS.screen;
 
 const DUST = {
   color: '#efe8d6',
@@ -27,7 +27,7 @@ function draw(g, camY) {
   const cx = view.w / 2;
   for (const p of g.parts) {
     ctx.globalAlpha = 1 - p.t / p.life;
-    rect(ctx, p.c, Math.round(cx + p.x), Math.round(p.y - camY), p.s, p.s);
+    circle(ctx, cx + p.x, p.y - camY, p.s * (0.6 + 0.5 * p.t / p.life), p.c);
   }
   ctx.globalAlpha = 1;
 }

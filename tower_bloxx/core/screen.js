@@ -1,7 +1,7 @@
 // The screen: the recording's 580x1280 phone shape, always 242 game pixels wide, so the tower,
 // crane and tenants take up the same share of it on every device. On wide screens the stage is
-// framed at that shape in the middle. The canvas draws each game pixel as a whole number of
-// backing pixels and the browser scales that down to fit.
+// framed at that shape in the middle. The canvas has as many pixels as the screen really has, so
+// everything is drawn sharp, and moving things sit between pixels for smooth motion.
 (() => {
 'use strict';
 const { K, $ } = SS;
@@ -26,12 +26,12 @@ function layout() {
   const dpr = window.devicePixelRatio || 1;
   view.scale = sw / SCREEN.width;                           // CSS px per game pixel
   view.w = SCREEN.width; view.h = Math.ceil(sh / view.scale);
-  view.m = Math.max(1, Math.ceil(view.scale * dpr));        // backing px per game pixel
-  canvas.width = view.w * view.m; canvas.height = view.h * view.m;
+  view.m = view.scale * dpr;                                // screen pixels per game pixel
+  canvas.width = Math.round(view.w * view.m); canvas.height = Math.round(view.h * view.m);
   canvas.style.width = sw + 'px';
   canvas.style.height = (view.h * view.scale) + 'px';
   stage.style.setProperty('--u', view.scale + 'px');
-  ctx.imageSmoothingEnabled = false;
+  ctx.__snap = view.m;                                      // flat shapes line up with screen pixels (core/pixels.js)
 }
 
 SS.screen = { SCREEN, stage, canvas, ctx, view, layout };

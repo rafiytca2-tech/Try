@@ -3,7 +3,8 @@
 // Measured from the recording: a released floor keeps about half of the hook's sideways speed,
 // falls at 7200 px/s² and turns level as it falls. When it reaches the tower top it either lands
 // (landing/landing.js) or misses (miss/miss.js): its centre past the edge tips it over the side,
-// a full width off and it falls clean past, and a first floor off the slab is lost.
+// a full width off and it falls clean past, and a first floor off the slab is lost. A bad hit on
+// a shaky tower can also bring the top of it down (collapse/collapse.js).
 (() => {
 'use strict';
 const { K } = SS, { view } = SS.screen;
@@ -44,8 +45,12 @@ function update(g, dt) {
   }
   const dx = b.x - top.x;
   if (Math.abs(dx) >= W) { g.falling = null; SS.miss.fallPast(g, b, dx); }            // a full width off
-  else if (Math.abs(dx) > W / 2) { g.falling = null; SS.miss.tipOver(g, b, dx, top); } // centre past the edge
-  else SS.landing.land(g, b, dx);
+  else if (Math.abs(dx) > W / 2) {                                                     // centre past the edge
+    g.falling = null; SS.miss.tipOver(g, b, dx, top); SS.collapse.onImpact(g, b, dx, false);
+  } else {
+    g.falling = null;
+    if (!SS.collapse.onImpact(g, b, dx, true)) SS.landing.land(g, b, dx);             // a bad hit can bring the top down
+  }
 }
 
 function draw(g, camY) {
