@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Skyline Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="styles/page.css">
+<link rel="stylesheet" href="hud/hud.css">
+<link rel="stylesheet" href="round/result.css">
+<link rel="stylesheet" href="menu/menu.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="view" aria-label="Skyline Stack playfield. Tap, click or press Space to drop a floor."></canvas>
+</div>
+
+<!-- Each file below owns one part of the game (see README.md) and adds itself to the SS
+     namespace. They load in this order; core/loop.js starts the game on the main screen. -->
+<script src="core/namespace.js"></script>
+<script src="core/pixels.js"></script>
+<script src="core/screen.js"></script>
+<script src="core/storage.js"></script>
+<script src="physics/rigid.js"></script>
+<script src="difficulty/difficulty.js"></script>
+<script src="mode/mode.js"></script>
+<script src="audio/sound.js"></script>
+<script src="art/blocks.js"></script>
+<script src="art/damage.js"></script>
+<script src="scenery/sky.js"></script>
+<script src="scenery/city.js"></script>
+<script src="scenery/ground.js"></script>
+<script src="camera/camera.js"></script>
+<script src="tower/tower.js"></script>
+<script src="tower/sway.js"></script>
+<script src="crane/swing.js"></script>
+<script src="crane/rigging.js"></script>
+<script src="hold/hold.js"></script>
+<script src="drop/fall.js"></script>
+<script src="landing/landing.js"></script>
+<script src="miss/miss.js"></script>
+<script src="lives/lives.js"></script>
+<script src="collapse/collapse.js"></script>
+<script src="rubble/rubble.js"></script>
+<script src="score/residents.js"></script>
+<script src="score/combo.js"></script>
+<script src="tenants/sprite.js"></script>
+<script src="tenants/flight.js"></script>
+<script src="effects/stars.js"></script>
+<script src="effects/twinkles.js"></script>
+<script src="effects/dust.js"></script>
+<script src="effects/chips.js"></script>
+<script src="effects/shake.js"></script>
+<script src="effects/vignette.js"></script>
+<script src="hud/hud.js"></script>
+<script src="round/ending.js"></script>
+<script src="round/round.js"></script>
+<script src="menu/menu.js"></script>
+<script src="input/input.js"></script>
+<script src="core/loop.js"></script>
+</body>
+</html>

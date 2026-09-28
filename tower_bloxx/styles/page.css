@@ -1,0 +1,45 @@
+/* Page and play area: colours, type and the glass panel look shared by every part of the page,
+   the stage (it fills the window; core/screen.js sizes it) and the canvas, the HUD's unit, and
+   the first-round hint. */
+:root{
+  color-scheme: dark;
+  --night:#0a1230;
+  --panel:#13204a;
+  --edge:#060a1a;
+  --crane:#f5c518;
+  --ink:#f4f6ff;
+  --muted:#b9c5e6;
+  --good:#8be89a;
+  --gold:#ffcf5a;
+  --glass:linear-gradient(180deg,rgba(26,33,72,.78),rgba(12,16,40,.78));
+  --glass-edge:rgba(255,255,255,.14);
+  --glass-shadow:0 6px 18px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.1);
+  --font-display:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --font-ui:"Nunito","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:radial-gradient(120% 90% at 50% 0%,#1b2a66 0%,var(--night) 60%,#060a1f 100%);
+  color:var(--ink);font-family:var(--font-ui);font-size:16px;line-height:1.45;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+#stage{
+  --u:2px;   /* CSS px per game pixel, set by core/screen.js */
+  --hu:max(var(--u), 1.15px);   /* the HUD's unit: like --u, but never so small the HUD can't be read */
+  --safe-l:env(safe-area-inset-left, 0px);--safe-r:env(safe-area-inset-right, 0px);   /* round a notch on a phone held sideways */
+  position:fixed;left:0;width:100%;
+  top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;background:#0a0a0a;touch-action:manipulation;cursor:pointer;
+}
+#stage.framed{border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08)}
+#view{position:absolute;left:0;top:0;display:block}
+.tip{
+  position:absolute;left:50%;top:72%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;
+  margin:0;padding:10px 16px;text-align:center;pointer-events:none;
+  font-family:var(--font-ui);font-size:14px;font-weight:700;line-height:1.4;color:var(--ink);
+  background:var(--glass);border:1px solid var(--glass-edge);border-radius:14px;box-shadow:var(--glass-shadow);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.tip small{display:block;font-size:12.5px;font-weight:600;color:var(--muted)}

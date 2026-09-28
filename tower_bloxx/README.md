@@ -1,0 +1,64 @@
+# Skyline Stack
+
+A single-tower crane game in the style of City Bloxx: time the drop from the circling crane, stack the floors straight, keep the combo going. Hold the button to swing faster for a bigger multiplier; let go to drop, or drag up and let go to cancel. Two modes on the main screen: **Relaxed** (three lives, combos come and go) and **Quick Finger** (the combo is the clock: land near the middle to refill it, and the round ends when it runs out). The motion, scoring and HUD are measured frame by frame from a 60 fps City Bloxx phone recording.
+
+Open `index.html` in a browser to play. No build step; it runs from the file system as well as from a server.
+
+## Where everything lives
+
+Each part of the game is its own file, and each file keeps its tuning numbers in a settings block at the top (`CRANE`, `FALL`, `SWAY`, …). To change one thing, edit only the file that owns it.
+
+| To change | Edit |
+|---|---|
+| The game modes and their rules: Relaxed's lives; Quick Finger's clock (how slowly it drains, how fast it may), its near window (±7 px, narrowing to perfect-only by 40 floors), what a miss costs, where each step's residents go; each mode's name, blurb and first-round hint | `mode/mode.js` |
+| The main screen: the title and a card per mode (icon, blurb, best tower) in the middle of the screen, side by side when there's room; how it pops in | `menu/menu.js`, `menu/menu.css` |
+| How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears, which floors are balcony floors, winding the rope up at the end | `crane/swing.js` |
+| How the rope, pulley, hook and hanging floor look; the hook meeting the floor at the middle of its roof | `crane/rigging.js` |
+| Press and hold: swing speed and size steps, extra momentum, multipliers, the 2 s warning and auto-drop, cancelling | `hold/hold.js` |
+| Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
+| What a landing sets off, the dust from under it | `landing/landing.js` |
+| How it gets harder as the tower climbs: the perfect window narrowing (2 px → 1 px), bad drops costing more | `difficulty/difficulty.js` |
+| Misses: tipping over the edge, falling past, landing off the slab | `miss/miss.js` |
+| Loose floors: how they tumble, knock into each other and the tower, what a knock throws off and cracks, crumbling away | `rubble/rubble.js` |
+| The physics under that: gravity, bounce, friction, contacts between boxes | `physics/rigid.js` |
+| Number of lives (Quick Finger has none: a miss costs time) | `lives/lives.js` |
+| The end of a round: settling on what is left standing, the floors-built count, the rope winding up, the slide down to the street | `round/ending.js` |
+| Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (1 to 10, from the blow; perfect floors never), the tip over the edge and the tumble | `collapse/collapse.js` |
+| The stack of floors and how it is drawn, its shadow on the ground | `tower/tower.js` |
+| Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much perfect drops steady the tower (3 in a row: 90%, 4: still) | `tower/sway.js` |
+| Camera: where the tower top rests, the climb after a landing, the end-of-round slide, the 3D eye (eye level, how strong the perspective is) | `camera/camera.js` |
+| Residents per floor, the share that moves in (half), where a combo's residents go | `score/residents.js` |
+| Combo: bar drain, refills, multiplier, payout; as Quick Finger's clock, its ticking when nearly out, paying as it goes, and time running out | `score/combo.js` |
+| How tenants fly in: one per resident, from all round the building in 3D except the front 60°, timing, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
+| How tenants look | `tenants/sprite.js` |
+| Perfect-drop stars | `effects/stars.js` |
+| Combo twinkles on the top floors | `effects/twinkles.js` |
+| Dust clouds and grit from knocks and landings | `effects/dust.js` |
+| Chips knocked off floors | `effects/chips.js` |
+| Screen jolt on heavy knocks | `effects/shake.js` |
+| Darkened edges of the view | `effects/vignette.js` |
+| Floor, ground-floor and balcony-floor look and size; how deep floors are and how their roof, underside and side walls look in 3D | `art/blocks.js` |
+| Cracks and chipped corners | `art/damage.js` |
+| Sky colours by height, sunset glow, the sun, moon, stars and planets (and how far they move as the camera climbs), soft clouds, how dark it is | `scenery/sky.js` |
+| The city behind the site: its three layers, building sizes, colours (kept clear of the tower's teal), facades and rooftops, parallax, haze and night lights | `scenery/city.js` |
+| The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
+| What the HUD shows and when, the payout, population and floors-built count-ups, "Close enough" and "Time's up", the hint on each mode's first round | `hud/hud.js` |
+| How the HUD looks: glass chips, icons, hearts, the combo meter (and its clock look), hold meter, payout, note, banner and floors-built animations | `hud/hud.css` |
+| Starting a round in a mode, going back to the main screen, the results card (mode, stats, best in that mode, Play again, Change mode) and how it pops up | `round/round.js`, `round/result.css` |
+| Controls: press, hold, drag, let go; Play again and Change mode | `input/input.js` |
+| Sounds: the synth, the mix (compressor, reverb), the scale, every sound in the game | `audio/sound.js` |
+| How the game fits any screen: the least width and height of the view (a phone upright shows more height, anything wider more city on each side), when it is framed, pixel scale and drawing resolution (with a pixel budget for big screens) | `core/screen.js` |
+| Shared drawing shapes (rectangles, circles, lines) | `core/pixels.js` |
+| What the browser remembers (best tower per mode, the mode last played, mute) | `core/storage.js` |
+| Update order and drawing order | `core/loop.js` |
+| Page colours, fonts, the glass panel look, the stage and its frame, the HUD's unit (never too small to read), notch insets, the first-round hint | `styles/page.css` |
+
+## How the files fit together
+
+- `core/namespace.js` creates the `SS` namespace. Every other file adds one part to it (`SS.crane`, `SS.sway`, `SS.tenants`, …) and reads other parts only through it, when it runs, never by copying their numbers.
+- Each game part has `init(g)` for its starting state in a new round (called from `round/round.js`), `update(g, dt)` and/or `draw(g, camY)` (called from `core/loop.js` in a fixed order).
+- A landing is the one place several parts react together; `landing/landing.js` calls each of them in turn. A collapse (`collapse/collapse.js`) is the other: it takes floors off the tower and tells residents, tenants, sway, lives and the camera.
+- `index.html` loads the scripts in order; `core/loop.js` is last and starts the game on the main screen.
+- The mode (`SS.mode.rules()`) is read when it matters: by lives, the combo, landing and the HUD during a round, and by the results card and main screen between rounds.
+
+Units are game pixels and seconds. `SS.K` (46/110) converts pixels of the recording to game pixels. The canvas has as many pixels as the screen really has, so everything is drawn sharp and moving things sit between pixels.
