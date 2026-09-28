@@ -1,12 +1,14 @@
-/* End-of-round results card: a soft glass card that pops up, then its Play again and Change mode
-   buttons. (.screen is also the main screen's backdrop, menu/menu.css.) */
+/* End-of-round results card: a soft glass card that pops up at the bottom, then its Play again
+   and Change mode buttons. On a short, wide screen (a phone on its side) the card goes side by
+   side: the floors and buttons on the left, the stats on the right. If it still doesn't fit, it
+   scrolls rather than being cut off. (.screen is also the main screen's backdrop, menu/menu.css.) */
 .screen{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-  padding:16px;padding-block:16px 22px;overflow-y:auto;cursor:default;box-sizing:border-box;
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:16px calc(16px + var(--safe-r)) 22px calc(16px + var(--safe-l));overflow-y:auto;cursor:default;box-sizing:border-box;
   background:linear-gradient(to top,rgba(6,9,26,.88) 0%,rgba(6,9,26,.55) 45%,rgba(6,9,26,0) 75%);
 }
 .card{
-  width:100%;max-width:360px;box-sizing:border-box;padding:20px 20px 18px;display:flex;flex-direction:column;gap:14px;
+  margin-top:auto;flex:none;width:100%;max-width:360px;box-sizing:border-box;padding:20px 20px 18px;display:flex;flex-direction:column;gap:14px;
   background:linear-gradient(180deg,rgba(30,38,82,.9),rgba(14,18,44,.92));border:1px solid rgba(255,255,255,.12);border-radius:24px;
   box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -48,6 +50,19 @@
 }
 .btn-quiet .ico{stroke-width:2}
 .btn-quiet:active{box-shadow:none}
+@media (orientation: landscape) and (max-height: 540px){
+  .screen{padding-block:12px}
+  .card{
+    margin-block:auto;max-width:640px;display:grid;grid-template-columns:1fr 1.1fr;align-items:start;
+    column-gap:22px;row-gap:10px;padding:16px 18px;
+  }
+  .card > :not(.stats){grid-column:1}
+  .card > .stats{grid-column:2;grid-row:1 / span 6;align-self:center}
+  .res-title b{font-size:46px}
+  .stats li{padding:7px 0}
+  .btn{margin-top:0;min-height:46px}
+  .btn-quiet{margin-top:0;min-height:40px}
+}
 /* the card pops up, then Play again */
 .screen:not([hidden]) .card{animation:card-pop .5s cubic-bezier(.2,1.3,.4,1) both}
 .screen:not([hidden]) .card .btn{animation:btn-pop .45s .28s cubic-bezier(.2,1.6,.4,1) backwards}

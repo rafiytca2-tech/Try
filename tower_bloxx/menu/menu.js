@@ -1,7 +1,8 @@
-// The main screen: the game's name over the sky, and a card for each game mode (mode/mode.js)
-// with its icon, what it's about and the best tower built in it. Picking one starts a round in
-// that mode (round/round.js). The scene stays live behind it, the hook swinging over an empty site.
-// The mode last played has the focus, so Enter or Space plays it again. Styles are in menu/menu.css.
+// The main screen: the game's name and, under it, a card for each game mode (mode/mode.js) with
+// its icon, what it's about and the best tower built in it, all in the middle of the screen (the
+// cards side by side when there's room). Picking one starts a round in that mode (round/round.js).
+// The scene stays live behind it, the hook swinging over an empty site. The mode last played has
+// the focus, so Enter or Space plays it again. Styles are in menu/menu.css.
 (() => {
 'use strict';
 const { $ } = SS;
@@ -18,11 +19,13 @@ const ICON = {
 
 SS.screen.stage.insertAdjacentHTML('beforeend', `
   <section id="menu" class="screen menu" hidden aria-labelledby="menuTitle">
-    <header class="menu-head">
-      <h1 class="menu-title" id="menuTitle"></h1>
-      <p class="menu-sub" id="menuSub"></p>
-    </header>
-    <div class="modes" id="modes" role="group" aria-label="Game mode"></div>
+    <div class="menu-box">
+      <header class="menu-head">
+        <h1 class="menu-title" id="menuTitle"></h1>
+        <p class="menu-sub" id="menuSub"></p>
+      </header>
+      <div class="modes" id="modes" role="group" aria-label="Game mode"></div>
+    </div>
   </section>`);
 $('menuTitle').textContent = MENU.title;
 $('menuSub').textContent = MENU.sub;

@@ -1,5 +1,6 @@
 /* Page and play area: colours, type and the glass panel look shared by every part of the page,
-   the phone-shaped stage and the canvas, and the first-round hint. */
+   the stage (it fills the window; core/screen.js sizes it) and the canvas, the HUD's unit, and
+   the first-round hint. */
 :root{
   color-scheme: dark;
   --night:#0a1230;
@@ -26,6 +27,8 @@ body{
 }
 #stage{
   --u:2px;   /* CSS px per game pixel, set by core/screen.js */
+  --hu:max(var(--u), 1.15px);   /* the HUD's unit: like --u, but never so small the HUD can't be read */
+  --safe-l:env(safe-area-inset-left, 0px);--safe-r:env(safe-area-inset-right, 0px);   /* round a notch on a phone held sideways */
   position:fixed;left:0;width:100%;
   top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
   overflow:hidden;background:#0a0a0a;touch-action:manipulation;cursor:pointer;

@@ -14,11 +14,18 @@ const GROUND = {
   slabDeep: 44,         // 3D: px the slab's top goes back
   slabThick: 4,         // px of the slab's front face
   tufts: [-118, -104, -90, -76, -71, 74, 88, 97, 111, 121],   // px from the middle: grass on the ground's top
+  tuftSpan: 280,        // px: the grass repeats this far apart across a wide screen (the stones every 560)
 };
 
 // This file's own seeded generator (see scenery/city.js for why the seed looks like this).
 const rand = mulberry32((2005 + 770 * 0x6D2B79F5) | 0);
-const rocks = Array.from({ length: 22 }, () => ({ x: Math.round(rand() * 560 - 280), y: 8 + Math.round(rand() * 56), s: 2 + Math.floor(rand() * 4) }));
+const ROCKS_SPAN = 560;
+const rocks = Array.from({ length: 22 }, () => ({ x: Math.round(rand() * ROCKS_SPAN - ROCKS_SPAN / 2), y: 8 + Math.round(rand() * 56), s: 2 + Math.floor(rand() * 4) }));
+// Calls fn with each offset (0, ±span, ±2 span, ...) needed to cover the screen from the middle out.
+function across(span, fn) {
+  const k = Math.ceil(view.w / 2 / span);
+  for (let i = -k; i <= k; i++) fn(i * span);
+}
 
 // Chain-link: a diamond mesh every 6 px, drawn at MESH_RES times size so it stays crisp.
 const MESH_RES = 8, meshTile = canvasOf(6 * MESH_RES, 6 * MESH_RES);
@@ -99,12 +106,14 @@ function draw(camY) {
   top.addColorStop(0, '#9c7a3c'); top.addColorStop(1, '#b89048');
   ctx.fillStyle = top; ctx.fillRect(0, back, view.w, front - back);
   rect(ctx, '#946a20', 0, front, view.w, back + depth - front); rect(ctx, '#c9a25a', 0, front, view.w, 1);
-  for (const r of rocks) {
-    const x = Math.round(cx) + r.x, y = gy + Math.round(r.y * depth / 78);
-    if (x < -8 || x > view.w + 8) continue;
-    poly(ctx, '#5c4526', [x + 0.5, y - 0.3, x + r.s + 0.3, y + r.s, x + 0.7 - r.s, y + r.s]);
-    circle(ctx, x + 0.5, y + 0.7, 0.55, '#b08d5c');
-  }
+  across(ROCKS_SPAN, off => {
+    for (const r of rocks) {
+      const x = Math.round(cx) + r.x + off, y = gy + Math.round(r.y * depth / 78);
+      if (x < -8 || x > view.w + 8) continue;
+      poly(ctx, '#5c4526', [x + 0.5, y - 0.3, x + r.s + 0.3, y + r.s, x + 0.7 - r.s, y + r.s]);
+      circle(ctx, x + 0.5, y + 0.7, 0.55, '#b08d5c');
+    }
+  });
   rect(ctx, '#5a4428', 0, back + depth, view.w, 14);
   if (back + depth + 14 < view.h) rect(ctx, '#0a0a0a', 0, back + depth + 14, view.w, view.h - back - depth - 14);
 
@@ -119,7 +128,9 @@ function draw(camY) {
   rect(ctx, 'rgba(20,14,8,0.35)', x0, f + t, x1 - x0, 1.2);
 
   cone(cx - S - 16, back + 1); cone(cx + S + 18, back + 1);
-  for (const x of GROUND.tufts) { const tx2 = cx + x; if (tx2 > -4 && tx2 < view.w + 4 && Math.abs(x) > S + 12) tuft(tx2, back + 3 + (Math.abs(x) % 5)); }
+  across(GROUND.tuftSpan, off => {
+    for (const x of GROUND.tufts) { const xx = x + off, tx2 = cx + xx; if (tx2 > -4 && tx2 < view.w + 4 && Math.abs(xx) > S + 12) tuft(tx2, back + 3 + (Math.abs(xx) % 5)); }
+  });
 }
 
 SS.ground = { GROUND, draw };

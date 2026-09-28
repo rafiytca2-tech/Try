@@ -11,7 +11,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | To change | Edit |
 |---|---|
 | The game modes and their rules: Relaxed's lives; Quick Finger's clock (how slowly it drains, how fast it may), its near window (±7 px, narrowing to perfect-only by 40 floors), what a miss costs, where each step's residents go; each mode's name, blurb and first-round hint | `mode/mode.js` |
-| The main screen: the title, a card per mode with its icon and best tower, how it pops in | `menu/menu.js`, `menu/menu.css` |
+| The main screen: the title and a card per mode (icon, blurb, best tower) in the middle of the screen, side by side when there's room; how it pops in | `menu/menu.js`, `menu/menu.css` |
 | How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears, which floors are balcony floors, winding the rope up at the end | `crane/swing.js` |
 | How the rope, pulley, hook and hanging floor look; the hook meeting the floor at the middle of its roof | `crane/rigging.js` |
 | Press and hold: swing speed and size steps, extra momentum, multipliers, the 2 s warning and auto-drop, cancelling | `hold/hold.js` |
@@ -47,11 +47,11 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Starting a round in a mode, going back to the main screen, the results card (mode, stats, best in that mode, Play again, Change mode) and how it pops up | `round/round.js`, `round/result.css` |
 | Controls: press, hold, drag, let go; Play again and Change mode | `input/input.js` |
 | Sounds: the synth, the mix (compressor, reverb), the scale, every sound in the game | `audio/sound.js` |
-| Screen shape, pixel scale and drawing resolution | `core/screen.js` |
+| How the game fits any screen: the least width and height of the view (a phone upright shows more height, anything wider more city on each side), when it is framed, pixel scale and drawing resolution (with a pixel budget for big screens) | `core/screen.js` |
 | Shared drawing shapes (rectangles, circles, lines) | `core/pixels.js` |
 | What the browser remembers (best tower per mode, the mode last played, mute) | `core/storage.js` |
 | Update order and drawing order | `core/loop.js` |
-| Page colours, fonts, the glass panel look, the phone frame, the first-round hint | `styles/page.css` |
+| Page colours, fonts, the glass panel look, the stage and its frame, the HUD's unit (never too small to read), notch insets, the first-round hint | `styles/page.css` |
 
 ## How the files fit together
 
