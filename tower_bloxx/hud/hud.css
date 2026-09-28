@@ -1,0 +1,49 @@
+/* HUD, laid out like the phone original: combo bar across the top, floor gauge and lives
+   bottom-left, population bottom-right. Sizes are in game pixels (--u). */
+#hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-pixel);font-weight:700;color:#fff}
+.outline{text-shadow:1px 1px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge),0 1px 0 var(--edge),0 -1px 0 var(--edge),1px 0 0 var(--edge),-1px 0 0 var(--edge)}
+
+/* sound on/off */
+.icon-btn{
+  pointer-events:auto;position:absolute;top:calc(var(--u) * 6);right:calc(var(--u) * 6);width:calc(var(--u) * 16);height:calc(var(--u) * 16);
+  padding:0;display:grid;place-items:center;cursor:pointer;color:var(--ink);
+  background:rgba(19,32,74,.7);border:2px solid var(--edge);border-radius:3px;
+}
+.icon-btn svg{width:62%;height:62%}
+.icon-btn .off{display:none}
+.icon-btn[aria-pressed="true"] .on{display:none}
+.icon-btn[aria-pressed="true"] .off{display:inline}
+.icon-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* combo bar and multiplier */
+.combo{position:absolute;left:14.1%;right:14.7%;top:calc(var(--u) * 53)}
+.combo-track{height:calc(var(--u) * 6.5);background:var(--track);border-radius:calc(var(--u) * 3.5);overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.combo-track i{display:block;height:100%;width:100%;background:var(--combo);border-radius:inherit}
+.combo-x{position:absolute;right:0;bottom:calc(100% + var(--u) * 1);font-size:calc(var(--u) * 6);line-height:1}
+
+/* combo payout, blinking */
+.bonus{position:absolute;left:0;right:0;top:calc(var(--u) * 70);text-align:center;font-size:calc(var(--u) * 9);line-height:1;letter-spacing:.04em;animation:blink .24s steps(1) infinite}
+@keyframes blink{50%{visibility:hidden}}
+@media (prefers-reduced-motion: reduce){.bonus{animation:none}}
+
+/* bottom-left: floor gauge and lives */
+.hud-bl{position:absolute;left:calc(var(--u) * 15);bottom:calc(var(--u) * 20);display:flex;align-items:flex-end;gap:calc(var(--u) * 6)}
+.gauge{display:flex;flex-direction:column;align-items:center}
+.gauge-badge{
+  min-width:calc(var(--u) * 13);box-sizing:border-box;padding:calc(var(--u) * 1) calc(var(--u) * 1.5);text-align:center;
+  font-size:calc(var(--u) * 6.5);line-height:1;color:#fff;background:#2d8fd6;border:calc(var(--u) * 1) solid #e8f4ff;border-radius:calc(var(--u) * 2);
+  box-shadow:0 0 0 1px var(--edge);font-variant-numeric:tabular-nums;
+}
+.gauge-bar{
+  position:relative;width:calc(var(--u) * 7);height:calc(var(--u) * 24);margin-top:calc(var(--u) * -0.5);
+  background:#10141c;border:calc(var(--u) * 1) solid #e0b830;border-radius:calc(var(--u) * 1.5);box-shadow:0 0 0 1px var(--edge);
+}
+.gauge-bar i{position:absolute;left:1px;right:1px;bottom:1px;height:0;background:repeating-linear-gradient(to top,#2d8fd6 0 calc(var(--u) * 1.6),#1b5d92 calc(var(--u) * 1.6) calc(var(--u) * 2.4))}
+.lives{display:flex;flex-direction:column;gap:calc(var(--u) * 1.5);margin-bottom:calc(var(--u) * 1)}
+.life{width:calc(var(--u) * 7);height:calc(var(--u) * 7);background:#2d8fd6;box-shadow:inset 0 calc(var(--u) * 1) 0 #7cc4f5,0 0 0 1px var(--edge)}
+.life.lost{background:#26303f;box-shadow:0 0 0 1px var(--edge)}
+
+/* bottom-right: population */
+.hud-br{position:absolute;right:calc(var(--u) * 14);bottom:calc(var(--u) * 21);display:flex;align-items:center;gap:calc(var(--u) * 2.5)}
+.hud-br svg{width:calc(var(--u) * 13);height:calc(var(--u) * 10);filter:drop-shadow(1px 1px 0 var(--edge))}
+.hud-pop{font-size:calc(var(--u) * 7.5);line-height:1;letter-spacing:.06em;font-variant-numeric:tabular-nums}

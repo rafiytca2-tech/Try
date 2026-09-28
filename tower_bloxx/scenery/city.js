@@ -1,0 +1,65 @@
+// The city behind the site: big flat grey blocks with sky showing between them, scrolling
+// slower than the tower (0.82 of the camera's climb, measured from the recording), with a paler,
+// slower layer further back that shows once the near one runs out.
+(() => {
+'use strict';
+const { canvasOf, rect, shade, mulberry32 } = SS.px, { ctx, view } = SS.screen;
+
+const CITY = {
+  parallax: 0.82,       // near blocks move this share of the camera's climb
+  farParallax: 0.35,
+  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef' },
+  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee' },
+};
+
+// This file's own seeded generator, so the skyline is the same on every visit. The seed carries
+// on from where the old single-file version's shared generator was at this point, so the
+// skyline looks exactly as it did before the game was split into files.
+const rand = mulberry32((2005 + 836 * 0x6D2B79F5) | 0);
+
+function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass }) {
+  const arr = []; let total = 0;
+  while (total < 720) {
+    const b = {
+      w: minW + Math.floor(rand() * (maxW - minW)), h: minH + Math.floor(rand() * (maxH - minH)),
+      gap: rand() < 0.3 ? 3 : 0, c: pal[Math.floor(rand() * pal.length)],
+      kind: ['bands', 'glass', 'grid', 'bands', 'plain'][Math.floor(rand() * 5)], cap: rand() < 0.35, gx: rand(),
+    };
+    arr.push(b); total += b.w + b.gap;
+  }
+  const tall = maxH + 12, c = canvasOf(total, tall), g = c.getContext('2d');
+  let x = 0;
+  for (const b of arr) {
+    const top = tall - b.h;
+    rect(g, b.c, x, top, b.w, b.h);
+    if (b.cap) rect(g, shade(b.c, -12), x + 5, top - 8, Math.round(b.w * 0.4), 8);
+    if (b.kind === 'bands') for (let y = top + 14; y < tall - 8; y += 22) rect(g, shade(b.c, -20 * detail), x, y, b.w, 6);
+    if (b.kind === 'glass') { const gw = Math.min(14, b.w - 10), gx = x + 4 + Math.floor(b.gx * (b.w - gw - 8)); rect(g, glass, gx, top + 6, gw, b.h - 8); rect(g, shade(glass, 18), gx, top + 6, 3, b.h - 8); }
+    if (b.kind === 'grid') for (let y = top + 8; y < tall - 8; y += 9) for (let xx = x + 4; xx < x + b.w - 6; xx += 7) rect(g, shade(b.c, -26 * detail), xx, y, 3, 4);
+    rect(g, shade(b.c, 16), x, top, b.w, 2);
+    rect(g, shade(b.c, -14), x + b.w - 3, top, 3, b.h);
+    rect(g, b.c, x, tall - 2, b.w - 3, 2);
+    x += b.w + b.gap;
+  }
+  return { img: c, total, tall };
+}
+const FAR = makeBackdrop(CITY.far);
+const NEAR = makeBackdrop(CITY.near);
+
+function drawLayer(layer, camY, p) {
+  const base = Math.round(-camY * p + (1 - p) * SS.camera.restLine());
+  if (base - layer.tall > view.h) return;
+  const x0 = Math.round(view.w / 2) - layer.total * Math.ceil(view.w / 2 / layer.total + 1);
+  for (let x = x0; x < view.w; x += layer.total) {
+    ctx.drawImage(layer.img, x, base - layer.tall);
+    if (base < view.h) ctx.drawImage(layer.img, 0, layer.tall - 1, layer.total, 1, x, base, layer.total, view.h - base);
+  }
+}
+
+function draw(camY) {
+  drawLayer(FAR, camY, CITY.farParallax);
+  drawLayer(NEAR, camY, CITY.parallax);
+}
+
+SS.city = { CITY, draw };
+})();

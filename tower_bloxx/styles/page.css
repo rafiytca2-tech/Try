@@ -1,0 +1,37 @@
+/* Page and play area: colours shared by every part of the page, the phone-shaped stage and the
+   canvas, and the first-round hint. */
+:root{
+  color-scheme: dark;
+  --night:#0a1230;
+  --panel:#13204a;
+  --edge:#060a1a;
+  --crane:#f5c518;
+  --ink:#fff6d6;
+  --muted:#aebfe3;
+  --good:#8be89a;
+  --combo:#ffac00;
+  --track:#575659;
+  --font-pixel:"Silkscreen","Courier New",ui-monospace,monospace;
+  --font-body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:var(--night);
+  background-image:radial-gradient(circle at 1px 1px,#1a2a5e 1px,transparent 1.5px);background-size:12px 12px;
+  color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.4;
+  overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+}
+#stage{
+  --u:2px;   /* CSS px per game pixel, set by core/screen.js */
+  position:fixed;left:0;width:100%;
+  top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);
+  overflow:hidden;background:#0a0a0a;touch-action:manipulation;cursor:pointer;
+}
+#stage.framed{box-shadow:0 0 0 4px var(--edge),0 0 0 8px #22336b,0 0 0 12px var(--edge)}
+#view{position:absolute;left:0;top:0;display:block}
+.tip{
+  position:absolute;left:16px;right:16px;top:74%;margin:0;text-align:center;pointer-events:none;
+  font-family:var(--font-pixel);font-size:13px;letter-spacing:.04em;
+  text-shadow:2px 2px 0 var(--edge),-1px -1px 0 var(--edge),1px -1px 0 var(--edge),-1px 1px 0 var(--edge);
+}
