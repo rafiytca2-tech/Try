@@ -112,7 +112,7 @@ function draw(g, camY) {
     ctx.globalAlpha = 1 - b.fade;
     ctx.translate(cx + b.x, y + b.fade * 6);           // crumbling: it sinks as it goes
     ctx.rotate(b.a);
-    SS.damage.draw(ctx, b.kind, b.dmg, -W / 2, -H / 2, b.a);
+    SS.damage.draw(ctx, b.kind, b.dmg, -W / 2, -H / 2);
     ctx.restore();
   }
 }

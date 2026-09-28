@@ -1,6 +1,7 @@
 // How the crane looks: the rope from its pivot above the screen, the round pulley with a gold
 // hub at the rope's end, the short hook (or, for the first floor, a two-cable sling) and the
-// floor hanging from it, all tilted with the load.
+// floor hanging from it, all tilted with the load, the hook meeting the floor at the middle of
+// its roof (its centre of gravity).
 (() => {
 'use strict';
 const { circle, line } = SS.px, { ctx, view } = SS.screen;
@@ -36,20 +37,37 @@ function drawRigging(kind, loaded) {
   }
 }
 
-function draw(g) {
-  const h = SS.crane.hookAt(g), cx = view.w / 2, py = SS.crane.pivotY();
-  // rope from the pivot above the screen, drawn from just above the top edge down
-  const y0 = Math.max(py, -4), k0 = (y0 - py) / Math.max(1, h.y - py);
+// The rope, pulley and hook hang over the floor's centre of gravity: in the middle of its roof,
+// half the floor's depth back from its front. So they're drawn drawn in toward the camera's eye by
+// that much (camera/camera.js), and meet the roof at its centre. From below (the usual view)
+// the roof is hidden, so they go behind the floor's front; seen from above, on top of the roof.
+function drawRig(g, h, kind) {
+  const E = SS.camera.eye(), k = E.dist / (E.dist + SS.blocks.BOX.depth / 2), cx = view.w / 2, py = SS.crane.pivotY();
+  ctx.save();
+  ctx.translate(E.x, E.y); ctx.scale(k, k); ctx.translate(-E.x, -E.y);
+  // rope from the pivot above the screen, drawn from above the top edge down
+  const y0 = Math.max(py, -60), k0 = (y0 - py) / Math.max(1, h.y - py);
   const rx = cx + (h.x - cx) * k0;
   line(ctx, RIGGING.rope, rx, y0, h.x, h.y + 0.5, RIGGING.ropeWidth, 'butt');           // steel cable
   line(ctx, RIGGING.ropeShine, rx - 0.6, y0, h.x - 0.6, h.y + 0.5, 0.7, 'butt');       //   catching the light
-  const kind = SS.crane.nextKind(g);
-  ctx.save();
   ctx.translate(h.x, h.y);
   ctx.rotate(h.tilt);
-  if (g.hook.has) SS.blocks.draw3d(ctx, kind, -SS.blocks.W / 2, hangOf(kind), h.tilt);   // the floor, then the hook over its roof
   drawRigging(kind, g.hook.has);
   ctx.restore();
+}
+
+function draw(g) {
+  const h = SS.crane.hookAt(g), kind = SS.crane.nextKind(g);
+  const roofShows = h.y + hangOf(kind) > SS.camera.eye().y;
+  if (!g.hook.has || !roofShows) drawRig(g, h, kind);
+  if (g.hook.has) {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.tilt);
+    SS.blocks.draw3d(ctx, kind, -SS.blocks.W / 2, hangOf(kind));
+    ctx.restore();
+    if (roofShows) drawRig(g, h, kind);
+  }
 }
 
 // Rope end to the top of the load (a balcony floor hangs like any floor).

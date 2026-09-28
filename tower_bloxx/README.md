@@ -11,7 +11,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | To change | Edit |
 |---|---|
 | How the hook swings: loop size and speed, how evenly it rounds the sides, load tilt, rope pivot, when the next floor appears, which floors are balcony floors, winding the rope up at the end | `crane/swing.js` |
-| How the rope, pulley, hook and hanging floor look | `crane/rigging.js` |
+| How the rope, pulley, hook and hanging floor look; the hook meeting the floor at the middle of its roof | `crane/rigging.js` |
 | Press and hold: swing speed and size steps, extra momentum, multipliers, the 2 s warning and auto-drop, cancelling | `hold/hold.js` |
 | Letting go and the fall: gravity, sideways carry, straightening, what counts as a hit or a miss | `drop/fall.js` |
 | The perfect-drop window (2 px), what a landing sets off, the dust from under it | `landing/landing.js` |
@@ -23,7 +23,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Collapse: when a bad drop on a shaky tower brings the top down, how many floors go (1 to 10, from the blow; perfect floors never), the tip over the edge and the tumble | `collapse/collapse.js` |
 | The stack of floors and how it is drawn, its shadow on the ground | `tower/tower.js` |
 | Tower sway and steadiness: floors that never move, how the bend grows with height, the landing wobble, how much perfect drops steady the tower (3 in a row: 90%, 4: still) | `tower/sway.js` |
-| Camera: where the tower top rests, the climb after a landing, the end-of-round slide | `camera/camera.js` |
+| Camera: where the tower top rests, the climb after a landing, the end-of-round slide, the 3D eye (eye level, how strong the perspective is) | `camera/camera.js` |
 | Residents per floor, the share that moves in (half), where a combo's residents go | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
 | How tenants fly in: one per resident, timing, start and window end points, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
@@ -34,7 +34,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Chips knocked off floors | `effects/chips.js` |
 | Screen jolt on heavy knocks | `effects/shake.js` |
 | Darkened edges of the view | `effects/vignette.js` |
-| Floor, ground-floor and balcony-floor look and size; the 2.5D depth (how far back floors go, roof and wall faces) | `art/blocks.js` |
+| Floor, ground-floor and balcony-floor look and size; how deep floors are and how their roof, underside and side walls look in 3D | `art/blocks.js` |
 | Cracks and chipped corners | `art/damage.js` |
 | Sky colours by height, sunset glow, the sun, stars, planets, soft clouds, how dark it is | `scenery/sky.js` |
 | The city behind the site, its parallax and haze | `scenery/city.js` |

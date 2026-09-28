@@ -1,6 +1,9 @@
 // The camera: where the tower top rests on screen, the one-floor climb after each landing
 // (ease-out over 0.45 s, measured from the recording), and the slide back down the tower to the
-// street when the round ends.
+// street when the round ends. It looks straight at the tower like the original, but in 3D: its
+// eye sits on the tower's line a little above the resting top, and everything's far side draws
+// in toward that point, so things below the eye show a little of their top and things above it
+// a little of their underside (see eye()).
 (() => {
 'use strict';
 const { easeOut } = SS, { view } = SS.screen;
@@ -11,11 +14,17 @@ const CAMERA = {
   endRatio: 0.55,          // end of round: the street sits this far down the screen
   panMinSpeed: 260,        // end-of-round slide, px/s at least,
   panTime: 1.8,            //   or the whole slide in this many seconds if that is faster
+  eyeAbove: 42,            // 3D: px above the resting tower top where the eye is (the horizon)
+  eyeDistance: 440,        // 3D: px from the eye to the tower's front; less = stronger perspective
 };
 
 const restLine = () => Math.round(view.h * CAMERA.restRatio);          // screen row of the resting tower top
 const target = g => -g.tower.length * SS.blocks.H - restLine();        // camY with the tower top on the rest line
 const endY = () => -Math.round(view.h * CAMERA.endRatio);
+
+// The eye, on screen: things d px further back than the tower's front are drawn scaled toward
+// (x, y) by dist / (dist + d).
+const eye = () => ({ x: view.w / 2, y: restLine() - CAMERA.eyeAbove, dist: CAMERA.eyeDistance });
 
 function init(g) { g.cam = null; g.pan = null; g.hold = false; g.camY = target(g); }
 
@@ -53,5 +62,5 @@ function onResize(g, playing) {
   else if (!g.pan) { g.cam = null; g.camY = target(g); }
 }
 
-SS.camera = { CAMERA, restLine, target, init, climb, startPan, skipPan, update, onResize };
+SS.camera = { CAMERA, restLine, target, eye, init, climb, startPan, skipPan, update, onResize };
 })();

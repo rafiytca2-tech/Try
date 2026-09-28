@@ -29,6 +29,8 @@ function render() {
   const g = SS.game;
   const [sx, sy] = SS.shake.offset(g);
   ctx.setTransform(view.m, 0, 0, view.m, sx * view.m, sy * view.m);
+  SS.screen.base = ctx.getTransform();          // game px -> canvas, for drawing in screen space (art/blocks.js)
+  SS.screen.baseInv = SS.screen.base.inverse();
   if (sx || sy) { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(-8, -8, view.w + 16, view.h + 16); }   // behind a shaken view
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';

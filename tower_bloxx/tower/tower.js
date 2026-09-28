@@ -22,20 +22,26 @@ const TOWER = {
   shadowDark: 0.38,    // how dark it is at the tower's foot
 };
 
-// The tower's shadow on the ground behind it (the light comes from the top left), and a dark
-// line where it meets the slab.
+// The tower's shadow on the ground round its foot, reaching back and to the right (the light
+// comes from the top left), and a dark line where it meets the slab.
 function shadow(g, camY) {
-  const { W, DEPTH: D } = SS.blocks, gy = -camY;
+  const { W } = SS.blocks, gy = -camY;
   if (gy < -20 || gy - 20 > view.h) return;
-  const x = view.w / 2 + g.tower[0].x + W / 2, len = TOWER.shadow;
-  const fade = ctx.createLinearGradient(x, 0, x + len, 0);
+  const x = view.w / 2 + g.tower[0].x, len = TOWER.shadow;
+  ctx.save();
+  ctx.translate(x + len * 0.35, gy - 1.5); ctx.scale(1, 0.14);
+  const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, W / 2 + len * 0.6);
   fade.addColorStop(0, `rgba(24,18,10,${TOWER.shadowDark})`); fade.addColorStop(1, 'rgba(24,18,10,0)');
-  SS.px.poly(ctx, fade, [x, gy, x + len, gy, x + len + D.x, gy + D.y, x + D.x, gy + D.y]);
-  SS.px.rect(ctx, 'rgba(24,18,10,0.35)', x - W, gy, W, 1.2);
+  ctx.fillStyle = fade; ctx.beginPath(); ctx.arc(0, 0, W / 2 + len * 0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  SS.px.rect(ctx, 'rgba(24,18,10,0.35)', x - W / 2, gy, W, 1.2);
 }
 
 // Each floor sits on the bent line: its bottom is moved sideways by the bend at its height and
-// it leans by the bend's slope across its own height. The bottom three floors stay put.
+// it leans by the bend's slope across its own height. The bottom three floors stay put. Floors
+// are drawn bottom up, so each one's roof is covered by the floor on it; their undersides sit on
+// the floor below and never show.
+const STACKED = { under: false };
 function draw(g, camY) {
   const n = g.tower.length;
   if (!n) return;
@@ -46,11 +52,11 @@ function draw(g, camY) {
     const f = g.tower[i], d0 = SS.sway.bendAt(g, i), d1 = SS.sway.bendAt(g, i + 1);
     const lean = Math.atan2(d1 - d0, H) + (i === n - 1 ? SS.sway.wobbleAngle(g) : 0);
     const bx = cx + f.x + d0, by = -i * H - camY;
-    if (!lean) { SS.damage.draw(ctx, f.kind, f.dmg, bx - W / 2, by - H, 0); SS.blocks.lights(ctx, f.kind, bx - W / 2, by - H, night, i); continue; }
+    if (!lean) { SS.damage.draw(ctx, f.kind, f.dmg, bx - W / 2, by - H, STACKED); SS.blocks.lights(ctx, f.kind, bx - W / 2, by - H, night, i); continue; }
     ctx.save();
     ctx.translate(bx, by);
     ctx.rotate(lean);
-    SS.damage.draw(ctx, f.kind, f.dmg, -W / 2, -H, lean);
+    SS.damage.draw(ctx, f.kind, f.dmg, -W / 2, -H, STACKED);
     SS.blocks.lights(ctx, f.kind, -W / 2, -H, night, i);
     ctx.restore();
   }

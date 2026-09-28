@@ -1,8 +1,8 @@
 // How a floor looks: its size, the teal body with a concrete cap, the beige window frames with
 // sky-reflecting glass, the glass doors on the ground floor, and the balcony floor that comes
-// every 10th floor. Floors are solid boxes drawn in 2.5D: behind the front you see the roof and
-// the right-hand wall, going back up and to the right (lit from the top left, so the roof is
-// light and the wall in shade), and they stay right however a floor is turned. The facade is lit
+// every 10th floor. Floors are solid boxes seen in 3D through the camera's eye: a sliver of roof,
+// underside or side wall shows depending on where a floor is against the eye, and it stays
+// right however a floor is turned. The facade is lit
 // from the top left, the glass is glossy, and at night windows light up. Everything is painted
 // once at 8x detail so it stays sharp at any screen size and when it turns. Also draws a floor
 // at any position and angle.
@@ -115,60 +115,68 @@ for (const kind of ['floor', 'foundation', 'balcony']) {
   if (kind === 'balcony') paintBalcony(g, BLOCK); else paintBlock(g, BLOCK, kind === 'foundation');
 }
 
-// The box behind the front: the roof and the right-hand wall, as textures laid on the
-// parallelograms that join the front's edges to the same edges further back.
-const DEPTH = { x: 7, y: -6 };   // how far back a floor goes, drawn on screen (up and to the right)
-const DEEP = 8;                  // texture size along the depth, game px
-function paintSide(g, t, trim) {              // DEEP wide (x: front edge -> back) x H tall
-  rect(g, t.outline, 0, 0, DEEP, H);
-  rect(g, shade(t.body, -40), 0, 1, DEEP - 0.7, H - 2);
-  rect(g, shade(trim, -45), 0, 1, DEEP - 0.7, 4);                    // the cap, round the corner
-  rect(g, shade(BLOCK.frameDark, -8), 2, 8, 4, 31);                  // a narrow side window
-  rect(g, '#2b6377', 2.8, 9, 2.4, 29); rect(g, '#4f8fa3', 2.8, 9, 0.7, 12);
-  rect(g, shade(t.body, -70), 0, H - 4, DEEP - 0.7, 3);
-  const fade = g.createLinearGradient(0, 0, DEEP, 0);                // darker toward the back
-  fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(1, 'rgba(0,0,0,0.22)');
-  g.fillStyle = fade; g.fillRect(0, 0, DEEP, H);
-}
-function paintTop(g, t, trim) {               // W wide x DEEP deep (y: front edge -> back)
-  rect(g, t.outline, 0, 0, W, DEEP);
-  rect(g, shade(trim, 22), 0.7, 0, W - 1.4, DEEP - 0.7);
-  rect(g, shade(trim, 55), 0.7, 0, W - 1.4, 1);                      // the lit front rim
-  rect(g, shade(trim, -12), 0.7, DEEP - 1.6, W - 1.4, 0.9);          // the far rim
-  rect(g, shade(trim, -25), 26, 2.4, 7, 3); rect(g, shade(trim, 30), 26, 2.4, 7, 0.9);   // a vent box
-  rect(g, shade(trim, -25), 8, 3, 3, 2);
-}
-const FACE = {};
-for (const kind of ['floor', 'foundation', 'balcony']) {
-  const trim = kind === 'balcony' ? BALCONY.trim : BLOCK.cap;
-  const side = canvasOf(DEEP * RES, H * RES), top = canvasOf(W * RES, DEEP * RES), under = canvasOf(8, 8);
-  const gs = side.getContext('2d'), gt = top.getContext('2d');
-  gs.scale(RES, RES); paintSide(gs, BLOCK, trim);
-  gt.scale(RES, RES); paintTop(gt, BLOCK, trim);
-  under.getContext('2d').fillStyle = shade(BLOCK.body, -85); under.getContext('2d').fillRect(0, 0, 8, 8);
-  FACE[kind] = { side, top, under };
-}
+// The box behind the front, in 3D: a floor goes BOX.depth back from its front, and the camera's
+// eye (camera/camera.js) draws that depth in toward one point. So a floor below the eye shows a
+// sliver of its roof, one above it a sliver of its underside, and one off to the side a sliver of
+// the wall facing the middle. The faces are worked out on screen from wherever the front is
+// drawn, so they stay right however a floor is moved or turned.
+const BOX = { depth: 40 };   // px from a floor's front to its back
+const FACE = {
+  roof: shade(BLOCK.cap, 16), roofInner: shade(BLOCK.cap, 2), rim: shade(BLOCK.cap, 48),
+  goldRim: shade(BALCONY.trim, 20),
+  under: shade(BLOCK.body, -80),
+  wallLit: shade(BLOCK.body, -18), wallShade: shade(BLOCK.body, -44),
+  glass: '#2b6377', edge: 'rgba(8,30,40,0.7)',
+};
+
 // Night: floors darken as the sky does (their lit windows are drawn over this, see lights()).
 const NIGHT = { color: '8,14,40', strength: 0.55 };
 let shadeNow = null;
 function setNight(night) { shadeNow = night > 0 ? `rgba(${NIGHT.color},${(NIGHT.strength * night).toFixed(3)})` : null; }
 
-function quad(g, tex, tw, th, ox, oy, ux, uy, vx, vy) {   // texture x along u, texture y along v
-  g.save();
-  g.transform(ux / tw, uy / tw, vx / th, vy / th, ox, oy);
-  g.drawImage(tex, 0, 0, tw, th);
-  if (shadeNow) { g.fillStyle = shadeNow; g.fillRect(0, 0, tw, th); }
-  g.restore();
+const lerp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+function fillPoly(g, color, pts) {
+  g.fillStyle = color; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+  g.closePath(); g.fill();
+  if (shadeNow) { g.fillStyle = shadeNow; g.fill(); }
 }
-// The faces behind a floor whose front's top-left corner is at (x, y), in a drawing space turned
-// by ang: whichever of the roof, underside and side walls face the way the depth goes.
-function faces(g, kind, x, y, ang = 0) {
-  const c = Math.cos(ang), s = Math.sin(ang), F = FACE[kind];
-  const dx = c * DEPTH.x + s * DEPTH.y, dy = -s * DEPTH.x + c * DEPTH.y;   // the depth, in the turned space
-  if (dy < 0) quad(g, F.top, W, DEEP, x, y, W, 0, dx, dy);
-  else if (dy > 0) quad(g, F.under, W, DEEP, x, y + H, W, 0, dx, dy);
-  if (dx > 0) quad(g, F.side, DEEP, H, x + W, y, dx, dy, 0, H);
-  else if (dx < 0) quad(g, F.side, DEEP, H, x, y, dx, dy, 0, H);
+
+// The faces behind a floor whose front's top-left corner is at (x, y) in the current drawing
+// space. opt.roof / opt.under = false leave those out (a floor in the tower has another floor
+// right under it, so its underside never shows).
+function faces(g, kind, x, y, opt = {}) {
+  const S = SS.screen;
+  if (!S.baseInv) return;
+  const L = S.baseInv.multiply(g.getTransform());           // this drawing space -> screen (game px)
+  const P = (px, py) => [L.a * px + L.c * py + L.e, L.b * px + L.d * py + L.f];
+  const E = SS.camera.eye(), k = E.dist / (E.dist + BOX.depth);
+  const front = [P(x, y), P(x + W, y), P(x + W, y + H), P(x, y + H)];   // corners: top left, top right, bottom right, bottom left
+  const back = front.map(([px, py]) => [E.x + (px - E.x) * k, E.y + (py - E.y) * k]);
+  g.save();
+  g.setTransform(S.base);
+  for (let i = 0; i < 4; i++) {                               // edges: top, right, bottom, left
+    if ((i === 0 && opt.roof === false) || (i === 2 && opt.under === false)) continue;
+    const p0 = front[i], p1 = front[(i + 1) % 4], q0 = back[i], q1 = back[(i + 1) % 4];
+    const ex = p1[0] - p0[0], ey = p1[1] - p0[1];
+    if ((E.x - p0[0]) * ey - (E.y - p0[1]) * ex <= 0.01) continue;   // the eye is on this edge's inside: hidden
+    const quad = [p0, p1, q1, q0];
+    if (i === 0) {                                           // roof: concrete, a lit front rim, a raised edge
+      fillPoly(g, FACE.roof, quad);
+      fillPoly(g, FACE.roofInner, [lerp(lerp(p0, q0, 0.2), lerp(p1, q1, 0.2), 0.06), lerp(lerp(p0, q0, 0.2), lerp(p1, q1, 0.2), 0.94), lerp(lerp(p0, q0, 0.85), lerp(p1, q1, 0.85), 0.94), lerp(lerp(p0, q0, 0.85), lerp(p1, q1, 0.85), 0.06)]);
+      g.strokeStyle = kind === 'balcony' ? FACE.goldRim : FACE.rim; g.lineWidth = 0.8;
+      g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke();
+    } else if (i === 2) {
+      fillPoly(g, FACE.under, quad);
+    } else {                                                 // a wall (left one lit, right one in shade), with a narrow window
+      fillPoly(g, i === 3 ? FACE.wallLit : FACE.wallShade, quad);
+      const a = i === 1 ? 8 / H : 1 - 39 / H, b = i === 1 ? 39 / H : 1 - 8 / H;   // the right edge runs down, the left one up
+      fillPoly(g, FACE.glass, [lerp(lerp(p0, p1, a), lerp(q0, q1, a), 0.3), lerp(lerp(p0, p1, b), lerp(q0, q1, b), 0.3), lerp(lerp(p0, p1, b), lerp(q0, q1, b), 0.7), lerp(lerp(p0, p1, a), lerp(q0, q1, a), 0.7)]);
+    }
+    g.strokeStyle = FACE.edge; g.lineWidth = 0.5;              // the far edge
+    g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); g.stroke();
+  }
+  g.restore();
 }
 
 // Lights on at night: where the glass is on each kind of floor, and which windows are lit.
@@ -203,8 +211,8 @@ function draw(g, kind, x, y) {
     if (o) { g.fillRect(x - o, y + 23, o, 13); g.fillRect(x + W, y + 23, o, 13); }   // the balcony's ends
   }
 }
-// The whole box: the faces behind, then the front. ang: how the drawing space is turned.
-function draw3d(g, kind, x, y, ang = 0) { faces(g, kind, x, y, ang); draw(g, kind, x, y); }
+// The whole box: the faces behind, then the front.
+function draw3d(g, kind, x, y, opt) { faces(g, kind, x, y, opt); draw(g, kind, x, y); }
 
 // A loose floor, centred on (x, y) in screen pixels and turned by ang.
 function drawAt(kind, x, y, ang) {
@@ -212,9 +220,9 @@ function drawAt(kind, x, y, ang) {
   ctx.save();
   ctx.translate(x, y);
   if (ang) ctx.rotate(ang);
-  draw3d(ctx, kind, -W / 2, -H / 2, ang || 0);
+  draw3d(ctx, kind, -W / 2, -H / 2);
   ctx.restore();
 }
 
-SS.blocks = { W, H, DEPTH, NIGHT, SPR, draw, draw3d, faces, lights, setNight, drawAt };
+SS.blocks = { W, H, BOX, NIGHT, SPR, draw, draw3d, faces, lights, setNight, drawAt };
 })();

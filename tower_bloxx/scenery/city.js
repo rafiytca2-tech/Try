@@ -1,5 +1,5 @@
-// The city behind the site: big grey blocks with sky showing between them, each with its roof
-// and right-hand wall showing (the same 2.5D as the floors, shallower further back), scrolling
+// The city behind the site: big grey blocks with sky showing between them, seen in 3D through the
+// camera's eye like the floors (the side facing the middle, and the roof once you're above it),
 // slower than the tower (0.82 of the camera's climb, measured from the recording), with a paler,
 // slower layer further back that shows once the near one runs out.
 (() => {
@@ -11,8 +11,8 @@ const CITY = {
   farParallax: 0.35,
   farHaze: 0.38,        // how much of the sky's low colour lies over the far blocks (depth)
   nearHaze: 0.12,       //   and over the near ones
-  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef', depth: 0.85 },
-  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee', depth: 0.5 },
+  near: { colors: ['#a4abaa', '#b8bdbc', '#a39392', '#c9cccb', '#9aa1a0', '#8f9392'], minW: 40, maxW: 110, minH: 500, maxH: 1300, detail: 0.8, glass: '#add6ef', deep: 70 },
+  far: { colors: ['#b9c3cc', '#c7cfd7', '#adb8c2', '#c0c8cf'], minW: 24, maxW: 60, minH: 220, maxH: 520, detail: 0.5, glass: '#c4dcee', deep: 50 },
 };
 
 // This file's own seeded generator, so the skyline is the same on every visit. The seed carries
@@ -25,7 +25,7 @@ const rand = mulberry32((2005 + 836 * 0x6D2B79F5) | 0);
 // repainted if the screen's resolution changes.
 const MAX_RES = 3;
 
-function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass, depth }) {
+function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass, deep }) {
   const arr = []; let total = 0;
   while (total < 720) {
     const b = {
@@ -33,20 +33,18 @@ function makeBackdrop({ colors: pal, minW, maxW, minH, maxH, detail, glass, dept
       gap: rand() < 0.3 ? 3 : 0, c: pal[Math.floor(rand() * pal.length)],
       kind: ['bands', 'glass', 'grid', 'bands', 'plain'][Math.floor(rand() * 5)], cap: rand() < 0.35, gx: rand(),
     };
+    b.x = total;                           // where it starts along the strip
     arr.push(b); total += b.w + b.gap;
   }
-  return { arr, total, tall: maxH + 12, detail, glass, depth, img: null, res: 0 };
+  return { arr, total, tall: maxH + 12, detail, glass, deep, img: null, res: 0 };
 }
 
 function paint(layer, res) {
   const { arr, total, tall, detail, glass } = layer, c = canvasOf(total * res, tall * res), g = c.getContext('2d');
-  const D = SS.blocks.DEPTH, dx = D.x * layer.depth, dy = D.y * layer.depth;   // the blocks' roofs and right-hand walls
   g.scale(res, res);
   let x = 0;
   for (const b of arr) {
     const top = tall - b.h;
-    poly(g, shade(b.c, -26), [x + b.w, top, x + b.w + dx, top + dy, x + b.w + dx, tall, x + b.w, tall]);
-    poly(g, shade(b.c, 22), [x, top, x + b.w, top, x + b.w + dx, top + dy, x + dx, top + dy]);
     rect(g, b.c, x, top, b.w, b.h);
     if (b.cap) rect(g, shade(b.c, -12), x + 5, top - 8, Math.round(b.w * 0.4), 8);
     if (b.kind === 'bands') for (let y = top + 14; y < tall - 8; y += 22) rect(g, shade(b.c, -20 * detail), x, y, b.w, 6);
@@ -62,6 +60,23 @@ function paint(layer, res) {
 const FAR = makeBackdrop(CITY.far);
 const NEAR = makeBackdrop(CITY.near);
 
+// 3D: each block's side facing the middle and, once the camera is above it, its roof, drawn in
+// toward the camera's eye (camera/camera.js). A layer that moves p of the camera's climb is
+// 1 / p times as far away as the tower, so its depth draws in less. The fronts go over these.
+function blockSides(layer, x, base, p) {
+  const E = SS.camera.eye(), far = E.dist / p, k = far / (far + layer.deep);
+  const back = ([px, py]) => [E.x + (px - E.x) * k, E.y + (py - E.y) * k];
+  const bottom = Math.min(base, view.h + 20);
+  for (const b of layer.arr) {
+    const l = x + b.x, r = l + b.w, t = base - b.h;
+    if (r < -30 || l > view.w + 30 || t > view.h) continue;
+    const quad = pts => { ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill(); };
+    if (l > E.x) { ctx.fillStyle = shade(b.c, -10); quad([[l, t], [l, bottom], back([l, bottom]), back([l, t])]); }       // its left wall, lit
+    if (r < E.x) { ctx.fillStyle = shade(b.c, -30); quad([[r, t], [r, bottom], back([r, bottom]), back([r, t])]); }       // its right wall, in shade
+    if (t > E.y) { ctx.fillStyle = shade(b.c, 20); quad([[l, t], [r, t], back([r, t]), back([l, t])]); }                 // its roof
+  }
+}
+
 // Draws a layer and returns the screen row of its tallest roofs (or null when it's off screen).
 function drawLayer(layer, camY, p) {
   const base = -camY * p + (1 - p) * SS.camera.restLine();
@@ -70,6 +85,7 @@ function drawLayer(layer, camY, p) {
   if (layer.res !== res) paint(layer, res);
   const { img, total, tall } = layer;
   const x0 = Math.round(view.w / 2) - total * Math.ceil(view.w / 2 / total + 1);
+  for (let x = x0; x < view.w; x += total) blockSides(layer, x, base, p);
   for (let x = x0; x < view.w; x += total) {
     ctx.drawImage(img, x, base - tall, total, tall);
     if (base < view.h) ctx.drawImage(img, 0, (tall - 1) * res, total * res, res, x, base - 0.5, total, view.h - base + 0.5);

@@ -72,10 +72,10 @@ function outline(ctx, d, cx, cy) {
   ctx.closePath();
 }
 
-// A floor with its top-left corner at (x, y), with any damage it has, as a whole box (the
-// drawing space turned by ang: see art/blocks.js).
-function draw(ctx, kind, d, x, y, ang = 0) {
-  SS.blocks.faces(ctx, kind, x, y, ang);
+// A floor with its top-left corner at (x, y), with any damage it has, as a whole box (opt: which
+// faces to leave out, see art/blocks.js).
+function draw(ctx, kind, d, x, y, opt) {
+  SS.blocks.faces(ctx, kind, x, y, opt);
   if (!damaged(d)) { SS.blocks.draw(ctx, kind, x, y); return; }
   const { W, H } = SS.blocks, D = DAMAGE, cx = x + W / 2, cy = y + H / 2, hw = W / 2, hh = H / 2;
   ctx.save();
