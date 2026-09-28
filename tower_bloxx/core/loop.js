@@ -1,4 +1,5 @@
-// The game loop: what updates in which order, what draws on top of what, and starting up.
+// The game loop: what updates in which order, what draws on top of what, and starting up (on the
+// main screen).
 // Load this file last.
 (() => {
 'use strict';
@@ -68,6 +69,7 @@ function frame(now) {
 SS.storage.load();
 SS.input.setMuted(SS.storage.save.muted);
 SS.screen.layout();
-SS.round.start();
+SS.mode.set(SS.storage.save.mode);
+SS.round.menu();
 requestAnimationFrame(frame);
 })();

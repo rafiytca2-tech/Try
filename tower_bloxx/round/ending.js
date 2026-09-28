@@ -1,4 +1,5 @@
-// The end of a round, once the last life is lost: the camera waits on the top of whatever is
+// The end of a round, once the last life is lost (or Quick Finger's clock runs out, see
+// score/combo.js): the camera waits on the top of whatever is
 // still standing (after a collapse it has first moved down to it), the number of floors built
 // pops up (and stays until every tenant still on the way has got in), the crane winds its rope
 // up out of sight, the camera slides down to the street, and the results card pops up with Play

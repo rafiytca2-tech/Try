@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="styles/page.css">
 <link rel="stylesheet" href="hud/hud.css">
 <link rel="stylesheet" href="round/result.css">
+<link rel="stylesheet" href="menu/menu.css">
 </head>
 <body>
 <div id="stage">
@@ -17,13 +18,14 @@
 </div>
 
 <!-- Each file below owns one part of the game (see README.md) and adds itself to the SS
-     namespace. They load in this order; core/loop.js starts the game. -->
+     namespace. They load in this order; core/loop.js starts the game on the main screen. -->
 <script src="core/namespace.js"></script>
 <script src="core/pixels.js"></script>
 <script src="core/screen.js"></script>
 <script src="core/storage.js"></script>
 <script src="physics/rigid.js"></script>
 <script src="difficulty/difficulty.js"></script>
+<script src="mode/mode.js"></script>
 <script src="audio/sound.js"></script>
 <script src="art/blocks.js"></script>
 <script src="art/damage.js"></script>
@@ -55,6 +57,7 @@
 <script src="hud/hud.js"></script>
 <script src="round/ending.js"></script>
 <script src="round/round.js"></script>
+<script src="menu/menu.js"></script>
 <script src="input/input.js"></script>
 <script src="core/loop.js"></script>
 </body>

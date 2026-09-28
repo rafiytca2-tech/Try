@@ -1,4 +1,5 @@
-/* End-of-round results card: a soft glass card that pops up, then its Play again button. */
+/* End-of-round results card: a soft glass card that pops up, then its Play again and Change mode
+   buttons. (.screen is also the main screen's backdrop, menu/menu.css.) */
 .screen{
   position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   padding:16px;padding-block:16px 22px;overflow-y:auto;cursor:default;box-sizing:border-box;
@@ -41,9 +42,16 @@
 .btn .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .btn:active{transform:scale(.97);box-shadow:0 5px 14px rgba(255,138,0,.3),inset 0 1px 0 rgba(255,255,255,.5)}
 .btn:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:3px}
+.btn-quiet{
+  margin-top:-4px;min-height:46px;font-size:16px;color:var(--ink);
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);box-shadow:none;
+}
+.btn-quiet .ico{stroke-width:2}
+.btn-quiet:active{box-shadow:none}
 /* the card pops up, then Play again */
 .screen:not([hidden]) .card{animation:card-pop .5s cubic-bezier(.2,1.3,.4,1) both}
 .screen:not([hidden]) .card .btn{animation:btn-pop .45s .28s cubic-bezier(.2,1.6,.4,1) backwards}
+.screen:not([hidden]) .card .btn-quiet{animation-delay:.36s}
 @keyframes card-pop{from{opacity:0;transform:translateY(40px) scale(.94)}}
 @keyframes btn-pop{0%{opacity:0;transform:scale(.8)}100%{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.btn:active{transform:none}.screen:not([hidden]) .card,.screen:not([hidden]) .card .btn{animation:none}}

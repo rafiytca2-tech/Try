@@ -1,7 +1,8 @@
 // Controls: press and hold (tap, click, Space, Enter or Down) and let go to drop a floor; the
 // longer the hold, the faster the swing (hold/hold.js). Drag up (or press Up or Esc while
 // holding a key) and let go to cancel instead. A press also skips the end-of-round slide. Also
-// Play again, the sound button, and keeping the layout right when the window changes size.
+// Play again and Change mode on the results card, the sound button, and keeping the layout right
+// when the window changes size. (The main screen's mode buttons are menu/menu.js's.)
 (() => {
 'use strict';
 const { $ } = SS, { stage } = SS.screen;
@@ -63,6 +64,7 @@ window.addEventListener('blur', () => {           // the page lost focus: keep t
   if (SS.game) SS.hold.release(SS.game, true);
 });
 $('btnAgain').addEventListener('click', () => { SS.sound.ensure(); SS.round.start(); });
+$('btnModes').addEventListener('click', () => { SS.sound.ensure(); SS.round.menu(); });
 
 function setMuted(m) {
   SS.storage.save.muted = m; SS.sound.muted = m;

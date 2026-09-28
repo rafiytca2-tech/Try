@@ -2,7 +2,8 @@
 // ground, narrowing as the tower climbs, see difficulty/difficulty.js), it joins the tower,
 // and everything that follows a landing is set off from here: residents (who fly in as tenants),
 // combo, sway, the perfect stars, the camera's climb and the next floor on the hook. The
-// multiplier the floor carries from a held drop (hold/hold.js) goes to each of them.
+// multiplier the floor carries from a held drop (hold/hold.js) goes to each of them. In Quick
+// Finger a near drop (mode/mode.js) isn't perfect, but it refills the clock, with its own chime.
 (() => {
 'use strict';
 
@@ -16,6 +17,7 @@ function init(g) { g.perfects = 0; }
 function land(g, b, dx) {
   const n = g.tower.length;
   const perfect = Math.abs(dx) <= SS.difficulty.perfectTol(n);
+  const near = !perfect && SS.mode.rules().clock && !g.ending && Math.abs(dx) <= SS.mode.nearTol(n);
   if (perfect) dx = 0;
   const x = n === 0 ? dx : g.tower[n - 1].x + dx;
   const mult = b.hold || 1;                          // held before the drop (hold/hold.js)
@@ -25,12 +27,13 @@ function land(g, b, dx) {
   if (perfect) g.perfects++;
 
   const movingIn = SS.residents.onLand(g, n, dx, mult);
-  SS.combo.onLand(g, perfect, mult);
+  SS.combo.onLand(g, perfect, mult, near);
   SS.sway.onLand(g, n, dx, perfect, mult);
 
   const top = SS.tower.top(g), k = LANDING.dust * (perfect ? 0.6 : 1);
   for (const side of [-1, 1]) SS.dust.burst(g, top.x + side * SS.blocks.W / 2, top.y + SS.blocks.H, side, 0, k);   // squeezed out from under it
   if (perfect) { SS.stars.burst(g, top); SS.sound.perfect(g.combo.n); }
+  else if (near) { SS.sound.near(g.combo.n); SS.hud.showNote('Close enough'); }
   else if (g.combo.n > 0) SS.sound.comboStep(g.combo.n);   // the combo climbs a note
   SS.sound.land();
   SS.tenants.moveIn(g, n, movingIn);

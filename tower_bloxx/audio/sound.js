@@ -141,6 +141,18 @@ const Sound = {
     [7, 9, 12].forEach((d, i) => this.osc(note(s + d), 0.22, { gain: 0.035, delay: 0.06 + i * 0.045, send: 1.4 }));
     this.osc(note(s - 10), 0.5, { gain: 0.09, attack: 0.02, send: 0.5 });
   },
+  // Quick Finger: a near drop refilled the clock: a softer bell on the combo's step, and a pluck
+  // a step above it.
+  near(n) {
+    const s = 4 + Math.min(n || 1, 14);
+    this.bell(note(s), 0.9, { gain: 0.11, bright: 0.7 });
+    this.pluck(note(s + 2), { gain: 0.07, delay: 0.05 });
+  },
+  // Quick Finger: the clock is nearly out: a woodblock tick, a little higher as it gets urgent (k 0..1).
+  tick(k = 0) {
+    this.osc(1250 + 350 * k, 0.04, { type: 'triangle', gain: 0.07 + 0.05 * k, to: 800, send: 0.15 });
+    this.noise(0.02, { type: 'highpass', from: 3500, gain: 0.025, send: 0.1 });
+  },
   // A floor lands (not perfectly) while a combo runs: a pluck on the combo's next note.
   comboStep(n) { this.pluck(note(4 + Math.min(n, 14)), { gain: 0.16 }); },
   // The combo pays out: a quick climb up the scale that blooms into a chord, with a sparkle.
@@ -160,7 +172,7 @@ const Sound = {
     this.osc(note(7), 0.55, { type: 'triangle', gain: 0.22, to: note(0) / 2, lp: 1800, send: 0.6 });
     this.noise(0.25, { from: 700, to: 200, gain: 0.1 });
   },
-  // Out of lives: a gentle falling phrase.
+  // Out of lives (or out of time): a gentle falling phrase.
   over() { [4, 2, 1, -1].forEach((n, i) => this.bell(note(n), 1.2, { gain: 0.08, delay: i * 0.22, bright: 0.6 })); },
   // The top of the tower gives way: a deep rumble and crackling.
   collapse() {

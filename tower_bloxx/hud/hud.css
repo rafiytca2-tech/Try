@@ -62,6 +62,31 @@
 .combo.low .combo-track i{animation:low .32s ease-in-out infinite alternate}
 .combo.low .combo-chip{animation:low .32s ease-in-out infinite alternate}
 @keyframes low{to{filter:brightness(1.45) saturate(1.4)}}
+/* Quick Finger: the bar is the clock */
+.combo-clock{display:none;flex:none;width:calc(var(--u) * 9);height:calc(var(--u) * 9);margin-right:calc(var(--u) * -1.5);fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;opacity:.9}
+.combo.clock .combo-clock{display:block}
+.combo.clock .combo-track{height:calc(var(--u) * 7)}
+.combo.clock.low .combo-clock{animation:tick .28s ease-in-out infinite alternate}
+@keyframes tick{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+.combo-note{
+  position:absolute;left:50%;top:calc(100% + var(--u) * 3);transform:translateX(-50%);opacity:0;white-space:nowrap;pointer-events:none;
+  padding:calc(var(--u) * 1.4) calc(var(--u) * 5);border-radius:999px;
+  font-size:max(12px, calc(var(--u) * 6));font-weight:700;letter-spacing:.04em;line-height:1.1;color:#9ff0b4;
+  background:linear-gradient(180deg,rgba(24,30,66,.88),rgba(10,14,36,.88));border:1px solid rgba(140,240,170,.35);
+  box-shadow:0 calc(var(--u) * 1.5) calc(var(--u) * 5) rgba(0,0,0,.35),0 0 calc(var(--u) * 5) rgba(120,255,170,.25);
+}
+.combo-note.show{animation:note .9s cubic-bezier(.2,1.2,.4,1) forwards}
+@keyframes note{0%{opacity:0;transform:translateX(-50%) translateY(calc(var(--u) * -3)) scale(.6)}20%{opacity:1;transform:translateX(-50%) scale(1.1)}35%{transform:translateX(-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(calc(var(--u) * 4))}}
+
+/* Quick Finger's clock ran out: a big word that pops in and floats away */
+.banner{position:absolute;left:0;right:0;top:calc(var(--u) * 50);display:flex;justify-content:center;pointer-events:none}
+.banner span{
+  font-size:calc(var(--u) * 20);font-weight:700;line-height:1;letter-spacing:.01em;
+  background:linear-gradient(180deg,#fff 25%,#ffd23f 62%,#ff8a00);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 calc(var(--u) * 1.2) 0 rgba(100,30,0,.65)) drop-shadow(0 0 calc(var(--u) * 7) rgba(255,120,60,.6));
+}
+.banner.show{animation:banner 1.9s cubic-bezier(.2,.9,.3,1) forwards}
+@keyframes banner{0%{opacity:0;transform:scale(.4)}14%{opacity:1;transform:scale(1.12)}24%{transform:none}75%{opacity:1;transform:none}100%{opacity:0;transform:translateY(calc(var(--u) * -14))}}
 
 /* combo payout: springs in, counts up, floats away */
 .bonus{
@@ -93,7 +118,9 @@
 }
 @keyframes ring{from{opacity:1;transform:scale(.3)}to{opacity:0;transform:scale(2.6)}}
 @media (prefers-reduced-motion: reduce){
-  .combo,.combo-chip.pop,.combo-track i::after,.combo.low .combo-track i,.combo.low .combo-chip,.bonus.show .bonus-ring{animation:none}
+  .combo,.combo-chip.pop,.combo-track i::after,.combo.low .combo-track i,.combo.low .combo-chip,.combo.clock.low .combo-clock,.bonus.show .bonus-ring{animation:none}
+  .combo-note.show{animation:fade .9s linear forwards}
+  .banner.show{animation:fade 1.9s linear forwards}
   .bonus.show{animation:fade var(--bonus-time,1.3s) linear forwards}
   @keyframes fade{80%{opacity:1}100%{opacity:0}}
 }

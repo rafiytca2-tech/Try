@@ -1,0 +1,61 @@
+/* The main screen: the game's name over the sky, and a glass card for each game mode with its
+   icon, what it's about and the best tower in it. Uses the .screen backdrop (round/result.css). */
+.menu{
+  gap:12px;padding-block:calc(var(--u) * 26) 22px;
+  background:
+    linear-gradient(to bottom,rgba(6,9,26,.55) 0%,rgba(6,9,26,0) 32%),
+    linear-gradient(to top,rgba(6,9,26,.9) 0%,rgba(6,9,26,.6) 40%,rgba(6,9,26,0) 72%);
+}
+.menu-head{margin-bottom:auto;text-align:center}
+.menu-title{
+  margin:0 auto;max-width:6.2em;font-family:var(--font-display);font-weight:700;font-size:max(40px, calc(var(--u) * 27));
+  line-height:.95;letter-spacing:-.01em;
+  background:linear-gradient(180deg,#fff 30%,#ffe3a0 62%,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(70,25,0,.5)) drop-shadow(0 8px 22px rgba(0,0,0,.4));
+}
+.menu-sub{
+  margin:10px 0 0;font-family:var(--font-ui);font-size:15px;font-weight:700;color:#fff;opacity:.92;
+  text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.35);
+}
+.modes{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px}
+.mode{
+  --tone:linear-gradient(135deg,#8be89a,#3fb8c9);--glow:rgba(80,210,170,.35);--on-tone:#0b3a2c;
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;width:100%;box-sizing:border-box;
+  min-height:86px;padding:14px 14px 14px 14px;margin:0;cursor:pointer;text-align:left;color:var(--ink);font:inherit;
+  background:linear-gradient(180deg,rgba(30,38,82,.9),rgba(14,18,44,.92));border:1px solid rgba(255,255,255,.13);border-radius:20px;
+  box-shadow:0 14px 34px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.1);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  transition:transform .14s ease,border-color .2s ease;
+}
+.mode[data-mode="quick"]{--tone:linear-gradient(135deg,#ffd23f,#ff8a00 55%,#ff3d7f);--glow:rgba(255,120,60,.4);--on-tone:#3a1200}
+@media (hover: hover){.mode:hover{border-color:rgba(255,255,255,.3)}}
+.mode:active{transform:scale(.97)}
+.mode:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:3px}
+.mode-ico{
+  width:50px;height:50px;border-radius:16px;display:grid;place-items:center;
+  background:var(--tone);box-shadow:0 6px 18px var(--glow),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 0 rgba(0,0,0,.12);
+}
+.mode-ico svg{width:27px;height:27px;fill:none;stroke:var(--on-tone);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.mode-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mode-name{font-family:var(--font-display);font-size:21px;font-weight:600;line-height:1.1}
+.mode-blurb{font-family:var(--font-ui);font-size:13.5px;font-weight:600;line-height:1.35;color:var(--muted)}
+.mode-best{
+  display:flex;flex-direction:column;align-items:center;min-width:46px;padding:6px 8px;box-sizing:border-box;
+  border-radius:12px;background:rgba(255,255,255,.07);
+}
+.mode-best small{font-family:var(--font-ui);font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.mode-best b{font-family:var(--font-display);font-size:20px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+@media (max-width: 359px){
+  .mode{gap:11px;min-height:78px;padding:12px}
+  .mode-ico{width:42px;height:42px;border-radius:13px}
+  .mode-ico svg{width:23px;height:23px}
+  .mode-name{font-size:19px}
+  .mode-blurb{font-size:12.5px}
+}
+/* the name drops in, then the cards pop up one after the other */
+.menu:not([hidden]) .menu-head{animation:menu-head .6s cubic-bezier(.2,1.2,.4,1) both}
+.menu:not([hidden]) .mode{animation:menu-card .5s .12s cubic-bezier(.2,1.3,.4,1) both}
+.menu:not([hidden]) .mode + .mode{animation-delay:.2s}
+@keyframes menu-head{from{opacity:0;transform:translateY(-18px) scale(.96)}}
+@keyframes menu-card{from{opacity:0;transform:translateY(30px) scale(.95)}}
+@media (prefers-reduced-motion: reduce){.mode:active{transform:none}.menu:not([hidden]) .menu-head,.menu:not([hidden]) .mode{animation:none}}

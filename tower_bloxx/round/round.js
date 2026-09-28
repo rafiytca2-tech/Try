@@ -1,7 +1,8 @@
-// A round: setting up a fresh game from every part's starting state, and the results card at
-// the end of the sequence round/ending.js plays out (floors, then residents, perfect drops,
-// longest combo and best tower with their icons, and a badge for a new record). Styles are in
-// round/result.css.
+// A round: setting up a fresh game from every part's starting state in the chosen mode
+// (mode/mode.js), the main screen between rounds (menu/menu.js, with the scene live behind it),
+// and the results card at the end of the sequence round/ending.js plays out (the mode, floors,
+// then residents, perfect drops, longest combo and the best tower in that mode with their icons,
+// a badge for a new record, Play again and Change mode). Styles are in round/result.css.
 (() => {
 'use strict';
 const { $, fmt } = SS;
@@ -14,21 +15,23 @@ const ICON = {
   combo: '<path d="M12 21c-3.8 0-6.4-2.6-6.4-6.1 0-3.2 2.2-5.2 3.7-7 .4 1.7 1.4 2.8 2.4 3.2.1-3.3 1.3-6 3.6-8 .2 3 1.5 4.6 2.7 6.3 1 1.4 1.9 3 1.9 5.3 0 3.6-3.2 6.3-7.9 6.3z"/>',
   best: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5.5A2.5 2.5 0 0 0 8 10M16 6h2.5A2.5 2.5 0 0 1 16 10M12 13v3.5M8.5 20.5h7M9.5 20.5c0-2.2 1.1-4 2.5-4s2.5 1.8 2.5 4"/>',
   again: '<path d="M20 12a8 8 0 1 1-2.35-5.65M20 4.5V9h-4.5"/>',
+  modes: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
 };
 const icon = (name, cls = 'ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
 
 SS.screen.stage.insertAdjacentHTML('beforeend', `
   <section id="result" class="screen" hidden>
     <div class="card" role="dialog" aria-labelledby="resTitle">
-      <p class="eyebrow">Game over</p>
+      <p class="eyebrow" id="resEyebrow">Game over</p>
       <h2 class="res-title" id="resTitle"><b id="resFloors">0</b><span id="resFloorsWord">floors</span></h2>
       <p class="note" id="resNote"></p>
       <ul class="stats" id="resStats"></ul>
       <button id="btnAgain" class="btn" type="button">${icon('again')}Play again</button>
+      <button id="btnModes" class="btn btn-quiet" type="button">${icon('modes')}Change mode</button>
     </div>
   </section>`);
 
-const round = { state: 'play', start, finish };   // state: 'play' | 'result'
+const round = { state: 'menu', start, menu, finish };   // state: 'menu' | 'play' | 'result'
 
 // Every part adds its own starting state to the new round.
 function newGame(prev) {
@@ -55,31 +58,45 @@ function newGame(prev) {
   return g;
 }
 
-function start() {
+// A new round in mode id (or the one last played).
+function start(id) {
+  if (id) SS.mode.set(id);
+  SS.storage.save.mode = SS.mode.id; SS.storage.persist();
   SS.game = newGame(SS.game);
   round.state = 'play';
   $('result').hidden = true;
+  SS.menu.hide();
   SS.hud.show(true);
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   SS.hud.update(SS.game);
 }
 
+// The main screen, over a fresh site with the hook swinging.
+function menu() {
+  SS.game = newGame(SS.game);
+  round.state = 'menu';
+  $('result').hidden = true;
+  SS.hud.show(false);
+  SS.menu.show();
+}
+
 function finish(g) {
   if (g.finished) return;
   g.finished = true;
-  const { save, persist } = SS.storage;
+  const M = SS.mode.rules(), best = SS.storage.best(SS.mode.id);
   const n = g.tower.length;
-  const bestF = n > save.best.floors, bestP = g.pop > save.best.pop;
-  if (bestF) save.best.floors = n;
-  if (bestP) save.best.pop = g.pop;
-  persist();
+  const bestF = n > best.floors, bestP = g.pop > best.pop;
+  if (bestF) best.floors = n;
+  if (bestP) best.pop = g.pop;
+  SS.storage.persist();
+  $('resEyebrow').textContent = `${M.name} · ${M.clock ? "Time's up" : 'Game over'}`;
   $('resFloors').textContent = n;
   $('resFloorsWord').textContent = n === 1 ? 'floor' : 'floors';
   const stats = [
     ['residents', 'Residents', fmt(g.pop)],
     ['perfect', 'Perfect drops', g.perfects],
     ['combo', 'Longest combo', g.maxCombo > 1 ? `×${g.maxCombo}` : '—'],
-    ['best', 'Best tower', `${save.best.floors} ${save.best.floors === 1 ? 'floor' : 'floors'}`],
+    ['best', 'Best tower', `${best.floors} ${best.floors === 1 ? 'floor' : 'floors'}`],
   ];
   $('resStats').innerHTML = '';
   for (const [key, label, value] of stats) {
