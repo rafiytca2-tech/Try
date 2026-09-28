@@ -26,7 +26,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Camera: where the tower top rests, the climb after a landing, the end-of-round slide, the 3D eye (eye level, how strong the perspective is) | `camera/camera.js` |
 | Residents per floor, the share that moves in (half), where a combo's residents go | `score/residents.js` |
 | Combo: bar drain, refills, multiplier, payout | `score/combo.js` |
-| How tenants fly in: one per resident, timing, start and window end points, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
+| How tenants fly in: one per resident, from all round the building in 3D except the front 60°, timing, how much each flight varies, the window lighting up, turning back | `tenants/flight.js` |
 | How tenants look | `tenants/sprite.js` |
 | Perfect-drop stars | `effects/stars.js` |
 | Combo twinkles on the top floors | `effects/twinkles.js` |
@@ -43,7 +43,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | How the HUD looks: glass chips, icons, hearts, the combo meter, hold meter, payout and floors-built animations | `hud/hud.css` |
 | Starting a round, the results card and how it pops up | `round/round.js`, `round/result.css` |
 | Controls: press, hold, drag, let go | `input/input.js` |
-| Sounds | `audio/sound.js` |
+| Sounds: the synth, the mix (compressor, reverb), the scale, every sound in the game | `audio/sound.js` |
 | Screen shape, pixel scale and drawing resolution | `core/screen.js` |
 | Shared drawing shapes (rectangles, circles, lines) | `core/pixels.js` |
 | What the browser remembers (best tower, mute) | `core/storage.js` |

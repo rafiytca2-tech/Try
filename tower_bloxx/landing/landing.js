@@ -31,6 +31,7 @@ function land(g, b, dx) {
   const top = SS.tower.top(g), k = LANDING.dust * (perfect ? 0.6 : 1);
   for (const side of [-1, 1]) SS.dust.burst(g, top.x + side * SS.blocks.W / 2, top.y + SS.blocks.H, side, 0, k);   // squeezed out from under it
   if (perfect) { SS.stars.burst(g, top); SS.sound.perfect(g.combo.n); }
+  else if (g.combo.n > 0) SS.sound.comboStep(g.combo.n);   // the combo climbs a note
   SS.sound.land();
   SS.tenants.moveIn(g, n, movingIn);
 

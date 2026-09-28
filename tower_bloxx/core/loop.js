@@ -39,6 +39,7 @@ function render() {
   SS.sky.draw(camY);
   SS.city.draw(camY);
   SS.ground.draw(camY);
+  SS.tenants.drawBehind(g, camY);                 // tenants further back than the tower, which hides them
   SS.tower.draw(g, camY);
   SS.collapse.draw(g, camY);
   SS.rubble.draw(g, camY);
