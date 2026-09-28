@@ -39,7 +39,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | The city behind the site and its parallax | `scenery/city.js` |
 | The site: slab, fence, tree, hoarding, cones, dirt | `scenery/ground.js` |
 | What the HUD shows and when, the payout, population and floors-built count-ups | `hud/hud.js` |
-| How the HUD looks: the combo meter, hold meter, payout and floors-built animations | `hud/hud.css` |
+| How the HUD looks: glass chips, icons, hearts, the combo meter, hold meter, payout and floors-built animations | `hud/hud.css` |
 | Starting a round, the results card and how it pops up | `round/round.js`, `round/result.css` |
 | Controls: press, hold, drag, let go | `input/input.js` |
 | Sounds | `audio/sound.js` |
@@ -47,7 +47,7 @@ Each part of the game is its own file, and each file keeps its tuning numbers in
 | Shared drawing shapes (rectangles, circles, lines) | `core/pixels.js` |
 | What the browser remembers (best tower, mute) | `core/storage.js` |
 | Update order and drawing order | `core/loop.js` |
-| Page colours, the phone frame, the first-round hint | `styles/page.css` |
+| Page colours, fonts, the glass panel look, the phone frame, the first-round hint | `styles/page.css` |
 
 ## How the files fit together
 

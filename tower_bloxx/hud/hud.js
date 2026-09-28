@@ -1,14 +1,14 @@
 // The HUD, laid out like the phone original: the combo meter across the top (a multiplier chip
 // that pops on every step up and a draining bar that flashes on a refill and pulses when it is
-// about to run out), the combo payout (it springs in, counts up, then floats away), the floor
-// gauge (badge shows the next ten) and three life squares bottom-left, the five-digit population
+// about to run out), the combo payout (it springs in, counts up, then floats away), the floors
+// built (with a bar filling toward the next ten) and three hearts bottom-left, the population
 // bottom-right (it counts up and bumps as each resident gets in, shakes when they fall), the hold
 // meter while the button is held (multiplier, risk and how long until it drops by itself), the
 // sound button, the first-round hint, and at the end of a round the number of floors built (it
 // pops up and counts up). Styles are in hud/hud.css.
 (() => {
 'use strict';
-const { $, pad, clamp, easeOut } = SS;
+const { $, fmt, clamp, easeOut } = SS;
 
 const HUD = {
   countUp: 0.45,      // seconds the payout and the floors-built count take to count up
@@ -19,7 +19,7 @@ const HUD = {
 SS.screen.stage.insertAdjacentHTML('beforeend', `
   <div id="hud">
     <button class="icon-btn" id="soundBtn" type="button" aria-label="Mute sound" aria-pressed="false">
-      <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="3" width="2" height="3" fill="currentColor"/><rect x="2" y="2" width="1" height="5" fill="currentColor"/><rect x="3" y="1" width="1" height="7" fill="currentColor"/><g class="on"><rect x="5" y="3" width="1" height="3" fill="currentColor"/><rect x="7" y="2" width="1" height="5" fill="currentColor"/></g><g class="off"><rect x="5" y="3" width="1" height="1" fill="currentColor"/><rect x="6" y="4" width="1" height="1" fill="currentColor"/><rect x="7" y="5" width="1" height="1" fill="currentColor"/><rect x="7" y="3" width="1" height="1" fill="currentColor"/><rect x="5" y="5" width="1" height="1" fill="currentColor"/></g></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M4 9.5h3.2L12 5.6v12.8l-4.8-3.9H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"/><path class="on" d="M15.6 9.2a4 4 0 0 1 0 5.6M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/><path class="off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
     </button>
     <div class="combo" id="combo" hidden>
       <div class="combo-chip" id="comboChip"><span class="combo-word">Combo</span><b class="combo-x" id="comboLabel">×1</b></div>
@@ -40,22 +40,26 @@ SS.screen.stage.insertAdjacentHTML('beforeend', `
       <b class="bonus-num" id="bonusNum"></b>
     </div>
     <div class="hud-bl">
-      <div class="gauge" id="gauge">
-        <span class="gauge-badge" id="gaugeBadge">10</span>
-        <span class="gauge-bar"><i id="gaugeFill"></i></span>
+      <div class="stat floors" id="gauge">
+        <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V21M15 10h3.5a1.5 1.5 0 0 1 1.5 1.5V21M3 21h18M8.5 8h3M8.5 12h3M8.5 16h3"/></svg>
+        <span class="floors-body">
+          <span class="stat-num"><b id="floorsNum">0</b><small>/<span id="gaugeBadge">10</span></small></span>
+          <span class="floors-bar"><i id="gaugeFill"></i></span>
+        </span>
       </div>
-      <div class="lives" id="lives"></div>
+      <div class="stat lives" id="lives"></div>
     </div>
-    <div class="hud-br" aria-label="Residents">
-      <svg viewBox="0 0 13 10" shape-rendering="crispEdges" aria-hidden="true"><rect x="1" y="0" width="4" height="4" fill="#ffb21a"/><rect x="0" y="4" width="6" height="4" fill="#f59a0c"/><rect x="1" y="8" width="1" height="2" fill="#f59a0c"/><rect x="4" y="8" width="1" height="2" fill="#f59a0c"/><rect x="2" y="1" width="1" height="1" fill="#6b3a05"/><rect x="8" y="0" width="4" height="4" fill="#ffb21a"/><rect x="7" y="4" width="6" height="4" fill="#f59a0c"/><rect x="8" y="8" width="1" height="2" fill="#f59a0c"/><rect x="11" y="8" width="1" height="2" fill="#f59a0c"/><rect x="10" y="1" width="1" height="1" fill="#6b3a05"/></svg>
-      <span class="hud-pop outline" id="hudPop">00000</span>
+    <div class="hud-br stat" aria-label="Residents">
+      <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.3 19.5c.6-3.4 2.9-5.4 5.7-5.4s5.1 2 5.7 5.4"/><circle cx="17" cy="9.2" r="2.5"/><path d="M15.4 14.5c.5-.2 1-.2 1.6-.2 2.2 0 4 1.6 4.5 4.4"/></svg>
+      <span class="stat-num hud-pop" id="hudPop">0</span>
       <span class="pop-loss" id="popLoss" aria-hidden="true"></span>
     </div>
   </div>
-  <p class="tip" id="tip">Tap to drop · hold to swing faster<br>drag up and let go to cancel</p>`);
+  <p class="tip" id="tip">Tap to drop · hold to swing faster<small>Drag up and let go to cancel</small></p>`);
 
 const hud = $('hud');
-$('lives').innerHTML = '<i class="life"></i>'.repeat(SS.lives.LIVES.count);
+const HEART = '<svg class="life" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.6-4.6-9.3-9.4C1.6 7.7 3.6 4.3 7.1 4.3c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.5 3.4 4.4 6.6-1.7 4.8-9.3 9.4-9.3 9.4z"/></svg>';
+$('lives').innerHTML = HEART.repeat(SS.lives.LIVES.count);
 $('bonus').style.setProperty('--bonus-time', SS.combo.COMBO.bonusShow + 's');
 
 const now = () => performance.now() / 1000;
@@ -66,7 +70,7 @@ function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.cla
 // never falls behind however many residents arrive.
 const pop = { shown: 0, to: 0, last: 0 };
 function setPop(value, instant) {
-  if (instant) { pop.shown = pop.to = value; $('hudPop').textContent = pad(value, 5); return; }
+  if (instant) { pop.shown = pop.to = value; $('hudPop').textContent = fmt(value); return; }
   if (value === pop.to) return;
   replay($('hudPop'), value > pop.to ? 'bump' : 'drop');
   pop.to = value;
@@ -81,8 +85,9 @@ function popLoss(n) {
 // Floors, population and lives: called whenever one of them changes.
 function update(g) {
   const n = g.tower.length, goal = (Math.floor(n / 10) + 1) * 10;
+  $('floorsNum').textContent = n;
   $('gaugeBadge').textContent = goal;                       // the next ten floors, like the original's target gauge
-  $('gaugeFill').style.height = `calc(${(n % 10) * 10}% - 2px)`;
+  $('gaugeFill').style.width = (n % 10) * 10 + '%';
   $('gauge').setAttribute('aria-label', `${n} ${n === 1 ? 'floor' : 'floors'}`);
   setPop(g.pop, g.pop === 0);
   $('lives').setAttribute('aria-label', `${g.lives} of ${SS.lives.LIVES.count} lives left`);
@@ -129,7 +134,7 @@ function frame(g) {
   if (pop.shown !== pop.to) {
     const gap = pop.to - pop.shown, step = Math.max(1, Math.round(Math.abs(gap) * Math.min(1, dt * HUD.popRate)));
     pop.shown += Math.sign(gap) * Math.min(step, Math.abs(gap));
-    $('hudPop').textContent = pad(pop.shown, 5);
+    $('hudPop').textContent = fmt(pop.shown);
   }
 }
 
